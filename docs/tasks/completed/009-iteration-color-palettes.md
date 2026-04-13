@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 009: Dynamic Iteration & Color Palettes

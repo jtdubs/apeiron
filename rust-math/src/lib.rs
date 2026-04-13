@@ -29,6 +29,11 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
             let y2 = y * y;
 
             if x2 + y2 > limit {
+                let log_z: f64 = 0.5 * f64::ln(x2 + y2);
+                let smooth_iter: f64 = (iter as f64) + 1.0 - f64::log2(log_z);
+                // We use float array as output, so we can replace iter entirely with smoothed value for testing!
+                results.push(smooth_iter as f32);
+                results.push(1.0);
                 break;
             }
 
@@ -39,8 +44,10 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
             iter += 1;
         }
 
-        results.push(iter as f32);
-        results.push(if iter < max_iterations { 1.0 } else { 0.0 });
+        if iter == max_iterations {
+            results.push(iter as f32);
+            results.push(0.0);
+        }
     }
 
     js_sys::Float32Array::from(&results[..])
