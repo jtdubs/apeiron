@@ -15,25 +15,25 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
     let mut results = Vec::with_capacity(points.len() * 2);
 
     for p in points {
-        let x0 = BigDecimal::from_str(&p.x).unwrap_or(BigDecimal::from(0));
-        let y0 = BigDecimal::from_str(&p.y).unwrap_or(BigDecimal::from(0));
+        let x0: f64 = p.x.parse().unwrap_or(0.0);
+        let y0: f64 = p.y.parse().unwrap_or(0.0);
 
-        let mut x = BigDecimal::from(0);
-        let mut y = BigDecimal::from(0);
+        let mut x = 0.0;
+        let mut y = 0.0;
 
         let mut iter = 0;
-        let limit = BigDecimal::from(4);
+        let limit = 4.0;
 
         while iter < max_iterations {
-            let x2 = x.clone() * x.clone();
-            let y2 = y.clone() * y.clone();
+            let x2 = x * x;
+            let y2 = y * y;
 
-            if x2.clone() + y2.clone() > limit {
+            if x2 + y2 > limit {
                 break;
             }
 
-            let new_x = x2 - y2 + x0.clone();
-            y = BigDecimal::from(2) * x * y + y0.clone();
+            let new_x = x2 - y2 + x0;
+            y = 2.0 * x * y + y0;
             x = new_x;
 
             iter += 1;

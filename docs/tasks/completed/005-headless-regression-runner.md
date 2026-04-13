@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 005: Create Automated Headless Regression Runner
