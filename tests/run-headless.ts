@@ -1,27 +1,44 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import initWasm, { compute_mandelbrot } from '../src/engine/math-workers/wasm/rust_math.js';
 import { initEngine } from '../src/engine/initEngine.ts';
+import { WorkerInputMessage, WorkerOutputMessage } from '../src/engine/math-workers/rust.worker.ts';
 
 async function main() {
   console.log('--- Apeiron Headless Regression Runner ---');
 
-  // 1. Initialize WASM math core
-  console.log('Initializing WASM Math Core...');
-  const wasmPath = path.resolve('./src/engine/math-workers/wasm/rust_math_bg.wasm');
-  const wasmBuffer = fs.readFileSync(wasmPath);
-  await initWasm({ module_or_path: wasmBuffer });
-  console.log('WASM Math Core loaded successfully.');
+  // 1. Initialize WASM math core via Worker
+  console.log('Initializing WASM Math Core Worker...');
+
+  // Create worker using path relative to current module (for Deno)
+  const workerPath = path.resolve('./src/engine/math-workers/rust.worker.ts');
+  // Deno requires the actual file specifier for worker
+  const worker = new Worker(new URL(`file://${workerPath}`).href, { type: 'module' });
 
   // 2. Load Test Cases
   const casesPath = path.resolve('./tests/cases.json');
   const casesJson = fs.readFileSync(casesPath, 'utf8');
 
-  // 3. Generate Ground Truth from WASM
-  console.log('Generating Arbitrary Precision Ground Truth...');
-  const groundTruth = compute_mandelbrot(casesJson, 100);
-  console.log('Ground Truth Output:', groundTruth);
+  // 3. Generate Ground Truth from WASM Worker
+  console.log('Generating Arbitrary Precision Ground Truth via Worker...');
+  const groundTruth = await new Promise<Float64Array>((resolve, reject) => {
+    worker.onmessage = (e: MessageEvent<WorkerOutputMessage>) => {
+      if (e.data.type === 'COMPUTE_RESULT') {
+        resolve(e.data.result);
+      }
+    };
+    worker.onerror = (e) => reject(e);
+
+    worker.postMessage({
+      id: 1,
+      type: 'COMPUTE',
+      casesJson,
+      maxIterations: 100,
+    } as WorkerInputMessage);
+  });
+  worker.terminate();
+
+  console.log('Ground Truth Output length:', groundTruth.length);
 
   // 4. Initialize WebGPU Engine
   console.log('Initializing WebGPU Engine...');

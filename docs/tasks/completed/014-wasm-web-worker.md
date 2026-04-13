@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 014: Web Worker Orchestration for WASM
