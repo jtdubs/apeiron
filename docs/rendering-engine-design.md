@@ -16,14 +16,21 @@ The engine initializes via a `createFractalEngine(canvas?)` abstraction.
 - If passed a valid `HTMLCanvasElement`, it constructs the SwapChain and Fragment pipelines for real-time visualization.
 - If omitted, it binds exclusively to offscreen textures and mapping buffers. This creates the backbone of our data-first unit testing.
 
-### 1.3 Dual Render Pipelines
+### 1.3 4D Viewport Mapping (The Slicing Plane)
+
+The WebGPU shaders explicitly abandon hardcoding purely 2D bounds arrays. The UI's `CameraParams` uniform buffer constructs a visual 2D viewport by projecting vectors across the newly defined 4D parameter space (`[zr, zi, cr, ci]`).
+
+- Screen $X/Y$ inputs natively generate vectors to control the exact slice geometry, mapping fragment positions directly onto the slicing plane.
+- WebGPU handles continuous 4D rotation arrays automatically, natively tracking the smooth interpolation topological morphing required to traverse deeply between Mandelbrot properties and Julia parameters without triggering a heavy UI restructure.
+
+### 1.4 Dual Render Pipelines
 
 To avoid an explosion of complexity across disparate math modes, the Engine maintains two entirely isolated mapping and shading targets:
 
 1. **Escape-Time Engine:** Used for standard boundary thresholds, Distance Estimation, and Orbit Traps. Operates heavily on ray-marched, per-pixel fragment logic.
 2. **Stochastic Engine (Buddhabrot):** Used for density accumulation mapping. Instead of per-pixel marching, it runs particle scatter compute shaders to fill iteration histogram buckets simultaneously, mapping densities to the final canvas.
 
-### 1.4 Spatial History Cache (Mipmapping)
+### 1.5 Spatial History Cache (Mipmapping)
 
 To prevent the engine from rendering a "Black Void" when the user rapidly pans or zooms out of mathematical bounds, the engine maintains a hidden **History Cache** of WebGPU textures:
 

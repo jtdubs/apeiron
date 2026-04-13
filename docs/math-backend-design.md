@@ -28,6 +28,18 @@ Apeiron shifts complexity in tiers:
 2. **$f64$ Level:** Emulated double-precision (double-single arithmetic) directly inside WebGPU shaders.
 3. **Perturbation Theory:** Once bounds shrink below $f64$ precision limits, the `math-core` worker calculates a single ultra-precise coordinate orbit. The WebGPU shader then calculates the $f32$ pixel-level _difference_ from that reference orbit.
 
-## 4. Advanced Math Future-Proofing
+## 4. 4D Parameter Space Model
+
+A fundamental architectural constraint is that Apeiron treats generalized fractal domains—typically divided into strictly isolated Mandelbrot (where $z_0$ is isolated, varying $c$) or Julia sets (where $c$ is fixed, varying $z_0$)—as a single, unified 4D geometry defined by `[zr, zi, cr, ci]`.
+
+Our engine operates exclusively by defining the mathematical viewport as a 2D plane passing through this continuous 4D space. The angle/orientation of this plane parameterizes what the user mathematically explores:
+
+- **Mandelbrot Anchors**: The plane is aligned entirely on the `C` axes (`cr`, `ci`) with the `Z` axes `[zr, zi]` locked precisely to `[0,0]` (or a user-defined seed).
+- **Julia Anchors**: The plane is aligned entirely on the `Z` axes `[zr, zi]` mapping the physical screen to Z-space, while the `C` axes `[cr, ci]` are locked to a specific coordinate acting as the Julia constant.
+- **Hybrid Slices**: The math engine is inherently parameterized to support evaluating any continuous intermediate 4D slice via vector interpolation or rotation matrix.
+
+All precision routines, `math-core` arbitrary precision orbit arrays, and hardware test fixtures MUST natively accept and compute against this `[zr, zi, cr, ci]` origin format instead of relying on hardcoded dual dimensions.
+
+## 5. Advanced Math Future-Proofing
 
 The math core should be architectured to eventually support **Bilinear Approximation (BLA)** and **Series Approximation (SA)**, effectively computing mathematical polynomials to skip millions of unnecessary iterations on complex deep zooms.
