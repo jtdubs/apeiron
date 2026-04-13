@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "build:math": "cd rust-math && wasm-pack build --target web --out-dir ../src/engine/math-workers/wasm",
     "test:engine": "tsx tests/run-headless.ts",
+    "test:engine:deno": "deno run -A --sloppy-imports --unstable-webgpu tests/run-headless.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "prepare": "husky"

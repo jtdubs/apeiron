@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import initWasm, { compute_mandelbrot } from '../src/engine/math-workers/wasm/rust_math.js';
 import { initEngine } from '../src/engine/initEngine.js';
 
