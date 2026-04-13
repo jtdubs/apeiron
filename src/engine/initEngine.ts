@@ -2,7 +2,7 @@ export interface ApeironEngine {
   device: GPUDevice;
   adapter: GPUAdapter;
   context: GPUCanvasContext | null;
-  executeTestCompute: (input: Float32Array) => Promise<Float32Array>;
+  executeTestCompute: (input: Float32Array, refOrbits?: Float64Array) => Promise<Float32Array>;
   renderFrame: (
     zr: number,
     zi: number,
@@ -58,6 +58,7 @@ export async function initEngine(
 
   const executeTestCompute = async (
     input: Float32Array,
+    refOrbits?: Float64Array,
     maxIter: number = 100,
   ): Promise<Float32Array> => {
     // Input is interleaved points: [zr, zi, cr, ci, ...]
@@ -91,13 +92,26 @@ export async function initEngine(
     const cameraData = new Float32Array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, maxIter, 0.0]);
     device.queue.writeBuffer(cameraTestBuffer, 0, cameraData);
 
+    const entries: GPUBindGroupEntry[] = [
+      { binding: 0, resource: { buffer: cameraTestBuffer } },
+      { binding: 1, resource: { buffer: inputStorageBuffer } },
+      { binding: 2, resource: { buffer: outputStorageBuffer } },
+    ];
+
+    let refOrbitsBuffer: GPUBuffer | null = null;
+    if (refOrbits) {
+      const refOrbitsF32 = new Float32Array(refOrbits);
+      refOrbitsBuffer = device.createBuffer({
+        size: refOrbitsF32.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(refOrbitsBuffer, 0, refOrbitsF32);
+      entries.push({ binding: 3, resource: { buffer: refOrbitsBuffer } });
+    }
+
     const bindGroup = device.createBindGroup({
       layout: computePipeline.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: { buffer: cameraTestBuffer } },
-        { binding: 1, resource: { buffer: inputStorageBuffer } },
-        { binding: 2, resource: { buffer: outputStorageBuffer } },
-      ],
+      entries,
     });
 
     const commandEncoder = device.createCommandEncoder();
@@ -118,6 +132,7 @@ export async function initEngine(
     outputStorageBuffer.destroy();
     stagingBuffer.destroy();
     cameraTestBuffer.destroy();
+    if (refOrbitsBuffer) refOrbitsBuffer.destroy();
 
     return result;
   };

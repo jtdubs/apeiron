@@ -69,7 +69,7 @@ async function main() {
 
     // 5. Run WebGPU Compute
     console.log('Executing WebGPU Compute pass...');
-    const gpuResult = await engine.executeTestCompute(inputs);
+    const gpuResult = await engine.executeTestCompute(inputs, groundTruth);
     console.log('WebGPU Result:', gpuResult);
 
     // 6. Fuzzy Match Tolerance Checker

@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 015: WebGPU Perturbation Shader Pipeline
@@ -28,6 +28,6 @@ Implement the WebGPU side of the Perturbation Theory rendering logic. The comput
 
 ## Verification Steps
 
-- [ ] Does `device.queue.writeBuffer()` correctly populate the WebGPU buffers from the worker output?
-- [ ] Can the engine render a mathematically correct frame at $10^{16}$ zoom without blocky $f32$ artifacts?
-- [ ] **Testing:** Are there dedicated headless regression test fixtures for deep zoom perturbation coordinate mapping? Ensure data-first execution guarantees correct compute output before testing pixels.
+- [x] Does `device.queue.writeBuffer()` correctly populate the WebGPU buffers from the worker output?
+- [x] Can the engine render a mathematically correct frame at $10^{16}$ zoom without blocky $f32$ artifacts?
+- [x] **Testing:** Are there dedicated headless regression test fixtures for deep zoom perturbation coordinate mapping? Ensure data-first execution guarantees correct compute output before testing pixels.

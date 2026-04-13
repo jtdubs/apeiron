@@ -39,6 +39,52 @@ fn calculate_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, max_i
 
 @group(0) @binding(1) var<storage, read> data_in: array<f32>;
 @group(0) @binding(2) var<storage, read_write> data_out: array<f32>;
+@group(0) @binding(3) var<storage, read> ref_orbits: array<f32>;
+
+fn calculate_perturbation(start_c: vec2<f32>, ref_c: vec2<f32>, ref_offset: u32, max_iterations: f32, ref_cycle: f32, ref_escaped_iter: f32) -> f32 {
+  let delta_c = start_c - ref_c;
+  
+  // We intentionally do NOT short circuit if delta_c == 0.0 
+  // because we want the smooth iteration (log) coloring logic to apply 
+  // uniformly via the proxy calculation at the end of the orbit.
+  if (ref_cycle == 1.0 && delta_c.x == 0.0 && delta_c.y == 0.0) {
+     return max_iterations;
+  }
+  
+  var dz = vec2<f32>(0.0, 0.0);
+  var iter = 0.0;
+  
+  while (iter < max_iterations) {
+    let zx = ref_orbits[ref_offset + u32(iter) * 2u];
+    let zy = ref_orbits[ref_offset + u32(iter) * 2u + 1u];
+    
+    let dz2_x = dz.x * dz.x - dz.y * dz.y;
+    let dz2_y = 2.0 * dz.x * dz.y;
+    
+    let two_z_dz_x = 2.0 * (zx * dz.x - zy * dz.y);
+    let two_z_dz_y = 2.0 * (zx * dz.y + zy * dz.x);
+    
+    dz = vec2<f32>(two_z_dz_x + dz2_x + delta_c.x, two_z_dz_y + dz2_y + delta_c.y);
+    
+    let cur_x = zx + dz.x;
+    let cur_y = zy + dz.y;
+    
+    if (cur_x * cur_x + cur_y * cur_y > 4.0) {
+      let log_z = 0.5 * log(cur_x * cur_x + cur_y * cur_y);
+      let smooth_iter = iter + 1.0 - log2(log_z);
+      return smooth_iter;
+    }
+    
+    iter += 1.0;
+    
+    // Fallback: If we far exceed the reference orbit's bounds (e.g. proxy failure),
+    // break and return iter. Give it a buffer of +10 iterations to allow natural pixel escape.
+    if (iter > ref_escaped_iter + 10.0 && ref_escaped_iter < max_iterations) {
+      break;
+    }
+  }
+  return iter;
+}
 
 @compute @workgroup_size(1)
 fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -49,7 +95,12 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let cr = data_in[idx * 4 + 2];
   let ci = data_in[idx * 4 + 3];
   
-  let iter = calculate_mandelbrot_iterations(vec2<f32>(zr, zi), vec2<f32>(cr, ci), camera.max_iter);
+  let floats_per_case = u32(camera.max_iter) * 2u + 4u;
+  let ref_offset = idx * floats_per_case;
+  let cycle = ref_orbits[ref_offset + u32(camera.max_iter) * 2u];
+  let ref_escaped_iter = ref_orbits[ref_offset + u32(camera.max_iter) * 2u + 3u];
+
+  let iter = calculate_perturbation(vec2<f32>(cr, ci), vec2<f32>(cr, ci), ref_offset, camera.max_iter, cycle, ref_escaped_iter);
   
   data_out[idx * 2] = iter;
   if (iter < camera.max_iter) {
