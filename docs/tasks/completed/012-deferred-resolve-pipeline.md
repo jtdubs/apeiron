@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 012: Refactor f32 Shader into Deferred Resolve Pipeline (G-Buffer)
@@ -27,6 +27,6 @@ Split the existing `mandelbrot_f32.wgsl` into a two-pass architecture (Accumulat
 
 ## Verification Steps
 
-- [ ] Does the UI correctly shift colors instantly at 60fps when themes are switched, without recalculating fractal coordinates?
-- [ ] Are headless regression tests still able to pull standard numerical arrays (ignoring color space mappings)?
-- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/rendering-engine-design.md` before closing this task.
+- [x] Does the UI correctly shift colors instantly at 60fps when themes are switched, without recalculating fractal coordinates?
+- [x] Are headless regression tests still able to pull standard numerical arrays (ignoring color space mappings)?
+- [x] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/rendering-engine-design.md` before closing this task.

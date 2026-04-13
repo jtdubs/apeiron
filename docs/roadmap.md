@@ -22,7 +22,7 @@
 
 ## Phase 4: Advanced Rendering & Deep Zoom Infrastructure
 
-- [ ] [Task 012: Refactor f32 Shader into Deferred Resolve Pipeline (G-Buffer)](tasks/012-deferred-resolve-pipeline.md)
+- [x] [Task 012: Refactor f32 Shader into Deferred Resolve Pipeline (G-Buffer)](tasks/completed/012-deferred-resolve-pipeline.md)
 
 ## Phase 5: Arbitrary Precision & Perturbation
 

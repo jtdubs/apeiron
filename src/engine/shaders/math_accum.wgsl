@@ -25,9 +25,6 @@ fn calculate_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, max_i
     let x2 = x * x;
     let y2 = y * y;
     if (x2 + y2 > 4.0) {
-      // Smooth Iteration
-      // length(z) = sqrt(x2 + y2)
-      // ln(length(z)) = 0.5 * log(x2 + y2)
       let log_z = 0.5 * log(x2 + y2);
       let smooth_iter = iter + 1.0 - log2(log_z);
       return smooth_iter;
@@ -70,23 +67,15 @@ fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   );
   var out: VertexOutput;
   out.position = vec4<f32>(pos[VertexIndex], 0.0, 1.0);
-  // UV naturally maps from -1.0 to 1.0
   out.uv = pos[VertexIndex];
   return out;
-}
-
-// Cosine palette function: a + b * cos(2.0 * PI * (c * t + d))
-fn palette(t: f32, a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>) -> vec3<f32> {
-  return a + b * cos(6.28318530718 * (c * t + d));
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   // Map our unit viewport rect (-1 to +1) to the actual math bounds.
-  // We use the aspect ratio strictly on the X axis to correct non-square screen shapes.
   let uv_mapped = vec2<f32>(in.uv.x * camera.scale * camera.aspect, in.uv.y * camera.scale);
   
-  // Interpolate between Mandelbrot (theta=0) and Julia (theta=PI/2)
   let cos_theta = cos(camera.slice_angle);
   let sin_theta = sin(camera.slice_angle);
   
@@ -95,22 +84,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   
   let iter = calculate_mandelbrot_iterations(start_z, start_c, camera.max_iter);
   
-  if (iter >= camera.max_iter) {
-    // Inside the set (Black)
-    return vec4<f32>(0.0, 0.0, 0.0, 1.0);
-  } else {
-    // Outside the set (Cosine Palette based on smooth iterations)
-    // t varies smoothly based on iterations
-    let t = iter / camera.max_iter;
-    
-    // A standard, visually pleasing blue/orange cosine palette
-    let a = vec3<f32>(0.5, 0.5, 0.5);
-    let b = vec3<f32>(0.5, 0.5, 0.5);
-    let c = vec3<f32>(1.0, 1.0, 1.0);
-    let d = vec3<f32>(0.00, 0.33, 0.67);
-    
-    // We scale t slightly so colors cycle nicely
-    let col = palette(t * 3.0, a, b, c, d);
-    return vec4<f32>(col, 1.0);
-  }
+  return vec4<f32>(iter, 0.0, 0.0, 1.0);
 }

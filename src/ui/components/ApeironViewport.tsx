@@ -2,7 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { initEngine } from '../../engine/initEngine';
 import type { ApeironEngine } from '../../engine/initEngine';
 
-import mandelbrotWgsl from '../../engine/shaders/mandelbrot_f32.wgsl?raw';
+import mathAccumWgsl from '../../engine/shaders/math_accum.wgsl?raw';
+import resolvePresentWgsl from '../../engine/shaders/resolve_present.wgsl?raw';
 import { viewportStore } from '../stores/viewportStore';
 
 export const ApeironViewport: React.FC = () => {
@@ -75,7 +76,7 @@ export const ApeironViewport: React.FC = () => {
 
     const initialize = async () => {
       try {
-        const engine = await initEngine(canvas, mandelbrotWgsl);
+        const engine = await initEngine(canvas, mathAccumWgsl, resolvePresentWgsl);
         if (!isMounted) return;
         engineRef.current = engine;
 

@@ -33,11 +33,11 @@ async function main() {
   }
 
   try {
-    const mandelbrotWgsl = fs.readFileSync(
-      path.resolve('./src/engine/shaders/mandelbrot_f32.wgsl'),
+    const mathAccumWgsl = fs.readFileSync(
+      path.resolve('./src/engine/shaders/math_accum.wgsl'),
       'utf8',
     );
-    const engine = await initEngine(undefined, mandelbrotWgsl);
+    const engine = await initEngine(undefined, mathAccumWgsl, '');
     console.log('WebGPU Context established.');
 
     // Parse the input cases for WebGPU

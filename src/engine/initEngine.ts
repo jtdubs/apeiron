@@ -17,7 +17,8 @@ export interface ApeironEngine {
 
 export async function initEngine(
   canvas?: HTMLCanvasElement,
-  shaderCode?: string,
+  mathShaderCode: string = '',
+  resolveShaderCode: string = '',
 ): Promise<ApeironEngine> {
   if (!navigator.gpu) {
     throw new Error('WebGPU is not supported in this environment');
@@ -45,11 +46,8 @@ export async function initEngine(
     });
   }
 
-  // Load the standalone WGSL file
-  const mandelbrotShaderCode = shaderCode ?? '';
-
   // Compute pipeline for Headless Math Verification
-  const computeModule = device.createShaderModule({ code: mandelbrotShaderCode });
+  const computeModule = device.createShaderModule({ code: mathShaderCode });
   const computePipeline = device.createComputePipeline({
     layout: 'auto',
     compute: {
@@ -124,27 +122,123 @@ export async function initEngine(
     return result;
   };
 
-  // Render pipeline for Canvas
-  const renderModule = device.createShaderModule({ code: mandelbrotShaderCode });
-  let renderPipeline: GPURenderPipeline | null = null;
+  // Render pipelines for Canvas
+  let mathPipeline: GPURenderPipeline | null = null;
+  let resolvePipeline: GPURenderPipeline | null = null;
+
   let uniformsBuffer: GPUBuffer | null = null;
-  let renderBindGroup: GPUBindGroup | null = null;
+  let mathBindGroup: GPUBindGroup | null = null;
+
+  let gBufferTexture: GPUTexture | null = null;
+  let gBufferSampler: GPUSampler | null = null;
+  let resolveBindGroup0: GPUBindGroup | null = null;
+
+  let paletteUniformsBuffer: GPUBuffer | null = null;
+  let resolveBindGroup1: GPUBindGroup | null = null;
+
+  // Track Math State correctly
+  let needsMathUpdate = true;
+  let lastCameraState = '';
+
+  const initGBuffer = () => {
+    if (!canvas || !resolvePipeline) return;
+
+    if (gBufferTexture) {
+      gBufferTexture.destroy();
+    }
+
+    gBufferTexture = device.createTexture({
+      size: [canvas.width, canvas.height, 1],
+      format: 'rgba32float',
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+    });
+
+    if (!gBufferSampler) {
+      gBufferSampler = device.createSampler({
+        magFilter: 'linear',
+        minFilter: 'linear',
+      });
+    }
+
+    resolveBindGroup0 = device.createBindGroup({
+      layout: resolvePipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: gBufferTexture.createView() },
+        { binding: 1, resource: gBufferSampler },
+      ],
+    });
+
+    needsMathUpdate = true;
+  };
 
   if (canvas) {
+    const mathModule = device.createShaderModule({ code: mathShaderCode });
+    const resolveModule = device.createShaderModule({ code: resolveShaderCode });
+
     uniformsBuffer = device.createBuffer({
       size: 32, // vec2<f32>, f32, f32, f32 + 3 pads -> 32 bytes
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-    // Wait for the renderFrame call to write buffer values
 
-    renderPipeline = device.createRenderPipeline({
+    paletteUniformsBuffer = device.createBuffer({
+      size: 80, // 4 * vec4 (16 bytes each) = 64. plus max_iter float + 3 pads -> 80 bytes
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    // Default 'neon' theme vectors.
+    const paletteData = new Float32Array([
+      0.5,
+      0.5,
+      0.5,
+      0.0, // a
+      0.5,
+      0.5,
+      0.5,
+      0.0, // b
+      1.0,
+      1.0,
+      1.0,
+      0.0, // c
+      0.0,
+      0.33,
+      0.67,
+      0.0, // d
+      100.0,
+      0.0,
+      0.0,
+      0.0, // max_iter + padding
+    ]);
+    device.queue.writeBuffer(paletteUniformsBuffer, 0, paletteData);
+
+    mathPipeline = device.createRenderPipeline({
       layout: 'auto',
       vertex: {
-        module: renderModule,
+        module: mathModule,
         entryPoint: 'vs_main',
       },
       fragment: {
-        module: renderModule,
+        module: mathModule,
+        entryPoint: 'fs_main',
+        targets: [{ format: 'rgba32float' }],
+      },
+      primitive: {
+        topology: 'triangle-list',
+      },
+    });
+
+    mathBindGroup = device.createBindGroup({
+      layout: mathPipeline.getBindGroupLayout(0),
+      entries: [{ binding: 0, resource: { buffer: uniformsBuffer } }],
+    });
+
+    resolvePipeline = device.createRenderPipeline({
+      layout: 'auto',
+      vertex: {
+        module: resolveModule,
+        entryPoint: 'vs_main',
+      },
+      fragment: {
+        module: resolveModule,
         entryPoint: 'fs_main',
         targets: [{ format: canvasFormat }],
       },
@@ -153,10 +247,12 @@ export async function initEngine(
       },
     });
 
-    renderBindGroup = device.createBindGroup({
-      layout: renderPipeline.getBindGroupLayout(0),
-      entries: [{ binding: 0, resource: { buffer: uniformsBuffer } }],
+    resolveBindGroup1 = device.createBindGroup({
+      layout: resolvePipeline.getBindGroupLayout(1),
+      entries: [{ binding: 0, resource: { buffer: paletteUniformsBuffer } }],
     });
+
+    initGBuffer();
   }
 
   const renderFrame = (
@@ -168,10 +264,15 @@ export async function initEngine(
     maxIter: number,
     sliceAngle: number,
   ) => {
-    if (!context || !renderPipeline) return;
+    if (!context || !mathPipeline || !resolvePipeline || !gBufferTexture) return;
 
-    if (uniformsBuffer && canvas) {
-      const aspectRatio = canvas.width / canvas.height;
+    const aspectRatio = canvas!.width / canvas!.height;
+    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle}`;
+
+    if (camState !== lastCameraState) {
+      needsMathUpdate = true;
+      lastCameraState = camState;
+
       const cameraData = new Float32Array([
         zr,
         zi,
@@ -182,13 +283,34 @@ export async function initEngine(
         maxIter,
         sliceAngle,
       ]);
-      device.queue.writeBuffer(uniformsBuffer, 0, cameraData);
+      device.queue.writeBuffer(uniformsBuffer!, 0, cameraData);
+
+      device.queue.writeBuffer(paletteUniformsBuffer!, 64, new Float32Array([maxIter]));
     }
 
     const commandEncoder = device.createCommandEncoder();
-    const textureView = context.getCurrentTexture().createView();
 
-    const passEncoder = commandEncoder.beginRenderPass({
+    if (needsMathUpdate) {
+      const mathPass = commandEncoder.beginRenderPass({
+        colorAttachments: [
+          {
+            view: gBufferTexture.createView(),
+            clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+            loadOp: 'clear',
+            storeOp: 'store',
+          },
+        ],
+      });
+      mathPass.setPipeline(mathPipeline);
+      mathPass.setBindGroup(0, mathBindGroup!);
+      mathPass.draw(6);
+      mathPass.end();
+
+      needsMathUpdate = false;
+    }
+
+    const textureView = context.getCurrentTexture().createView();
+    const resolvePass = commandEncoder.beginRenderPass({
       colorAttachments: [
         {
           view: textureView,
@@ -198,13 +320,11 @@ export async function initEngine(
         },
       ],
     });
-
-    passEncoder.setPipeline(renderPipeline);
-    if (renderBindGroup) {
-      passEncoder.setBindGroup(0, renderBindGroup);
-    }
-    passEncoder.draw(6); // Draw the hardcoded quad
-    passEncoder.end();
+    resolvePass.setPipeline(resolvePipeline);
+    resolvePass.setBindGroup(0, resolveBindGroup0!);
+    resolvePass.setBindGroup(1, resolveBindGroup1!);
+    resolvePass.draw(6);
+    resolvePass.end();
 
     device.queue.submit([commandEncoder.finish()]);
   };
@@ -216,6 +336,7 @@ export async function initEngine(
         format: canvasFormat,
         alphaMode: 'opaque',
       });
+      initGBuffer();
     }
   };
 
