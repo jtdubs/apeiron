@@ -4,10 +4,12 @@
 
 Apeiron utilizes a direct WebGPU pipeline optimized for parallel mathematical computation and deterministic execution.
 
-### 1.1 Compute vs Fragment Isolation
+### 1.1 The Deferred Resolve Pipeline (G-Buffer)
 
-- **Compute Pipeline (The Math Engine):** The mathematical evaluation of coordinates (calculating $f32$, $f64$, or applying Perturbation boundaries) strictly occurs via WGSL Compute shaders.
-- **Fragment Pipeline (The Presentation Engine):** Once the Compute shader calculates raw iteration arrays, distance estimations, or orbit trap bounds, the Fragment Shader maps these values to visual gradients (e.g., Cosine Palette Interpolations).
+To decouple heavy orbit calculations from UI responsiveness, Apeiron utilizes a Deferred Resolve pipeline via an intermediate G-Buffer.
+
+- **Accumulator Math Pass (Compute/Fragment):** During progressive rendering, the hot loops calculate and accumulate raw, multi-sampled mathematical output floats (e.g., Continuous Iteration, Distance Estimation, Stripe Average/TIA). No color or lighting decisions are made here.
+- **Presentation Pass (Resolve Fragment):** A final Resolve Shader executes continuously at 60fps, reading the raw data buffers and dynamically applying Trigonometric Cosine Palettes, 3D specular lighting, topological contours, and exterior glow logic. This guarantees perfect anti-aliasing while allowing instant UI theme updates without recalculating a single fractal orbit.
 
 ### 1.2 Offscreen and Headless Capabilities
 
@@ -40,8 +42,9 @@ To prevent the engine from rendering a "Black Void" when the user rapidly pans o
 
 ## 2. Advanced Coloring Features
 
-Because the rendering engine is computationally decoupled from the math layer, it independently implements advanced visual processors:
+Because the rendering engine is computationally decoupled from the math layer via the G-Buffer, it independently implements advanced visual processors:
 
 1. **Histogram / Density Coloring:** Scans compute output bounds to perfectly distribute color frequencies across varying depths.
-2. **Distance Estimation (DE):** Interprets derivative vectors from the compute shader to cast 3D lighting shadows and specular gloss across mathematical surfaces.
+2. **Distance Estimation (DE):** Interprets derivative vectors from the compute shader to cast 3D lighting shadows, specular gloss, soft glow, and topological contours across mathematical surfaces.
 3. **Orbit Traps:** Traces closest-approaches directly within the WGSL loop and exposes them as a secondary Buffer channel to map entirely different fractal structures geometry.
+4. **Triangle Inequality Average (TIA / Stripe Rendering):** TIA limits are used for high-quality, smooth visual banding (`stripe-average`). At extreme perturbation depths ($>10^{15}$), the rendering pipeline compresses TIA by calculating it exclusively from the floating-point $\Delta z$ proxy values. Because TIA naturally functions as a visual frequency smoother, this avoids taxing the Rust arbitrary-precision core while remaining visually coherent.

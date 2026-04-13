@@ -20,6 +20,10 @@ The following requirements dictate the architectural boundaries and technology s
 - **R1.3.1 Emulated High Precision:** The engine MUST seamlessly provide emulated $f64$ double-precision inside WGSL before falling back to perturbation theory for zooms beyond $10^{15}$.
 - **R1.3.2 Reference Orbit Offloading:** Perturbation theory reference orbits, which require massive arbitrary precision (GMP/MPFR-style calculations), MUST execute off the main thread in a Rust-compiled Web Worker to eliminate JavaScript Garbage Collection stutters.
 
+### 1.4 Mathematical Domain Limitation
+
+- **R1.4.1 Analytic Constraints:** Phase 1 explicitly restricts calculations to continuous, analytic mathematical domains (specifically $z^n+c$ variants) to perfect the 4D parameter space and perturbation architecture. Non-analytic formulas (Burning Ship, Tricorn) are strictly omitted to prevent geometry discontinuity and reference orbit branch-cut errors.
+
 ## 2. Non-Functional Requirements
 
 ### 2.1 UI and Rendering

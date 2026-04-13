@@ -48,8 +48,6 @@ house the controls, preventing obstruction of the central action.
 6. **Interior Shading:**
    - A dropdown controlling the coloring of bounded components (Black, Grayscale Periodicity, Themed
      Distance, or Stripe Average) driven by the distance estimation cycle multiplier.
-7. **Fractal Formula Selector:**
-   - A minimalist selector blending between primary equations (Mandelbrot, Burning Ship, Tricorn).
 
 ## 4. Responsive Design & Mobile
 

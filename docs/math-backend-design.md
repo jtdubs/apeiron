@@ -43,3 +43,11 @@ All precision routines, `math-core` arbitrary precision orbit arrays, and hardwa
 ## 5. Advanced Math Future-Proofing
 
 The math core should be architectured to eventually support **Bilinear Approximation (BLA)** and **Series Approximation (SA)**, effectively computing mathematical polynomials to skip millions of unnecessary iterations on complex deep zooms.
+
+## 6. Interior Shading & Limit Cycles (Deep Zoom)
+
+To render the interior of bounded sets beautifully (e.g., Distance Estimation topological contours), the engine must detect periodicity (Limit Cycles) and calculate the polynomial derivative (`der_since_check`) at that exact repeating cycle.
+
+- **The Proxy Collapse Problem:** At extreme depths ($> 10^{15}$), WebGPU relies on floating-point $\Delta z$ proxy boundaries. Detecting limit cycles directly against these tiny $f32$ approximations leads to catastrophic proxy collapse, causing false-escapes or infinite loops.
+- **Rust-First Calculation:** To solve this, cycle-detection and derivative accumulation execute _exclusively_ inside the arbitrary-precision Rust calculation during Reference Orbit generation.
+- **Data Inheritance:** When Rust detects a mathematically proven interior cycle, it packs the final structural derivative metadata alongside the reference orbit array. When WebGPU is rendering perturbation pixels around that exact origin, any pixel that reaches the maximum iteration count without escaping immediately inherits this pristine Rust cycle metadata to paint its interior structures. This guarantees stability and prevents GPU execution timeouts.
