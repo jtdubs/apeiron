@@ -31,7 +31,7 @@ glitches, you are explicitly required to review the `docs/math-backend-design.md
 ## 3. Operations
 
 - **Commits**: Follow Conventional Commits (`feat:`, `fix:`, `docs:`, `build:`). Provide technical
-  specifics, particularly for shader or math adjustments.
+  specifics, particularly for shader or math adjustments. When making minor corrections to a recent change (like fixing typos or quick renames), you MUST use `git commit --amend --no-edit` rather than creating a new polluting commit.
 - **Integrity**: Verify file states with `git status` / `git diff` before issuing destructive
   commands or commits.
 - **Documentation**: If architectural paradigms are changed, immediately update the relevant docs.

@@ -10,7 +10,10 @@
 
 ## Phase 2: Tier 1 Rendering ($f32$)
 
-- [ ] ...
+- [ ] [Task 006: Construct `mandelbrot_f32.wgsl` core shader](tasks/006-f32-core-wgsl-shader.md)
+- [ ] [Task 007: Wire Camera Uniform Buffer to WebGPU](tasks/007-camera-uniform-buffer.md)
+- [ ] [Task 008: Implement Mouse Drag & Wheel Camera Controls](tasks/008-mouse-camera-controls.md)
+- [ ] [Task 009: Dynamic Iteration & Color Palettes](tasks/009-iteration-color-palettes.md)
 
 ## Phase 3: Tier 2 Rendering ($f64$ emulation)
 
