@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 008: Implement Mouse Drag & Wheel Camera Controls
