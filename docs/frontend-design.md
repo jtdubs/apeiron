@@ -15,8 +15,8 @@ We split state management across specific specialized stores:
   - **Anchors (Strings):** Absolute 4D coordinates (`anchorZ`, `anchorC`) are stored as primitive strings. The React thread never performs arbitrary precision arithmetic.
   - **Deltas (Numbers):** High-frequency mouse events update standard 64-bit float deltas (`panDeltaX`). WebGPU evaluates the float $\Delta$ against the string anchor.
   - When the user pans beyond safety bounds, the UI sends the string anchor + float deltas to the Rust Web Worker, which recalculates the absolute new string anchor off-thread.
-- **`useRenderStore`**: Highly configurable visual parameters like `ColoringMode` (continuous/banded), `InteriorMode`, theme presets, lights, and Distance Estimation modes. 
-  - **Pipeline Bypass Connection:** Mutating this store explicitly *bypasses* the WebGPU Compute shader (Stage 1 Math). State changes here only trigger the Fragment shader (Stage 2 Coloring), allowing users to tweak rendering aesthetics (like normals or color palettes) at maximum 60fps without triggering heavy mathematical recalculations of the underlying fractal structure.
+- **`useRenderStore`**: Highly configurable visual parameters like `ColoringMode` (continuous/banded), `InteriorMode`, theme presets, lights, and Distance Estimation modes.
+  - **Pipeline Bypass Connection:** Mutating this store explicitly _bypasses_ the WebGPU Compute shader (Stage 1 Math). State changes here only trigger the Fragment shader (Stage 2 Coloring), allowing users to tweak rendering aesthetics (like normals or color palettes) at maximum 60fps without triggering heavy mathematical recalculations of the underlying fractal structure.
 - **`useTimelineStore`**: Orchestrates cinematic timeline sequences, waypoints, and tweening state
   (independent of active UI).
 

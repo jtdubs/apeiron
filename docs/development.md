@@ -2,7 +2,7 @@
 
 ## 1. Local Development
 
-To start working on Apeiron locally, utilize our unified orchestration scripts. 
+To start working on Apeiron locally, utilize our unified orchestration scripts.
 
 - **Installation:** `npm install`
 - **Development Server:** `npm run dev` launches the primary Vite server for the frontend application.
@@ -17,7 +17,7 @@ We will not rely on disparate bash execution or executing cargo scripts manually
 - All Node/Deno headless tests must be abstracted into `npm run test` or `npm run test:headless`.
 - The `package.json` file is the master index of our operational capability.
 
-*(Detailed architecture-specific development guides (e.g. testing structures, rust commands) are TBD and will be fleshed out as the foundation is established in Phase 1).*
+_(Detailed architecture-specific development guides (e.g. testing structures, rust commands) are TBD and will be fleshed out as the foundation is established in Phase 1)._
 
 ## 3. Automated Enforcement (Husky)
 

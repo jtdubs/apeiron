@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 001: Initialize Vite/React project footprint

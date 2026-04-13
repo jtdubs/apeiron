@@ -3,6 +3,7 @@
 Apeiron is a high-performance Web-based fractal explorer. It is architected for mathematical determinism and headless testability, separating complex algorithms from UI rendering.
 
 ## 1. Core Principles
+
 - **Strict Decoupling:** Math execution and UI orchestration happen in different systems.
 - **Data-Driven Realism:** All visual rendering is derived from physically extracted iteration buffer data, guaranteeing verifiable bounds before pixel color mapping.
 

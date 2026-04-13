@@ -6,7 +6,7 @@ status: open
 
 ## Objective
 
-Connect the React UI frontend to the standalone WebGPU rendering engine (`initEngine()`) via a strictly decoupled loop to achieve basic screen rendering. 
+Connect the React UI frontend to the standalone WebGPU rendering engine (`initEngine()`) via a strictly decoupled loop to achieve basic screen rendering.
 
 ## Relevant Design Docs
 
