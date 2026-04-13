@@ -1,0 +1,29 @@
+---
+status: open
+---
+
+# Task [ID]: [Task Name]
+
+## Objective
+
+[A 1-2 sentence description of the primary goal of this task]
+
+## Relevant Design Docs
+
+- [Link out to math-backend-design.md, architecture.md, etc. if applicable]
+
+## Requirements
+
+- **[Requirement 1 Name]:** [Specific technical description and acceptance criteria for requirement 1]
+- **[Requirement 2 Name]:** [Specific technical description and acceptance criteria for requirement 2]
+
+## Implementation Plan
+
+1. [Step 1 of how this will be executed technically]
+2. [Step 2...]
+
+## Verification Steps
+
+- [ ] [Verification Step 1: Specifically how we test this (preferably data/headless tests)]
+- [ ] [Verification Step 2]
+- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/[relevant-design].md` and `docs/requirements.md` before closing this task.
