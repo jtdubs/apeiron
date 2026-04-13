@@ -41,10 +41,11 @@ glitches, you are explicitly required to review the `docs/math-backend-design.md
 
 - **Creation**: When a new feature or task is defined, you MUST create a new task markdown file in `docs/tasks/` matching the format of `docs/tasks/template.md`. The task must include clearly defined Objectives, Links to Design Docs, Requirements, an Implementation Plan, and Verification Steps.
 - **Execution**: To find the next available task, consult the active Phase in `docs/roadmap.md`. When beginning a task defined in `docs/tasks/`, always comprehensively review the `.md` file for acceptance criteria and related architectural documentation.
-- **Completion**: When a task's implementation is finalized and verified, you MUST do three things:
+- **Completion**: When a task's implementation is finalized and verified, you MUST do four things:
   1. Change `status: open` to `status: closed` in the YAML frontmatter of the specific
      `docs/tasks/*.md` file.
   2. Change the empty bracket `[ ]` to a checked bracket `[x]` in the master `docs/roadmap.md` file
      to reflect progress.
   3. Move the completed task file into the `docs/tasks/completed/` directory to maintain a clean
      active workspace while preserving historical context.
+  4. Create a task-scoped `git commit` incorporating all file changes pertinent to that specific task, keeping the repository history clean and incremental.
