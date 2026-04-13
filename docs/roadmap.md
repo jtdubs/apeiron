@@ -15,12 +15,7 @@
 - [x] [Task 008: Implement Mouse Drag & Wheel Camera Controls](tasks/completed/008-mouse-camera-controls.md)
 - [x] [Task 009: Dynamic Iteration & Color Palettes](tasks/completed/009-iteration-color-palettes.md)
 
-## Phase 3: Tier 2 Rendering ($f64$ emulation)
+## Phase 3: 4D Architecture & Testing Harness
 
 - [x] [Task 010: Standardize Headless Testing Harness](tasks/completed/010-test-harness.md)
 - [x] [Task 011: 4D Parameter Space Viewport Slicer](tasks/completed/011-4d-plane-slicer.md)
-- [ ] ...
-
-## Phase 4: Tier 3 Rendering (Perturbation)
-
-- [ ] ...
