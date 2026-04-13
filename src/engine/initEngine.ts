@@ -3,6 +3,8 @@ export interface ApeironEngine {
   adapter: GPUAdapter;
   context: GPUCanvasContext | null;
   executeTestCompute: (input: Float32Array) => Promise<Float32Array>;
+  renderFrame: () => void;
+  resize: () => void;
 }
 
 export async function initEngine(canvas?: HTMLCanvasElement): Promise<ApeironEngine> {
@@ -18,12 +20,13 @@ export async function initEngine(canvas?: HTMLCanvasElement): Promise<ApeironEng
   const device = await adapter.requestDevice();
 
   let context: GPUCanvasContext | null = null;
+  const canvasFormat: GPUTextureFormat = navigator.gpu.getPreferredCanvasFormat();
+
   if (canvas) {
     context = canvas.getContext('webgpu') as GPUCanvasContext;
     if (!context) {
       throw new Error('Failed to get webgpu context from canvas');
     }
-    const canvasFormat = navigator.gpu.getPreferredCanvasFormat();
     context.configure({
       device,
       format: canvasFormat,
@@ -31,20 +34,18 @@ export async function initEngine(canvas?: HTMLCanvasElement): Promise<ApeironEng
     });
   }
 
-  // Basic compute shader to satisfy headless regression testing (Task 002)
+  // Basic compute shader for Task 002 (Headless regression)
   const computeShaderCode = `
     @group(0) @binding(0) var<storage, read_write> data: array<f32>;
     
     @compute @workgroup_size(1)
     fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
       let idx = global_id.x;
-      // Simple pass-through multiplication test
       data[idx] = data[idx] * 2.0;
     }
   `;
 
   const computeModule = device.createShaderModule({ code: computeShaderCode });
-
   const computePipeline = device.createComputePipeline({
     layout: 'auto',
     compute: {
@@ -54,16 +55,13 @@ export async function initEngine(canvas?: HTMLCanvasElement): Promise<ApeironEng
   });
 
   const executeTestCompute = async (input: Float32Array): Promise<Float32Array> => {
-    // 1. Create a storage buffer to hold the input/output data
     const bufferSize = input.byteLength;
     const storageBuffer = device.createBuffer({
       size: bufferSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
     });
-
     device.queue.writeBuffer(storageBuffer, 0, input);
 
-    // 2. Create a read-back buffer mapping
     const stagingBuffer = device.createBuffer({
       size: bufferSize,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
@@ -71,12 +69,7 @@ export async function initEngine(canvas?: HTMLCanvasElement): Promise<ApeironEng
 
     const bindGroup = device.createBindGroup({
       layout: computePipeline.getBindGroupLayout(0),
-      entries: [
-        {
-          binding: 0,
-          resource: { buffer: storageBuffer },
-        },
-      ],
+      entries: [{ binding: 0, resource: { buffer: storageBuffer } }],
     });
 
     const commandEncoder = device.createCommandEncoder();
@@ -86,7 +79,6 @@ export async function initEngine(canvas?: HTMLCanvasElement): Promise<ApeironEng
     passEncoder.dispatchWorkgroups(input.length);
     passEncoder.end();
 
-    // Copy to staging buffer
     commandEncoder.copyBufferToBuffer(storageBuffer, 0, stagingBuffer, 0, bufferSize);
     device.queue.submit([commandEncoder.finish()]);
 
@@ -94,12 +86,85 @@ export async function initEngine(canvas?: HTMLCanvasElement): Promise<ApeironEng
     const arrayBuffer = stagingBuffer.getMappedRange();
     const result = new Float32Array(arrayBuffer.slice(0));
     stagingBuffer.unmap();
-
-    // Cleanup
     storageBuffer.destroy();
     stagingBuffer.destroy();
 
     return result;
+  };
+
+  // Render pipeline for Canvas test (Task 004)
+  const renderShaderCode = `
+    @vertex
+    fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> @builtin(position) vec4<f32> {
+      var pos = array<vec2<f32>, 6>(
+        vec2<f32>(-1.0, -1.0), vec2<f32>( 1.0, -1.0), vec2<f32>(-1.0,  1.0),
+        vec2<f32>(-1.0,  1.0), vec2<f32>( 1.0, -1.0), vec2<f32>( 1.0,  1.0)
+      );
+      return vec4<f32>(pos[VertexIndex], 0.0, 1.0);
+    }
+
+    @fragment
+    fn fs_main(@builtin(position) coord: vec4<f32>) -> @location(0) vec4<f32> {
+      // Create a nice gradient based on viewport coordinates
+      let x = coord.x / 1000.0;
+      let y = coord.y / 1000.0;
+      return vec4<f32>(x, y, 0.5, 1.0);
+    }
+  `;
+
+  const renderModule = device.createShaderModule({ code: renderShaderCode });
+  let renderPipeline: GPURenderPipeline | null = null;
+
+  if (canvas) {
+    renderPipeline = device.createRenderPipeline({
+      layout: 'auto',
+      vertex: {
+        module: renderModule,
+        entryPoint: 'vs_main',
+      },
+      fragment: {
+        module: renderModule,
+        entryPoint: 'fs_main',
+        targets: [{ format: canvasFormat }],
+      },
+      primitive: {
+        topology: 'triangle-list',
+      },
+    });
+  }
+
+  const renderFrame = () => {
+    if (!context || !renderPipeline) return;
+
+    const commandEncoder = device.createCommandEncoder();
+    const textureView = context.getCurrentTexture().createView();
+
+    const passEncoder = commandEncoder.beginRenderPass({
+      colorAttachments: [
+        {
+          view: textureView,
+          clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+          loadOp: 'clear',
+          storeOp: 'store',
+        },
+      ],
+    });
+
+    passEncoder.setPipeline(renderPipeline);
+    passEncoder.draw(6); // Draw the hardcoded quad
+    passEncoder.end();
+
+    device.queue.submit([commandEncoder.finish()]);
+  };
+
+  const resize = () => {
+    if (context && canvas) {
+      context.configure({
+        device,
+        format: canvasFormat,
+        alphaMode: 'opaque',
+      });
+    }
   };
 
   return {
@@ -107,5 +172,7 @@ export async function initEngine(canvas?: HTMLCanvasElement): Promise<ApeironEng
     adapter,
     context,
     executeTestCompute,
+    renderFrame,
+    resize,
   };
 }

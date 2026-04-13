@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 004: Connect React Viewport to WebGPU Engine
