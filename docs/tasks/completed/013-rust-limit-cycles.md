@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 013: Rust Origin Limit-Cycle Detection

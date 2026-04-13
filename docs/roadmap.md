@@ -26,7 +26,7 @@
 
 ## Phase 5: Arbitrary Precision & Perturbation
 
-- [ ] [Task 013: Rust Origin Limit-Cycle Detection](tasks/013-rust-limit-cycles.md)
+- [x] [Task 013: Rust Origin Limit-Cycle Detection](tasks/completed/013-rust-limit-cycles.md)
 - [ ] [Task 014: Web Worker Orchestration for WASM](tasks/014-wasm-web-worker.md)
 - [ ] [Task 015: WebGPU Perturbation Shader Pipeline](tasks/015-webgpu-perturbation.md)
 
