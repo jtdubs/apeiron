@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 003: Implement Rust WASM math-core unit testing arrays
