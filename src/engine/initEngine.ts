@@ -130,7 +130,6 @@ export async function initEngine(
   let mathBindGroup: GPUBindGroup | null = null;
 
   let gBufferTexture: GPUTexture | null = null;
-  let gBufferSampler: GPUSampler | null = null;
   let resolveBindGroup0: GPUBindGroup | null = null;
 
   let paletteUniformsBuffer: GPUBuffer | null = null;
@@ -153,19 +152,9 @@ export async function initEngine(
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     });
 
-    if (!gBufferSampler) {
-      gBufferSampler = device.createSampler({
-        magFilter: 'linear',
-        minFilter: 'linear',
-      });
-    }
-
     resolveBindGroup0 = device.createBindGroup({
       layout: resolvePipeline.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: gBufferTexture.createView() },
-        { binding: 1, resource: gBufferSampler },
-      ],
+      entries: [{ binding: 0, resource: gBufferTexture.createView() }],
     });
 
     needsMathUpdate = true;

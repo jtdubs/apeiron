@@ -17,7 +17,6 @@ fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
 }
 
 @group(0) @binding(0) var g_buffer: texture_2d<f32>;
-@group(0) @binding(1) var samp: sampler;
 
 struct PaletteUniforms {
   a: vec4<f32>,
@@ -35,10 +34,9 @@ fn palette_func(t: f32, a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>) 
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-  // Map normalized screen coordinates to texture space [0, 1]
-  let tex_uv = vec2<f32>(in.uv.x * 0.5 + 0.5, 0.5 - in.uv.y * 0.5);
-
-  let tex_color = textureSample(g_buffer, samp, tex_uv);
+  // Use exact pixel coordinates to load from the G-Buffer
+  let coord = vec2<i32>(floor(in.position.xy));
+  let tex_color = textureLoad(g_buffer, coord, 0);
   let iter = tex_color.r;
 
   if (iter >= palette.max_iter) {
