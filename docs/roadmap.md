@@ -19,3 +19,11 @@
 
 - [x] [Task 010: Standardize Headless Testing Harness](tasks/completed/010-test-harness.md)
 - [x] [Task 011: 4D Parameter Space Viewport Slicer](tasks/completed/011-4d-plane-slicer.md)
+
+## Phase 4: Advanced Rendering & Deep Zoom Infrastructure
+
+- [ ] [Task 012: Refactor f32 Shader into Deferred Resolve Pipeline (G-Buffer)](tasks/012-deferred-resolve-pipeline.md)
+
+## Phase 5: Arbitrary Precision & Perturbation
+
+- [ ] [Task 013: Rust Origin Limit-Cycle Detection](tasks/013-rust-limit-cycles.md)
