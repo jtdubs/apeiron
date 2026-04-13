@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 002: Establish initEngine() headless WebGPU wrapper
