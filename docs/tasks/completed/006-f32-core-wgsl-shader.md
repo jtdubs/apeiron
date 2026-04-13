@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 006: Construct `mandelbrot_f32.wgsl` core shader

@@ -32,24 +32,30 @@ async function main() {
   }
 
   try {
-    const engine = await initEngine();
+    const mandelbrotWgsl = fs.readFileSync(
+      path.resolve('./src/engine/shaders/mandelbrot_f32.wgsl'),
+      'utf8',
+    );
+    const engine = await initEngine(undefined, mandelbrotWgsl);
     console.log('WebGPU Context established.');
 
-    // Since our WebGPU shader in initEngine.ts just multiplies by 2.0 (for task 002 test),
-    // and Mandelbrot generates [iter, escaped] pairs,
-    // we will just test the fuzzy math tolerance on a basic input matching the shader.
-    // Replace this with actual shader output when WebGPU implements Mandelbrot.
+    // Parse the input cases for WebGPU
+    const cases = JSON.parse(casesJson);
+    const inputs = new Float32Array(cases.length * 2);
+    for (let i = 0; i < cases.length; i++) {
+      inputs[i * 2] = parseFloat(cases[i].x);
+      inputs[i * 2 + 1] = parseFloat(cases[i].y);
+    }
 
     // 5. Run WebGPU Compute
     console.log('Executing WebGPU Compute pass...');
-    // We send the ground truth data as input just to test the WebGPU buffer loop
-    const gpuResult = await engine.executeTestCompute(groundTruth);
+    const gpuResult = await engine.executeTestCompute(inputs);
     console.log('WebGPU Result:', gpuResult);
 
     // 6. Fuzzy Match Tolerance Checker
     let passed = true;
     for (let i = 0; i < groundTruth.length; i++) {
-      const expected = groundTruth[i] * 2.0; // Our basic shader multiplies by 2.0
+      const expected = groundTruth[i];
       const actual = gpuResult[i];
       const tolerance = 0.0001; // Fuzzy precision tolerance
       if (Math.abs(expected - actual) > tolerance) {
