@@ -3,11 +3,14 @@ export interface ApeironEngine {
   adapter: GPUAdapter;
   context: GPUCanvasContext | null;
   executeTestCompute: (input: Float32Array) => Promise<Float32Array>;
-  renderFrame: () => void;
+  renderFrame: (centerX: number, centerY: number, scale: number, maxIter: number) => void;
   resize: () => void;
 }
 
-export async function initEngine(canvas?: HTMLCanvasElement): Promise<ApeironEngine> {
+export async function initEngine(
+  canvas?: HTMLCanvasElement,
+  shaderCode?: string,
+): Promise<ApeironEngine> {
   if (!navigator.gpu) {
     throw new Error('WebGPU is not supported in this environment');
   }
@@ -34,27 +37,25 @@ export async function initEngine(canvas?: HTMLCanvasElement): Promise<ApeironEng
     });
   }
 
-  // Basic compute shader for Task 002 (Headless regression)
-  const computeShaderCode = `
-    @group(0) @binding(0) var<storage, read_write> data: array<f32>;
-    
-    @compute @workgroup_size(1)
-    fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-      let idx = global_id.x;
-      data[idx] = data[idx] * 2.0;
-    }
-  `;
+  // Load the standalone WGSL file
+  const mandelbrotShaderCode = shaderCode ?? '';
 
-  const computeModule = device.createShaderModule({ code: computeShaderCode });
+  // Compute pipeline for Headless Math Verification
+  const computeModule = device.createShaderModule({ code: mandelbrotShaderCode });
   const computePipeline = device.createComputePipeline({
     layout: 'auto',
     compute: {
       module: computeModule,
-      entryPoint: 'main',
+      entryPoint: 'main_compute',
     },
   });
 
-  const executeTestCompute = async (input: Float32Array): Promise<Float32Array> => {
+  const executeTestCompute = async (
+    input: Float32Array,
+    maxIter: number = 100,
+  ): Promise<Float32Array> => {
+    // Input is interleaved points: [x1, y1, x2, y2, ...]
+    // Output is interleaved bounds: [iter1, escaped1, iter2, escaped2, ...]
     const bufferSize = input.byteLength;
     const storageBuffer = device.createBuffer({
       size: bufferSize,
@@ -67,16 +68,26 @@ export async function initEngine(canvas?: HTMLCanvasElement): Promise<ApeironEng
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
 
+    const cameraTestBuffer = device.createBuffer({
+      size: 32, // 8 floats
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    const cameraData = new Float32Array([0.0, 0.0, 1.0, 1.0, maxIter, 0.0, 0.0, 0.0]);
+    device.queue.writeBuffer(cameraTestBuffer, 0, cameraData);
+
     const bindGroup = device.createBindGroup({
       layout: computePipeline.getBindGroupLayout(0),
-      entries: [{ binding: 0, resource: { buffer: storageBuffer } }],
+      entries: [
+        { binding: 0, resource: { buffer: cameraTestBuffer } },
+        { binding: 1, resource: { buffer: storageBuffer } },
+      ],
     });
 
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginComputePass();
     passEncoder.setPipeline(computePipeline);
     passEncoder.setBindGroup(0, bindGroup);
-    passEncoder.dispatchWorkgroups(input.length);
+    passEncoder.dispatchWorkgroups(input.length / 2);
     passEncoder.end();
 
     commandEncoder.copyBufferToBuffer(storageBuffer, 0, stagingBuffer, 0, bufferSize);
@@ -88,34 +99,24 @@ export async function initEngine(canvas?: HTMLCanvasElement): Promise<ApeironEng
     stagingBuffer.unmap();
     storageBuffer.destroy();
     stagingBuffer.destroy();
+    cameraTestBuffer.destroy();
 
     return result;
   };
 
-  // Render pipeline for Canvas test (Task 004)
-  const renderShaderCode = `
-    @vertex
-    fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> @builtin(position) vec4<f32> {
-      var pos = array<vec2<f32>, 6>(
-        vec2<f32>(-1.0, -1.0), vec2<f32>( 1.0, -1.0), vec2<f32>(-1.0,  1.0),
-        vec2<f32>(-1.0,  1.0), vec2<f32>( 1.0, -1.0), vec2<f32>( 1.0,  1.0)
-      );
-      return vec4<f32>(pos[VertexIndex], 0.0, 1.0);
-    }
-
-    @fragment
-    fn fs_main(@builtin(position) coord: vec4<f32>) -> @location(0) vec4<f32> {
-      // Create a nice gradient based on viewport coordinates
-      let x = coord.x / 1000.0;
-      let y = coord.y / 1000.0;
-      return vec4<f32>(x, y, 0.5, 1.0);
-    }
-  `;
-
-  const renderModule = device.createShaderModule({ code: renderShaderCode });
+  // Render pipeline for Canvas
+  const renderModule = device.createShaderModule({ code: mandelbrotShaderCode });
   let renderPipeline: GPURenderPipeline | null = null;
+  let uniformsBuffer: GPUBuffer | null = null;
+  let renderBindGroup: GPUBindGroup | null = null;
 
   if (canvas) {
+    uniformsBuffer = device.createBuffer({
+      size: 32, // vec2<f32>, f32, f32, f32 + 3 pads -> 32 bytes
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    // Wait for the renderFrame call to write buffer values
+
     renderPipeline = device.createRenderPipeline({
       layout: 'auto',
       vertex: {
@@ -131,10 +132,30 @@ export async function initEngine(canvas?: HTMLCanvasElement): Promise<ApeironEng
         topology: 'triangle-list',
       },
     });
+
+    renderBindGroup = device.createBindGroup({
+      layout: renderPipeline.getBindGroupLayout(0),
+      entries: [{ binding: 0, resource: { buffer: uniformsBuffer } }],
+    });
   }
 
-  const renderFrame = () => {
+  const renderFrame = (centerX: number, centerY: number, scale: number, maxIter: number) => {
     if (!context || !renderPipeline) return;
+
+    if (uniformsBuffer && canvas) {
+      const aspectRatio = canvas.width / canvas.height;
+      const cameraData = new Float32Array([
+        centerX,
+        centerY,
+        scale,
+        aspectRatio,
+        maxIter,
+        0.0,
+        0.0,
+        0.0,
+      ]);
+      device.queue.writeBuffer(uniformsBuffer, 0, cameraData);
+    }
 
     const commandEncoder = device.createCommandEncoder();
     const textureView = context.getCurrentTexture().createView();
@@ -151,6 +172,9 @@ export async function initEngine(canvas?: HTMLCanvasElement): Promise<ApeironEng
     });
 
     passEncoder.setPipeline(renderPipeline);
+    if (renderBindGroup) {
+      passEncoder.setBindGroup(0, renderBindGroup);
+    }
     passEncoder.draw(6); // Draw the hardcoded quad
     passEncoder.end();
 

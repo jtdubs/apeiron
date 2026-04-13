@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 007: Wire Camera Uniform Buffer to WebGPU
