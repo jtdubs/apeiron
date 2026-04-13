@@ -82,8 +82,8 @@ export const ApeironViewport: React.FC = () => {
 
         const loop = () => {
           if (!isMounted) return;
-          const { zr, zi, cr, ci, zoom, maxIter, sliceAngle } = viewportStore.getState();
-          engine.renderFrame(zr, zi, cr, ci, zoom, maxIter, sliceAngle);
+          const { zr, zi, cr, ci, zoom, maxIter, sliceAngle, refOrbits } = viewportStore.getState();
+          engine.renderFrame(zr, zi, cr, ci, zoom, maxIter, sliceAngle, refOrbits);
           requestRef.current = requestAnimationFrame(loop);
         };
         requestRef.current = requestAnimationFrame(loop);
@@ -93,6 +93,55 @@ export const ApeironViewport: React.FC = () => {
     };
 
     initialize();
+
+    // Perturbation Web Worker Orchestration
+    const worker = new Worker(
+      new URL('../../engine/math-workers/rust.worker.ts', import.meta.url),
+      {
+        type: 'module',
+      },
+    );
+
+    worker.onmessage = (e: MessageEvent) => {
+      if (e.data.type === 'COMPUTE_RESULT' && e.data.result) {
+        viewportStore.getState().setRefOrbits(e.data.result);
+      }
+    };
+
+    let timeoutId: number | null = null;
+    const unsub = viewportStore.subscribe((state, prevState) => {
+      // We only compute new orbits if we are deep zooming
+      if (state.zoom < 1e-4) {
+        // If position or zoom changed, debounce and ask for a new anchor array
+        if (
+          state.cr !== prevState.cr ||
+          state.ci !== prevState.ci ||
+          state.zoom !== prevState.zoom
+        ) {
+          if (timeoutId) clearTimeout(timeoutId);
+          timeoutId = window.setTimeout(() => {
+            const casesJson = JSON.stringify([
+              {
+                zr: state.zr.toString(),
+                zi: state.zi.toString(),
+                cr: state.cr.toString(),
+                ci: state.ci.toString(),
+              },
+            ]);
+            worker.postMessage({
+              id: Date.now(),
+              type: 'COMPUTE',
+              casesJson,
+              maxIterations: state.maxIter,
+            });
+          }, 150); // 150ms debounce
+        }
+      } else {
+        if (state.refOrbits !== null) {
+          viewportStore.getState().setRefOrbits(null);
+        }
+      }
+    });
 
     const resizeObserver = new ResizeObserver((entries) => {
       if (!canvas) return;
@@ -118,6 +167,9 @@ export const ApeironViewport: React.FC = () => {
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
       }
+      unsub();
+      if (timeoutId) clearTimeout(timeoutId);
+      worker.terminate();
       resizeObserver.disconnect();
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);

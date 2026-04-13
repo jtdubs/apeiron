@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 016: React Perturbation Wiring
@@ -29,6 +29,6 @@ Bridge the gap between the React UI controls and the newly implemented Rust Web 
 
 ## Verification Steps
 
-- [ ] Does the UI cleanly transition from `f32` default rendering to Perturbation without crashing?
-- [ ] Can you zoom into the Seahorse valley interactively past $10^{15}$ depth without encountering blocky pixel artifacts?
-- [ ] Is frame-rate maintained during panning (using previous patch or mipmapping) while waiting for the Web Worker to compute a new reference anchor?
+- [x] Does the UI cleanly transition from `f32` default rendering to Perturbation without crashing?
+- [x] Can you zoom into the Seahorse valley interactively past $10^{15}$ depth without encountering blocky pixel artifacts?
+- [x] Is frame-rate maintained during panning (using previous patch or mipmapping) while waiting for the Web Worker to compute a new reference anchor?

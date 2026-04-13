@@ -11,6 +11,7 @@ export interface ApeironEngine {
     scale: number,
     maxIter: number,
     sliceAngle: number,
+    refOrbits?: Float64Array | null,
   ) => void;
   resize: () => void;
 }
@@ -175,12 +176,19 @@ export async function initEngine(
     needsMathUpdate = true;
   };
 
+  let dummyRefOrbitsBuffer: GPUBuffer | null = null;
   if (canvas) {
+    dummyRefOrbitsBuffer = device.createBuffer({
+      size: 16,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(dummyRefOrbitsBuffer, 0, new Float32Array([0.0, 0.0, 0.0, 0.0]));
+
     const mathModule = device.createShaderModule({ code: mathShaderCode });
     const resolveModule = device.createShaderModule({ code: resolveShaderCode });
 
     uniformsBuffer = device.createBuffer({
-      size: 32, // vec2<f32>, f32, f32, f32 + 3 pads -> 32 bytes
+      size: 48, // 12 floats
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -232,7 +240,10 @@ export async function initEngine(
 
     mathBindGroup = device.createBindGroup({
       layout: mathPipeline.getBindGroupLayout(0),
-      entries: [{ binding: 0, resource: { buffer: uniformsBuffer } }],
+      entries: [
+        { binding: 0, resource: { buffer: uniformsBuffer } },
+        { binding: 3, resource: { buffer: dummyRefOrbitsBuffer } },
+      ],
     });
 
     resolvePipeline = device.createRenderPipeline({
@@ -259,6 +270,10 @@ export async function initEngine(
     initGBuffer();
   }
 
+  // Ref orbit tracking inside the engine
+  let activeRefOrbitsBuffer: GPUBuffer | null = null;
+  let hasValidActiveRefOrbits = false;
+
   const renderFrame = (
     zr: number,
     zi: number,
@@ -267,11 +282,50 @@ export async function initEngine(
     scale: number,
     maxIter: number,
     sliceAngle: number,
+    refOrbits?: Float64Array | null,
   ) => {
     if (!context || !mathPipeline || !resolvePipeline || !gBufferTexture) return;
 
     const aspectRatio = canvas!.width / canvas!.height;
-    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle}`;
+
+    let refOrbitsSwapped = false;
+    if (refOrbits !== undefined) {
+      if (refOrbits) {
+        if (activeRefOrbitsBuffer) activeRefOrbitsBuffer.destroy();
+        const refF32 = new Float32Array(refOrbits);
+        activeRefOrbitsBuffer = device.createBuffer({
+          size: refF32.byteLength,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        device.queue.writeBuffer(activeRefOrbitsBuffer, 0, refF32);
+        hasValidActiveRefOrbits = true;
+        refOrbitsSwapped = true;
+      } else if (hasValidActiveRefOrbits) {
+        if (activeRefOrbitsBuffer) activeRefOrbitsBuffer.destroy();
+        activeRefOrbitsBuffer = null;
+        hasValidActiveRefOrbits = false;
+        refOrbitsSwapped = true;
+      }
+    }
+
+    if (refOrbitsSwapped) {
+      mathBindGroup = device.createBindGroup({
+        layout: mathPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: uniformsBuffer! } },
+          {
+            binding: 3,
+            resource: {
+              buffer: hasValidActiveRefOrbits ? activeRefOrbitsBuffer! : dummyRefOrbitsBuffer!,
+            },
+          },
+        ],
+      });
+      needsMathUpdate = true;
+    }
+
+    const usePerturbation = hasValidActiveRefOrbits ? 1.0 : 0.0;
+    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation}`;
 
     if (camState !== lastCameraState) {
       needsMathUpdate = true;
@@ -286,6 +340,10 @@ export async function initEngine(
         aspectRatio,
         maxIter,
         sliceAngle,
+        usePerturbation,
+        0.0,
+        0.0,
+        0.0,
       ]);
       device.queue.writeBuffer(uniformsBuffer!, 0, cameraData);
 

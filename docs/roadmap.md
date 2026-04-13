@@ -30,7 +30,7 @@
 - [x] [Task 014: Web Worker Orchestration for WASM](tasks/completed/014-wasm-web-worker.md)
 - [x] [Task 015: WebGPU Perturbation Shader Pipeline](tasks/completed/015-webgpu-perturbation.md)
 
-- [ ] [Task 016: React Perturbation Wiring](tasks/016-react-perturbation-wiring.md)
+- [x] [Task 016: React Perturbation Wiring](tasks/completed/016-react-perturbation-wiring.md)
 
 ## Phase 6: Distance Estimation & Aesthetics (G-Buffer Resolve)
 

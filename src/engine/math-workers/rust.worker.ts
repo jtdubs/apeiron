@@ -30,13 +30,15 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     // wasm-bindgen handles copying this data into the JS heap, meaning we
     // do not need to call .free() as the JS Garbage Collector manages it.
 
-    self.postMessage(
+    // TS sometimes confuses self with Window instead of DedicatedWorkerGlobalScope
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (self as any).postMessage(
       {
         id,
         type: 'COMPUTE_RESULT',
         result,
       } as WorkerOutputMessage,
-      [result.buffer],
+      [result.buffer as ArrayBuffer],
     );
   }
 };

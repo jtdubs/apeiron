@@ -17,6 +17,8 @@ export interface ViewportState {
   sliceAngle: number;
   zoom: number;
   maxIter: number;
+  refOrbits: Float64Array | null;
+  setRefOrbits: (orbits: Float64Array | null) => void;
   setViewport: (
     zr: number,
     zi: number,
@@ -36,6 +38,9 @@ export const viewportStore = createStore<ViewportState>((set) => ({
   sliceAngle: 0.0,
   zoom: 2.0,
   maxIter: 100, // starting value for scale 2.0
+  refOrbits: null,
+
+  setRefOrbits: (orbits) => set({ refOrbits: orbits }),
 
   setViewport: (zr, zi, cr, ci, zoom, sliceAngle) =>
     set({ zr, zi, cr, ci, zoom, sliceAngle, maxIter: calculateMaxIter(zoom) }),
@@ -44,8 +49,8 @@ export const viewportStore = createStore<ViewportState>((set) => ({
     set((state) => {
       let newZoom = state.zoom * deltaZoom;
 
-      if (newZoom < 1e-5) {
-        newZoom = 1e-5;
+      if (newZoom < 1e-25) {
+        newZoom = 1e-25;
       }
       if (newZoom > 5.0) {
         newZoom = 5.0; // Don't zoom too far out
