@@ -27,3 +27,14 @@
 ## Phase 5: Arbitrary Precision & Perturbation
 
 - [ ] [Task 013: Rust Origin Limit-Cycle Detection](tasks/013-rust-limit-cycles.md)
+- [ ] [Task 014: Web Worker Orchestration for WASM](tasks/014-wasm-web-worker.md)
+- [ ] [Task 015: WebGPU Perturbation Shader Pipeline](tasks/015-webgpu-perturbation.md)
+
+## Phase 6: Distance Estimation & Aesthetics (G-Buffer Resolve)
+
+- [ ] [Task 016: Distance Estimation & Spatial Lighting](tasks/016-distance-estimation-lighting.md)
+- [ ] [Task 017: Triangle Inequality Average (Stripe Rendering)](tasks/017-tia-stripe-average.md)
+
+## Phase 7: UI Capabilities & Integration
+
+- [ ] [Task 018: Advanced UI Control Surfaces](tasks/018-advanced-ui-controls.md)
