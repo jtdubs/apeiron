@@ -30,11 +30,13 @@
 - [x] [Task 014: Web Worker Orchestration for WASM](tasks/completed/014-wasm-web-worker.md)
 - [x] [Task 015: WebGPU Perturbation Shader Pipeline](tasks/completed/015-webgpu-perturbation.md)
 
+- [ ] [Task 016: React Perturbation Wiring](tasks/016-react-perturbation-wiring.md)
+
 ## Phase 6: Distance Estimation & Aesthetics (G-Buffer Resolve)
 
-- [ ] [Task 016: Distance Estimation & Spatial Lighting](tasks/016-distance-estimation-lighting.md)
-- [ ] [Task 017: Triangle Inequality Average (Stripe Rendering)](tasks/017-tia-stripe-average.md)
+- [ ] [Task 017: Distance Estimation & Spatial Lighting](tasks/017-distance-estimation-lighting.md)
+- [ ] [Task 018: Triangle Inequality Average (Stripe Rendering)](tasks/018-tia-stripe-average.md)
 
 ## Phase 7: UI Capabilities & Integration
 
-- [ ] [Task 018: Advanced UI Control Surfaces](tasks/018-advanced-ui-controls.md)
+- [ ] [Task 019: Advanced UI Control Surfaces](tasks/019-advanced-ui-controls.md)

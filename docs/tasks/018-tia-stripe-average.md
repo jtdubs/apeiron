@@ -2,7 +2,7 @@
 status: open
 ---
 
-# Task 017: Triangle Inequality Average (Stripe Rendering)
+# Task 018: Triangle Inequality Average (Stripe Rendering)
 
 ## Objective
 

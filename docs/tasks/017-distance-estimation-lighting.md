@@ -2,7 +2,7 @@
 status: open
 ---
 
-# Task 016: Distance Estimation & Spatial Lighting
+# Task 017: Distance Estimation & Spatial Lighting
 
 ## Objective
 
