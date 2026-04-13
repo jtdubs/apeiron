@@ -42,10 +42,12 @@ async function main() {
 
     // Parse the input cases for WebGPU
     const cases = JSON.parse(casesJson);
-    const inputs = new Float32Array(cases.length * 2);
+    const inputs = new Float32Array(cases.length * 4);
     for (let i = 0; i < cases.length; i++) {
-      inputs[i * 2] = parseFloat(cases[i].x);
-      inputs[i * 2 + 1] = parseFloat(cases[i].y);
+      inputs[i * 4] = parseFloat(cases[i].zr);
+      inputs[i * 4 + 1] = parseFloat(cases[i].zi);
+      inputs[i * 4 + 2] = parseFloat(cases[i].cr);
+      inputs[i * 4 + 3] = parseFloat(cases[i].ci);
     }
 
     // 5. Run WebGPU Compute

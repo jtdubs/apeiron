@@ -3,7 +3,15 @@ export interface ApeironEngine {
   adapter: GPUAdapter;
   context: GPUCanvasContext | null;
   executeTestCompute: (input: Float32Array) => Promise<Float32Array>;
-  renderFrame: (centerX: number, centerY: number, scale: number, maxIter: number) => void;
+  renderFrame: (
+    zr: number,
+    zi: number,
+    cr: number,
+    ci: number,
+    scale: number,
+    maxIter: number,
+    sliceAngle: number,
+  ) => void;
   resize: () => void;
 }
 
@@ -54,17 +62,26 @@ export async function initEngine(
     input: Float32Array,
     maxIter: number = 100,
   ): Promise<Float32Array> => {
-    // Input is interleaved points: [x1, y1, x2, y2, ...]
-    // Output is interleaved bounds: [iter1, escaped1, iter2, escaped2, ...]
-    const bufferSize = input.byteLength;
-    const storageBuffer = device.createBuffer({
-      size: bufferSize,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
+    // Input is interleaved points: [zr, zi, cr, ci, ...]
+    // Output is interleaved bounds: [iter, escaped, ...]
+    const inputSize = input.byteLength;
+    const outputSize = (input.length / 4) * 2 * 4; // 2 floats output per 4 floats input, * 4 bytes
+
+    // Separate Input Buffer
+    const inputStorageBuffer = device.createBuffer({
+      size: inputSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
-    device.queue.writeBuffer(storageBuffer, 0, input);
+    device.queue.writeBuffer(inputStorageBuffer, 0, input);
+
+    // Separate Output Buffer
+    const outputStorageBuffer = device.createBuffer({
+      size: outputSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+    });
 
     const stagingBuffer = device.createBuffer({
-      size: bufferSize,
+      size: outputSize,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
 
@@ -72,14 +89,16 @@ export async function initEngine(
       size: 32, // 8 floats
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-    const cameraData = new Float32Array([0.0, 0.0, 1.0, 1.0, maxIter, 0.0, 0.0, 0.0]);
+    // [zr, zi, cr, ci, scale, aspect, maxIter, sliceAngle]
+    const cameraData = new Float32Array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, maxIter, 0.0]);
     device.queue.writeBuffer(cameraTestBuffer, 0, cameraData);
 
     const bindGroup = device.createBindGroup({
       layout: computePipeline.getBindGroupLayout(0),
       entries: [
         { binding: 0, resource: { buffer: cameraTestBuffer } },
-        { binding: 1, resource: { buffer: storageBuffer } },
+        { binding: 1, resource: { buffer: inputStorageBuffer } },
+        { binding: 2, resource: { buffer: outputStorageBuffer } },
       ],
     });
 
@@ -87,17 +106,18 @@ export async function initEngine(
     const passEncoder = commandEncoder.beginComputePass();
     passEncoder.setPipeline(computePipeline);
     passEncoder.setBindGroup(0, bindGroup);
-    passEncoder.dispatchWorkgroups(input.length / 2);
+    passEncoder.dispatchWorkgroups(input.length / 4);
     passEncoder.end();
 
-    commandEncoder.copyBufferToBuffer(storageBuffer, 0, stagingBuffer, 0, bufferSize);
+    commandEncoder.copyBufferToBuffer(outputStorageBuffer, 0, stagingBuffer, 0, outputSize);
     device.queue.submit([commandEncoder.finish()]);
 
     await stagingBuffer.mapAsync(GPUMapMode.READ);
     const arrayBuffer = stagingBuffer.getMappedRange();
     const result = new Float32Array(arrayBuffer.slice(0));
     stagingBuffer.unmap();
-    storageBuffer.destroy();
+    inputStorageBuffer.destroy();
+    outputStorageBuffer.destroy();
     stagingBuffer.destroy();
     cameraTestBuffer.destroy();
 
@@ -139,20 +159,28 @@ export async function initEngine(
     });
   }
 
-  const renderFrame = (centerX: number, centerY: number, scale: number, maxIter: number) => {
+  const renderFrame = (
+    zr: number,
+    zi: number,
+    cr: number,
+    ci: number,
+    scale: number,
+    maxIter: number,
+    sliceAngle: number,
+  ) => {
     if (!context || !renderPipeline) return;
 
     if (uniformsBuffer && canvas) {
       const aspectRatio = canvas.width / canvas.height;
       const cameraData = new Float32Array([
-        centerX,
-        centerY,
+        zr,
+        zi,
+        cr,
+        ci,
         scale,
         aspectRatio,
         maxIter,
-        0.0,
-        0.0,
-        0.0,
+        sliceAngle,
       ]);
       device.queue.writeBuffer(uniformsBuffer, 0, cameraData);
     }

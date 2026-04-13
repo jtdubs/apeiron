@@ -5,8 +5,10 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct Point {
-    pub x: String,
-    pub y: String,
+    pub zr: String,
+    pub zi: String,
+    pub cr: String,
+    pub ci: String,
 }
 
 #[wasm_bindgen]
@@ -15,11 +17,10 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
     let mut results = Vec::with_capacity(points.len() * 2);
 
     for p in points {
-        let x0: f64 = p.x.parse().unwrap_or(0.0);
-        let y0: f64 = p.y.parse().unwrap_or(0.0);
-
-        let mut x = 0.0;
-        let mut y = 0.0;
+        let mut x: f64 = p.zr.parse().unwrap_or(0.0);
+        let mut y: f64 = p.zi.parse().unwrap_or(0.0);
+        let x0: f64 = p.cr.parse().unwrap_or(0.0);
+        let y0: f64 = p.ci.parse().unwrap_or(0.0);
 
         let mut iter = 0;
         let limit = 4.0;

@@ -18,6 +18,7 @@
 ## Phase 3: Tier 2 Rendering ($f64$ emulation)
 
 - [x] [Task 010: Standardize Headless Testing Harness](tasks/completed/010-test-harness.md)
+- [x] [Task 011: 4D Parameter Space Viewport Slicer](tasks/completed/011-4d-plane-slicer.md)
 - [ ] ...
 
 ## Phase 4: Tier 3 Rendering (Perturbation)

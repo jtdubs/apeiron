@@ -1,11 +1,12 @@
 struct CameraParams {
-  center: vec2<f32>,
+  zr: f32,
+  zi: f32,
+  cr: f32,
+  ci: f32,
   scale: f32,
   aspect: f32,
   max_iter: f32,
-  pad1: f32,
-  pad2: f32,
-  pad3: f32, // Padding to 32 bytes (must be multiple of 16)
+  slice_angle: f32,
 };
 
 @group(0) @binding(0) var<uniform> camera: CameraParams;
@@ -15,9 +16,9 @@ struct VertexOutput {
   @location(0) uv: vec2<f32>,
 };
 
-fn calculate_mandelbrot_iterations(x0: f32, y0: f32, max_iterations: f32) -> f32 {
-  var x = 0.0;
-  var y = 0.0;
+fn calculate_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, max_iterations: f32) -> f32 {
+  var x = start_z.x;
+  var y = start_z.y;
   var iter = 0.0;
 
   while (iter < max_iterations) {
@@ -31,30 +32,33 @@ fn calculate_mandelbrot_iterations(x0: f32, y0: f32, max_iterations: f32) -> f32
       let smooth_iter = iter + 1.0 - log2(log_z);
       return smooth_iter;
     }
-    let new_x = x2 - y2 + x0;
-    y = 2.0 * x * y + y0;
+    let new_x = x2 - y2 + start_c.x;
+    y = 2.0 * x * y + start_c.y;
     x = new_x;
     iter += 1.0;
   }
   return iter;
 }
 
-@group(0) @binding(1) var<storage, read_write> data: array<f32>;
+@group(0) @binding(1) var<storage, read> data_in: array<f32>;
+@group(0) @binding(2) var<storage, read_write> data_out: array<f32>;
 
 @compute @workgroup_size(1)
 fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let idx = global_id.x;
   
-  let x0 = data[idx * 2];
-  let y0 = data[idx * 2 + 1];
+  let zr = data_in[idx * 4];
+  let zi = data_in[idx * 4 + 1];
+  let cr = data_in[idx * 4 + 2];
+  let ci = data_in[idx * 4 + 3];
   
-  let iter = calculate_mandelbrot_iterations(x0, y0, camera.max_iter);
+  let iter = calculate_mandelbrot_iterations(vec2<f32>(zr, zi), vec2<f32>(cr, ci), camera.max_iter);
   
-  data[idx * 2] = iter;
+  data_out[idx * 2] = iter;
   if (iter < camera.max_iter) {
-    data[idx * 2 + 1] = 1.0;
+    data_out[idx * 2 + 1] = 1.0;
   } else {
-    data[idx * 2 + 1] = 0.0;
+    data_out[idx * 2 + 1] = 0.0;
   }
 }
 
@@ -80,10 +84,16 @@ fn palette(t: f32, a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>) -> ve
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   // Map our unit viewport rect (-1 to +1) to the actual math bounds.
   // We use the aspect ratio strictly on the X axis to correct non-square screen shapes.
-  let x0 = in.uv.x * camera.scale * camera.aspect + camera.center.x;
-  let y0 = in.uv.y * camera.scale + camera.center.y;
+  let uv_mapped = vec2<f32>(in.uv.x * camera.scale * camera.aspect, in.uv.y * camera.scale);
   
-  let iter = calculate_mandelbrot_iterations(x0, y0, camera.max_iter);
+  // Interpolate between Mandelbrot (theta=0) and Julia (theta=PI/2)
+  let cos_theta = cos(camera.slice_angle);
+  let sin_theta = sin(camera.slice_angle);
+  
+  let start_z = vec2<f32>(camera.zr, camera.zi) + uv_mapped * sin_theta;
+  let start_c = vec2<f32>(camera.cr, camera.ci) + uv_mapped * cos_theta;
+  
+  let iter = calculate_mandelbrot_iterations(start_z, start_c, camera.max_iter);
   
   if (iter >= camera.max_iter) {
     // Inside the set (Black)

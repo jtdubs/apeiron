@@ -16,18 +16,23 @@ export const ApeironViewport: React.FC = () => {
 
     let isMounted = true;
     let isDragging = false;
+    let isMiddleDragging = false;
     let lastX = 0;
     let lastY = 0;
 
     const onPointerDown = (e: PointerEvent) => {
-      isDragging = true;
+      if (e.button === 1) {
+        isMiddleDragging = true;
+      } else {
+        isDragging = true;
+      }
       lastX = e.clientX;
       lastY = e.clientY;
       canvas.setPointerCapture(e.pointerId);
     };
 
     const onPointerMove = (e: PointerEvent) => {
-      if (!isDragging) return;
+      if (!isDragging && !isMiddleDragging) return;
       const dx = e.clientX - lastX;
       const dy = e.clientY - lastY;
       lastX = e.clientX;
@@ -36,22 +41,22 @@ export const ApeironViewport: React.FC = () => {
       const rect = canvas.getBoundingClientRect();
       const { zoom } = viewportStore.getState();
 
-      // Calculate math delta.
-      // UV width spans from -1.0 to 1.0 (total length 2.0)
-      // UV height spans from -1.0 to 1.0 (total length 2.0)
-      // X calculation:
-      const mathDx = -2.0 * (dx / rect.width) * zoom * (rect.width / rect.height);
-
-      // Y calculation:
-      // WebGPU clip space Y points UP, but DOM mouse events Y points DOWN.
-      // To drag visually, camera panning must follow the correct positive/negative shifts.
-      const mathDy = 2.0 * (dy / rect.height) * zoom;
-
-      viewportStore.getState().updateViewport(mathDx, mathDy, 1.0);
+      if (isMiddleDragging) {
+        // Rotate 4D Slice based on horizontal mouse movement
+        // We'll map full screen width to a 90 degree rotation (PI/2)
+        const angleDelta = (dx / rect.width) * (Math.PI / 2);
+        viewportStore.getState().updateViewport(0, 0, 1.0, angleDelta);
+      } else {
+        // Calculate math delta for regular panning
+        const mathDx = -2.0 * (dx / rect.width) * zoom * (rect.width / rect.height);
+        const mathDy = 2.0 * (dy / rect.height) * zoom;
+        viewportStore.getState().updateViewport(mathDx, mathDy, 1.0, 0.0);
+      }
     };
 
     const onPointerUp = (e: PointerEvent) => {
       isDragging = false;
+      isMiddleDragging = false;
       canvas.releasePointerCapture(e.pointerId);
     };
 
@@ -59,7 +64,7 @@ export const ApeironViewport: React.FC = () => {
       e.preventDefault();
       // Zoom into the center of the viewport currently
       const deltaZoom = e.deltaY > 0 ? 1.05 : 0.95;
-      viewportStore.getState().updateViewport(0, 0, deltaZoom);
+      viewportStore.getState().updateViewport(0, 0, deltaZoom, 0.0);
     };
 
     canvas.addEventListener('pointerdown', onPointerDown);
@@ -76,8 +81,8 @@ export const ApeironViewport: React.FC = () => {
 
         const loop = () => {
           if (!isMounted) return;
-          const { x, y, zoom, maxIter } = viewportStore.getState();
-          engine.renderFrame(x, y, zoom, maxIter);
+          const { zr, zi, cr, ci, zoom, maxIter, sliceAngle } = viewportStore.getState();
+          engine.renderFrame(zr, zi, cr, ci, zoom, maxIter, sliceAngle);
           requestRef.current = requestAnimationFrame(loop);
         };
         requestRef.current = requestAnimationFrame(loop);

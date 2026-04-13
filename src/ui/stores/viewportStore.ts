@@ -10,23 +10,37 @@ export function calculateMaxIter(zoom: number): number {
 }
 
 export interface ViewportState {
-  x: number;
-  y: number;
+  zr: number;
+  zi: number;
+  cr: number;
+  ci: number;
+  sliceAngle: number;
   zoom: number;
   maxIter: number;
-  setViewport: (x: number, y: number, zoom: number) => void;
-  updateViewport: (deltaX: number, deltaY: number, deltaZoom: number) => void;
+  setViewport: (
+    zr: number,
+    zi: number,
+    cr: number,
+    ci: number,
+    zoom: number,
+    sliceAngle: number,
+  ) => void;
+  updateViewport: (deltaX: number, deltaY: number, deltaZoom: number, deltaAngle: number) => void;
 }
 
 export const viewportStore = createStore<ViewportState>((set) => ({
-  x: -0.5,
-  y: 0.0,
+  zr: 0.0,
+  zi: 0.0,
+  cr: -0.5,
+  ci: 0.0,
+  sliceAngle: 0.0,
   zoom: 2.0,
   maxIter: 100, // starting value for scale 2.0
 
-  setViewport: (x, y, zoom) => set({ x, y, zoom, maxIter: calculateMaxIter(zoom) }),
+  setViewport: (zr, zi, cr, ci, zoom, sliceAngle) =>
+    set({ zr, zi, cr, ci, zoom, sliceAngle, maxIter: calculateMaxIter(zoom) }),
 
-  updateViewport: (deltaX, deltaY, deltaZoom) =>
+  updateViewport: (deltaX, deltaY, deltaZoom, deltaAngle) =>
     set((state) => {
       let newZoom = state.zoom * deltaZoom;
 
@@ -37,9 +51,20 @@ export const viewportStore = createStore<ViewportState>((set) => ({
         newZoom = 5.0; // Don't zoom too far out
       }
 
+      let newAngle = state.sliceAngle + deltaAngle;
+      if (newAngle < 0.0) newAngle = 0.0;
+      if (newAngle > Math.PI / 2) newAngle = Math.PI / 2;
+
+      // When panning, we apply the delta vector along the current slice plane
+      const cosTheta = Math.cos(newAngle);
+      const sinTheta = Math.sin(newAngle);
+
       return {
-        x: state.x + deltaX,
-        y: state.y + deltaY,
+        zr: state.zr + deltaX * sinTheta,
+        zi: state.zi + deltaY * sinTheta,
+        cr: state.cr + deltaX * cosTheta,
+        ci: state.ci + deltaY * cosTheta,
+        sliceAngle: newAngle,
         zoom: newZoom,
         maxIter: calculateMaxIter(newZoom),
       };
