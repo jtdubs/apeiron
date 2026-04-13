@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:math": "cd rust-math && wasm-pack build --target web --out-dir ../src/engine/math-workers/wasm",
-    "test:engine": "tsx tests/run-headless.ts",
-    "test:engine:deno": "deno run -A --sloppy-imports --unstable-webgpu tests/run-headless.ts",
+    "test:engine": "$HOME/.deno/bin/deno run --unstable-webgpu --allow-read --allow-env --allow-write tests/run-headless.ts",
+    "test:update": "UPDATE_SNAPSHOTS=true $HOME/.deno/bin/deno run --unstable-webgpu --allow-read --allow-env --allow-write tests/run-headless.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "prepare": "husky"

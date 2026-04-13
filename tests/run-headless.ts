@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
 import initWasm, { compute_mandelbrot } from '../src/engine/math-workers/wasm/rust_math.js';
-import { initEngine } from '../src/engine/initEngine.js';
+import { initEngine } from '../src/engine/initEngine.ts';
 
 async function main() {
   console.log('--- Apeiron Headless Regression Runner ---');
@@ -64,14 +65,53 @@ async function main() {
       }
     }
 
-    if (passed) {
-      console.log(
-        '✅ PASS: WebGPU Compute Array matches mathematical expectations within tolerance.',
-      );
-      process.exit(0);
-    } else {
+    if (!passed) {
       console.error('❌ FAIL: Arrays diverge beyond acceptable float limits.');
       process.exit(1);
+    }
+
+    console.log(
+      '✅ PASS: WebGPU Compute Array matches mathematical expectations within tolerance.',
+    );
+
+    // 7. Flavor B: Bit-Perfect Regression Tester
+    const cachePath = path.resolve('./tests/artifacts/cached_gpu_result.json');
+    if (!fs.existsSync(path.resolve('./tests/artifacts'))) {
+      fs.mkdirSync(path.resolve('./tests/artifacts'), { recursive: true });
+    }
+
+    if (process.env.UPDATE_SNAPSHOTS === 'true' || !fs.existsSync(cachePath)) {
+      console.log('📝 Writing GPU output to regression cache (Flavor B setup)...');
+      fs.writeFileSync(cachePath, JSON.stringify(Array.from(gpuResult), null, 2));
+      console.log('✅ PASS: Snapshots created. Run `test:engine` without update flag to verify.');
+      process.exit(0);
+    } else {
+      console.log('🔍 Validating Flavor B: Bit-Perfect Regression Match...');
+      const cachedStr = fs.readFileSync(cachePath, 'utf8');
+      const cachedArr = JSON.parse(cachedStr);
+      let bitPerfect = true;
+
+      if (cachedArr.length !== gpuResult.length) {
+        console.error('❌ FAIL: Size of cached result does not match GPU result.');
+        bitPerfect = false;
+      } else {
+        for (let i = 0; i < cachedArr.length; i++) {
+          if (cachedArr[i] !== gpuResult[i]) {
+            console.error(
+              `❌ REGRESSION at index ${i}: Cached ${cachedArr[i]}, but GPU computed ${gpuResult[i]}`,
+            );
+            bitPerfect = false;
+          }
+        }
+      }
+
+      if (bitPerfect) {
+        console.log('✅ PASS: WebGPU Result is Bit-Perfect with cached regression data.');
+        process.exit(0);
+      } else {
+        console.error('❌ FAIL: Bit-Perfect Regression Failed.');
+        process.exit(1);
+      }
     }
   } catch (err: unknown) {
     if (
