@@ -21,7 +21,7 @@ export const ApeironViewport: React.FC = () => {
     let lastY = 0;
 
     const onPointerDown = (e: PointerEvent) => {
-      if (e.button === 1) {
+      if (e.button === 1 || e.shiftKey || e.altKey || e.ctrlKey) {
         isMiddleDragging = true;
       } else {
         isDragging = true;
