@@ -99,12 +99,18 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let cr = data_in[idx * 4 + 2];
   let ci = data_in[idx * 4 + 3];
   
-  let floats_per_case = u32(camera.max_iter) * 2u + 4u;
-  let ref_offset = idx * floats_per_case;
-  let cycle = ref_orbits[ref_offset + u32(camera.max_iter) * 2u];
-  let ref_escaped_iter = ref_orbits[ref_offset + u32(camera.max_iter) * 2u + 3u];
+  var iter: f32 = 0.0;
+  
+  if (camera.use_perturbation > 0.5) {
+     let floats_per_case = u32(camera.max_iter) * 2u + 4u;
+     let ref_offset = idx * floats_per_case;
+     let cycle = ref_orbits[ref_offset + u32(camera.max_iter) * 2u];
+     let ref_escaped_iter = ref_orbits[ref_offset + u32(camera.max_iter) * 2u + 3u];
 
-  let iter = calculate_perturbation(vec2<f32>(cr, ci), vec2<f32>(cr, ci), ref_offset, camera.max_iter, cycle, ref_escaped_iter);
+     iter = calculate_perturbation(vec2<f32>(cr, ci), vec2<f32>(cr, ci), ref_offset, camera.max_iter, cycle, ref_escaped_iter);
+  } else {
+     iter = calculate_mandelbrot_iterations(vec2<f32>(zr, zi), vec2<f32>(cr, ci), camera.max_iter);
+  }
   
   data_out[idx * 2] = iter;
   if (iter < camera.max_iter) {

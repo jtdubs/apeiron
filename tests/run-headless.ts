@@ -68,11 +68,13 @@ async function main() {
     }
 
     // 5. Run WebGPU Compute
-    console.log('Executing WebGPU Compute pass...');
-    const gpuResult = await engine.executeTestCompute(inputs, groundTruth);
-    console.log('WebGPU Result:', gpuResult);
+    console.log('Executing WebGPU Compute pass (Perturbation Math)...');
+    const perturbGpuResult = await engine.executeTestCompute(inputs, groundTruth, 100, true);
 
-    // 6. Fuzzy Match Tolerance Checker
+    console.log('Executing WebGPU Compute pass (F32 Base Math)...');
+    const f32GpuResult = await engine.executeTestCompute(inputs, undefined, 100, false);
+
+    // 6. Fuzzy Match Tolerance Checker (against Ground Truth)
     let passed = true;
     const max_iterations = 100;
     const blockSize = max_iterations * 2 + 4;
@@ -88,17 +90,27 @@ async function main() {
       console.log(
         `Point ${i}: expectedIter=${expectedIter}, cycle=${cycle_found}, der=${der_r}, ${der_i}`,
       );
-      const gpuIter = gpuResult[i * 2]; // WebGPU still outputs [iter, escaped]
+      const perturbIter = perturbGpuResult[i * 2];
+      const f32Iter = f32GpuResult[i * 2];
 
-      const tolerance = 1.0; // Float precision tolerance for integer boundary tests
+      const tolerance = 1.0;
 
-      // We only compare the integer part of the iteration count because
-      // WebGPU returns smooth_iter (fractional) while Rust currently returns integer iter
-      if (Math.abs(expectedIter - Math.floor(gpuIter)) > tolerance) {
+      // Perturbation MUST match ALL zoom depths
+      if (Math.abs(expectedIter - Math.floor(perturbIter)) > tolerance) {
         console.error(
-          `❌ Mismatch at point ${i}: Expected ~${expectedIter}, got WebGPU ${gpuIter}`,
+          `❌ Mismatch at point ${i}: Expected ~${expectedIter}, got Perturbation WebGPU ${perturbIter}`,
         );
         passed = false;
+      }
+
+      // F32 Base Math is strictly limited. It only matches indices 0-3 (shallow roots).
+      if (i < 4) {
+        if (Math.abs(expectedIter - Math.floor(f32Iter)) > tolerance) {
+          console.error(
+            `❌ Mismatch at shallow point ${i}: Expected ~${expectedIter}, got F32 WebGPU ${f32Iter}`,
+          );
+          passed = false;
+        }
       }
     }
 
@@ -107,41 +119,57 @@ async function main() {
       process.exit(1);
     }
 
-    console.log(
-      '✅ PASS: WebGPU Compute Array matches mathematical expectations within tolerance.',
-    );
+    console.log('✅ PASS: Both pipelines accurately matched mathematical boundaries.');
 
     // 7. Flavor B: Bit-Perfect Regression Tester
-    const cachePath = path.resolve('./tests/artifacts/cached_gpu_result.json');
+    const cachePathPerturb = path.resolve('./tests/artifacts/cached_gpu_result_perturb.json');
+    const cachePathF32 = path.resolve('./tests/artifacts/cached_gpu_result_f32.json');
     if (!fs.existsSync(path.resolve('./tests/artifacts'))) {
       fs.mkdirSync(path.resolve('./tests/artifacts'), { recursive: true });
     }
 
-    if (process.env.UPDATE_SNAPSHOTS === 'true' || !fs.existsSync(cachePath)) {
-      console.log('📝 Writing GPU output to regression cache (Flavor B setup)...');
-      fs.writeFileSync(cachePath, JSON.stringify(Array.from(gpuResult), null, 2));
+    if (process.env.UPDATE_SNAPSHOTS === 'true' || !fs.existsSync(cachePathPerturb)) {
+      console.log('📝 Writing GPU outputs to regression cache...');
+      fs.writeFileSync(cachePathPerturb, JSON.stringify(Array.from(perturbGpuResult), null, 2));
+      fs.writeFileSync(cachePathF32, JSON.stringify(Array.from(f32GpuResult), null, 2));
       console.log('✅ PASS: Snapshots created. Run `test:engine` without update flag to verify.');
       process.exit(0);
     } else {
-      console.log('🔍 Validating Flavor B: Bit-Perfect Regression Match...');
-      const cachedStr = fs.readFileSync(cachePath, 'utf8');
-      const cachedArr = JSON.parse(cachedStr);
+      console.log('🔍 Validating Bit-Perfect Regression Match...');
+      const cachedPerturbStr = fs.readFileSync(cachePathPerturb, 'utf8');
+      const cachedPerturbArr = JSON.parse(cachedPerturbStr);
       let bitPerfect = true;
 
-      if (cachedArr.length !== gpuResult.length) {
-        console.error('❌ FAIL: Size of cached result does not match GPU result.');
+      if (cachedPerturbArr.length !== perturbGpuResult.length) {
+        console.error('❌ FAIL: Size of cached Perturb result does not match GPU result.');
         bitPerfect = false;
       } else {
-        for (let i = 0; i < cachedArr.length; i++) {
-          if (cachedArr[i] !== gpuResult[i]) {
+        for (let i = 0; i < cachedPerturbArr.length; i++) {
+          if (cachedPerturbArr[i] !== perturbGpuResult[i]) {
             console.error(
-              `❌ REGRESSION at index ${i}: Cached ${cachedArr[i]}, but GPU computed ${gpuResult[i]}`,
+              `❌ REGRESSION Perturb at index ${i}: Cached ${cachedPerturbArr[i]}, GPU ${perturbGpuResult[i]}`,
             );
             bitPerfect = false;
           }
         }
       }
 
+      const cachedF32Str = fs.readFileSync(cachePathF32, 'utf8');
+      const cachedF32Arr = JSON.parse(cachedF32Str);
+
+      if (cachedF32Arr.length !== f32GpuResult.length) {
+        console.error('❌ FAIL: Size of cached F32 result does not match GPU result.');
+        bitPerfect = false;
+      } else {
+        for (let i = 0; i < cachedF32Arr.length; i++) {
+          if (cachedF32Arr[i] !== f32GpuResult[i]) {
+            console.error(
+              `❌ REGRESSION F32 at index ${i}: Cached ${cachedF32Arr[i]}, GPU ${f32GpuResult[i]}`,
+            );
+            bitPerfect = false;
+          }
+        }
+      }
       if (bitPerfect) {
         console.log('✅ PASS: WebGPU Result is Bit-Perfect with cached regression data.');
         process.exit(0);

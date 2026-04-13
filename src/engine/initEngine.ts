@@ -61,6 +61,7 @@ export async function initEngine(
     input: Float32Array,
     refOrbits?: Float64Array,
     maxIter: number = 100,
+    usePerturbation: boolean = true,
   ): Promise<Float32Array> => {
     // Input is interleaved points: [zr, zi, cr, ci, ...]
     // Output is interleaved bounds: [iter, escaped, ...]
@@ -86,11 +87,24 @@ export async function initEngine(
     });
 
     const cameraTestBuffer = device.createBuffer({
-      size: 32, // 8 floats
+      size: 48, // 12 floats!
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-    // [zr, zi, cr, ci, scale, aspect, maxIter, sliceAngle]
-    const cameraData = new Float32Array([0.0, 0.0, 0.0, 0.0, 1.0, 1.0, maxIter, 0.0]);
+    // [zr, zi, cr, ci, scale, aspect, maxIter, sliceAngle, use_perturbation, pad, pad, pad]
+    const cameraData = new Float32Array([
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      1.0,
+      maxIter,
+      0.0,
+      usePerturbation ? 1.0 : 0.0,
+      0.0,
+      0.0,
+      0.0,
+    ]);
     device.queue.writeBuffer(cameraTestBuffer, 0, cameraData);
 
     const entries: GPUBindGroupEntry[] = [
@@ -107,6 +121,13 @@ export async function initEngine(
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       });
       device.queue.writeBuffer(refOrbitsBuffer, 0, refOrbitsF32);
+      entries.push({ binding: 3, resource: { buffer: refOrbitsBuffer } });
+    } else {
+      refOrbitsBuffer = device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(refOrbitsBuffer, 0, new Float32Array([0.0, 0.0, 0.0, 0.0]));
       entries.push({ binding: 3, resource: { buffer: refOrbitsBuffer } });
     }
 
