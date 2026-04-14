@@ -280,7 +280,7 @@ Deno.test(
     }
 
     const renderSession = harness.createSession(2, 2);
-    renderSession.renderFrame(0.0, 0.0, -1.748, 0.0, 1e-15, 500, 0.0, 2.0, 'INTERACT_SAFE');
+    renderSession.renderFrame(0.0, 0.0, -1.748, 0.0, 1e-15, 500, 0.0, 2.0, 0.0);
     const renderOutput = await renderSession.readResolved();
     renderSession.destroy();
 
@@ -309,9 +309,10 @@ Deno.test('Validating Progressive Rendering Temporal Accumulation (Ping-Pong Buf
   const { harness } = state;
   const width = 2;
   const height = 2;
-  const j1 = { jitterX: 0.1, jitterY: -0.1, frameCount: 1.0 };
-  const j2 = { jitterX: -0.2, jitterY: 0.3, frameCount: 2.0 };
+  const j1 = { jitterX: 0.1, jitterY: -0.1 };
+  const j2 = { jitterX: -0.2, jitterY: 0.3 };
 
+  // Frame A: first render, blendWeight=0.0 (replace prev)
   const sessionA = harness.createSession(width, height);
   sessionA.renderFrame(
     0.0,
@@ -322,14 +323,14 @@ Deno.test('Validating Progressive Rendering Temporal Accumulation (Ping-Pong Buf
     100,
     0.0,
     2.0,
-    'STATIC',
+    0.0, // blendWeight: first frame, replace
     j1.jitterX,
     j1.jitterY,
-    1.0,
   );
   const frameA = await sessionA.readGBuffer();
   sessionA.destroy();
 
+  // Frame B: first render in a fresh session, blendWeight=0.0
   const sessionB = harness.createSession(width, height);
   sessionB.renderFrame(
     0.0,
@@ -340,14 +341,14 @@ Deno.test('Validating Progressive Rendering Temporal Accumulation (Ping-Pong Buf
     100,
     0.0,
     2.0,
-    'STATIC',
+    0.0, // blendWeight: first frame, replace
     j2.jitterX,
     j2.jitterY,
-    1.0,
   );
   const frameB = await sessionB.readGBuffer();
   sessionB.destroy();
 
+  // Accumulated session: first frame replaces, second blends at 0.5 → result = (frameA + frameB) / 2
   const sessionAccum = harness.createSession(width, height);
   sessionAccum.renderFrame(
     0.0,
@@ -358,10 +359,9 @@ Deno.test('Validating Progressive Rendering Temporal Accumulation (Ping-Pong Buf
     100,
     0.0,
     2.0,
-    'STATIC',
+    0.0, // blendWeight: first frame, replace
     j1.jitterX,
     j1.jitterY,
-    1.0,
   );
   sessionAccum.renderFrame(
     0.0,
@@ -372,10 +372,9 @@ Deno.test('Validating Progressive Rendering Temporal Accumulation (Ping-Pong Buf
     100,
     0.0,
     2.0,
-    'STATIC',
+    0.5, // blendWeight: 1/2 → mix(prev, curr, 0.5) = mathematical mean
     j2.jitterX,
     j2.jitterY,
-    2.0,
   );
   const accumAB = await sessionAccum.readGBuffer();
   sessionAccum.destroy();
@@ -402,27 +401,11 @@ Deno.test('Validating Inner-Fractal Black Hole Accumulation Stability', async ()
   const { harness } = state;
   const width = 1;
   const height = 1;
-  const frames = [];
-  for (let i = 1; i <= 64; i++) {
-    frames.push({ jitterX: 0.1, jitterY: -0.1, frameCount: i });
-  }
-
   const session = harness.createSession(width, height);
-  for (const frame of frames) {
-    session.renderFrame(
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      1.0,
-      100,
-      0.0,
-      2.0,
-      'STATIC',
-      frame.jitterX,
-      frame.jitterY,
-      frame.frameCount,
-    );
+  // accumulationCount goes 1..64; blendWeight = 0.0 for first, 1/N for N-th
+  for (let i = 1; i <= 64; i++) {
+    const blendWeight = i === 1 ? 0.0 : 1.0 / i;
+    session.renderFrame(0.0, 0.0, 0.0, 0.0, 1.0, 100, 0.0, 2.0, blendWeight, 0.1, -0.1);
   }
   const blackHoleAccum = await session.readResolved();
   session.destroy();

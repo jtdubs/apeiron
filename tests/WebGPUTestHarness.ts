@@ -1,5 +1,6 @@
 import type { RenderState } from '../src/ui/stores/renderStore.ts';
 import { PassManager } from '../src/engine/PassManager.ts';
+import type { RenderFrameDescriptor } from '../src/engine/RenderFrameDescriptor.ts';
 
 export class WebGPUTestHarness {
   constructor(
@@ -50,22 +51,22 @@ export class WebGPUTestHarness {
     });
 
     const cameraData = new Float32Array([
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      1.0,
-      1.0,
+      0.0, // zr
+      0.0, // zi
+      0.0, // cr
+      0.0, // ci
+      1.0, // scale
+      1.0, // aspect
       maxIter,
-      0.0,
+      0.0, // sliceAngle
       usePerturbation ? 1.0 : 0.0,
       maxIter,
       exponent,
-      0.0,
-      0.0,
-      0.0,
-      1.0,
-      0.0,
+      0.0, // coloringMode
+      0.0, // jitterX
+      0.0, // jitterY
+      0.0, // blendWeight (first frame = 0.0, replaces prev buffer)
+      1.0, // renderScale
     ]);
     this.device.queue.writeBuffer(cameraTestBuffer, 0, cameraData);
 
@@ -171,36 +172,33 @@ export class TestRenderSession {
     zi: number,
     cr: number,
     ci: number,
-    scale: number,
+    zoom: number,
     maxIter: number,
     sliceAngle: number,
     exponent: number,
-    interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST' = 'STATIC',
+    blendWeight: number = 0.0,
     jitterX: number = 0.0,
     jitterY: number = 0.0,
-    frameCount: number = 1.0,
     refOrbits?: Float64Array | null,
     theme?: RenderState,
   ) {
-    this.pm.render(
-      this.targetView,
-      this.width,
-      this.height,
+    const desc: RenderFrameDescriptor = {
       zr,
       zi,
       cr,
       ci,
-      scale,
+      zoom,
       maxIter,
       sliceAngle,
       exponent,
-      interactionState,
+      refOrbits: refOrbits ?? null,
+      renderScale: 1.0,
+      blendWeight,
       jitterX,
       jitterY,
-      frameCount,
-      refOrbits,
-      theme,
-    );
+      theme: theme ?? ({} as RenderState),
+    };
+    this.pm.render(this.targetView, this.width, this.height, desc);
   }
 
   private async readTextureBytes(texture: GPUTexture, bytesPerPixel: number): Promise<ArrayBuffer> {

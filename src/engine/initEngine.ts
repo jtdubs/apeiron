@@ -1,4 +1,4 @@
-import type { RenderState } from '../ui/stores/renderStore';
+import type { RenderFrameDescriptor } from './RenderFrameDescriptor';
 import { PassManager } from './PassManager';
 
 export interface ApeironEngine {
@@ -6,23 +6,7 @@ export interface ApeironEngine {
   adapter: GPUAdapter;
   context: GPUCanvasContext | null;
 
-  renderFrame: (
-    zr: number,
-    zi: number,
-    cr: number,
-    ci: number,
-    scale: number,
-    maxIter: number,
-    sliceAngle: number,
-    exponent: number,
-    interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST',
-    jitterX: number,
-    jitterY: number,
-    frameCount: number,
-    renderScale: number,
-    refOrbits?: Float64Array | null,
-    theme?: RenderState,
-  ) => void;
+  renderFrame: (desc: RenderFrameDescriptor) => void;
   resize: () => void;
 }
 
@@ -70,44 +54,9 @@ export async function initEngine(
     );
   }
 
-  const renderFrame = (
-    zr: number,
-    zi: number,
-    cr: number,
-    ci: number,
-    scale: number,
-    maxIter: number,
-    sliceAngle: number,
-    exponent: number,
-    interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST',
-    jitterX: number,
-    jitterY: number,
-    frameCount: number,
-    renderScale: number,
-    refOrbits?: Float64Array | null,
-    theme?: RenderState,
-  ) => {
+  const renderFrame = (desc: RenderFrameDescriptor) => {
     if (!context || !passManager || !canvas) return;
-    passManager.render(
-      context.getCurrentTexture().createView(),
-      canvas.width,
-      canvas.height,
-      zr,
-      zi,
-      cr,
-      ci,
-      scale,
-      maxIter,
-      sliceAngle,
-      exponent,
-      interactionState,
-      jitterX,
-      jitterY,
-      frameCount,
-      renderScale,
-      refOrbits,
-      theme,
-    );
+    passManager.render(context.getCurrentTexture().createView(), canvas.width, canvas.height, desc);
   };
 
   const resize = () => {

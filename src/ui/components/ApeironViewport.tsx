@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { initEngine } from '../../engine/initEngine';
 import type { ApeironEngine } from '../../engine/initEngine';
+import type { RenderFrameDescriptor } from '../../engine/RenderFrameDescriptor';
 
 import mathAccumWgsl from '../../engine/shaders/escape/math_accum.wgsl?raw';
 import resolvePresentWgsl from '../../engine/shaders/escape/resolve_present.wgsl?raw';
@@ -157,9 +158,17 @@ export const ApeironViewport: React.FC = () => {
         const engine = await initEngine(canvas, mathAccumWgsl, resolvePresentWgsl);
         if (!isMounted) return;
         engineRef.current = engine;
-        let lastRenderStateKey = '';
-        let lastBaseGeometryKey = '';
-        let frameCount = 1.0;
+
+        // ── Accumulation state machine ──────────────────────────────────────
+        // accumulationCount tracks how many consecutive frames have been
+        // accumulated for the current static geometry. It resets to 0 whenever
+        // geometry changes or the mode transitions to INTERACT.
+        //   count == 0 → first frame, blendWeight = 0.0 (replace prev buffer)
+        //   count >= 1 → Nth frame,  blendWeight = 1/count (temporal blend)
+        // The engine receives blendWeight directly — no frameCount arithmetic.
+        let accumulationCount = 0;
+        let lastDesc: RenderFrameDescriptor | null = null;
+        let lastCanvasSizeVersion = -1;
 
         const loop = () => {
           if (!isMounted) return;
@@ -168,69 +177,81 @@ export const ApeironViewport: React.FC = () => {
 
           const isPerturb = state.refOrbits !== null && theme.precisionMode !== 'f32';
 
-          const passZr = isPerturb ? state.deltaZr : parseFloat(state.anchorZr) + state.deltaZr;
-          const passZi = isPerturb ? state.deltaZi : parseFloat(state.anchorZi) + state.deltaZi;
-          const passCr = isPerturb ? state.deltaCr : parseFloat(state.anchorCr) + state.deltaCr;
-          const passCi = isPerturb ? state.deltaCi : parseFloat(state.anchorCi) + state.deltaCi;
+          const zr = isPerturb ? state.deltaZr : parseFloat(state.anchorZr) + state.deltaZr;
+          const zi = isPerturb ? state.deltaZi : parseFloat(state.anchorZi) + state.deltaZi;
+          const cr = isPerturb ? state.deltaCr : parseFloat(state.anchorCr) + state.deltaCr;
+          const ci = isPerturb ? state.deltaCi : parseFloat(state.anchorCi) + state.deltaCi;
 
-          // DRS: scale the render resolution without touching the canvas.
-          // Canvas stays at full devicePixelRatio. During INTERACT we render
-          // into a sub-rect and upscale via the resolve shader. No GPU surface resize.
+          // DRS: render_scale < 1.0 during INTERACT to avoid GPU surface resizes.
           const renderDpr = window.devicePixelRatio || 1;
-          const renderScale = state.interactionState === 'STATIC' ? 1.0 : 1.0 / renderDpr;
+          const isInteracting = state.interactionState !== 'STATIC';
+          const renderScale = isInteracting ? 1.0 / renderDpr : 1.0;
 
-          const baseGeometryKey = `${passZr},${passZi},${passCr},${passCi},${state.zoom},${state.sliceAngle},${state.exponent},${state.maxIter},${state.refOrbits !== null},${theme.themeVersion},${canvasSizeVersion}`;
-          if (baseGeometryKey !== lastBaseGeometryKey) {
-            frameCount = 1.0;
-            lastBaseGeometryKey = baseGeometryKey;
+          // Detect geometry changes (anything that requires a fresh accumulation).
+          // Instead of string keys, compare the fields that actually matter.
+          const geometryChanged =
+            !lastDesc ||
+            lastDesc.zr !== zr ||
+            lastDesc.zi !== zi ||
+            lastDesc.cr !== cr ||
+            lastDesc.ci !== ci ||
+            lastDesc.zoom !== state.zoom ||
+            lastDesc.sliceAngle !== state.sliceAngle ||
+            lastDesc.exponent !== state.exponent ||
+            lastDesc.maxIter !== state.maxIter ||
+            lastDesc.refOrbits !== state.refOrbits ||
+            lastDesc.theme.themeVersion !== theme.themeVersion ||
+            lastDesc.renderScale !== renderScale ||
+            lastCanvasSizeVersion !== canvasSizeVersion;
+
+          if (geometryChanged || isInteracting) {
+            accumulationCount = 0;
           }
 
-          const renderStateKey = `${baseGeometryKey},${state.interactionState},${renderScale},${frameCount}`;
-
-          if (
-            renderStateKey !== lastRenderStateKey ||
-            (state.interactionState === 'STATIC' && frameCount <= 64.0)
-          ) {
-            let jitterX = 0.0;
-            let jitterY = 0.0;
-
-            if (state.interactionState === 'STATIC') {
-              if (frameCount > 1.0 && frameCount <= 64.0) {
-                // Sub-pixel jitter: range [-1/width, 1/width] in UV space
-                // Use full canvas dimensions since STATIC always renders at renderScale 1.0.
-                jitterX = (Math.random() - 0.5) * (2.0 / canvas.width);
-                jitterY = (Math.random() - 0.5) * (2.0 / canvas.height);
-              }
-              frameCount = Math.min(frameCount + 1.0, 65.0);
-            } else {
-              frameCount = 1.0;
-            }
-
-            // INTERACT frames always pass frameCount=1.0 so the accumulation shader
-            // never blends the full-res STATIC prev_frame into the low-res sub-rect.
-            // (OLD code relied on the canvas resize changing baseGeometryKey to reset
-            // frameCount before capture; that side effect is gone with zero-resize DRS.)
-            const passFrameCount = state.interactionState === 'STATIC' ? frameCount - 1.0 : 1.0;
-
-            engine.renderFrame(
-              passZr,
-              passZi,
-              passCr,
-              passCi,
-              state.zoom,
-              state.maxIter,
-              state.sliceAngle,
-              state.exponent,
-              state.interactionState,
-              jitterX,
-              jitterY,
-              passFrameCount,
-              renderScale,
-              state.refOrbits,
-              theme,
-            );
-            lastRenderStateKey = renderStateKey;
+          // Skip the GPU submission if static and fully accumulated.
+          const MAX_ACCUM_FRAMES = 64;
+          if (!isInteracting && accumulationCount >= MAX_ACCUM_FRAMES) {
+            requestRef.current = requestAnimationFrame(loop);
+            return;
           }
+
+          accumulationCount++;
+
+          // blendWeight == 0.0  → replace prev buffer (first frame / all INTERACT frames)
+          // blendWeight == 1/N  → temporal blend for the Nth STATIC accumulated frame
+          const blendWeight =
+            isInteracting || accumulationCount === 1 ? 0.0 : 1.0 / accumulationCount;
+
+          // Sub-pixel jitter for STATIC accumulation frames beyond the first.
+          let jitterX = 0.0;
+          let jitterY = 0.0;
+          if (!isInteracting && accumulationCount > 1) {
+            // range [-1/width, 1/width] in UV space; full canvas size (STATIC always full-res)
+            jitterX = (Math.random() - 0.5) * (2.0 / canvas.width);
+            jitterY = (Math.random() - 0.5) * (2.0 / canvas.height);
+          }
+
+          const desc: RenderFrameDescriptor = {
+            zr,
+            zi,
+            cr,
+            ci,
+            zoom: state.zoom,
+            maxIter: state.maxIter,
+            sliceAngle: state.sliceAngle,
+            exponent: state.exponent,
+            refOrbits: state.refOrbits,
+            renderScale,
+            blendWeight,
+            jitterX,
+            jitterY,
+            theme,
+          };
+
+          engine.renderFrame(desc);
+          lastDesc = desc;
+          lastCanvasSizeVersion = canvasSizeVersion;
+
           requestRef.current = requestAnimationFrame(loop);
         };
         requestRef.current = requestAnimationFrame(loop);

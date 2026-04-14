@@ -19,7 +19,7 @@ describe('PassManager Pure Function Uniform Building', () => {
       2.0,
       0.0,
       0.0,
-      1.0,
+      0.0, // blendWeight (first frame = 0.0)
       true,
       rustBufferLength,
       1.0, // renderScale
@@ -36,6 +36,10 @@ describe('PassManager Pure Function Uniform Building', () => {
     // [9]: actualRefMaxIter
     // [10]: exponent
     // [11]: coloringMode
+    // [12]: jitterX
+    // [13]: jitterY
+    // [14]: blendWeight (was frameCount)
+    // [15]: renderScale
 
     expect(uniforms[9]).toBe(expectedMaxIter);
     expect(uniforms[8]).toBe(1.0); // usePerturbation true by default if valid active ref orbits and no f32 mode
@@ -55,7 +59,7 @@ describe('PassManager Pure Function Uniform Building', () => {
       2.0,
       0.0,
       0.0,
-      1.0,
+      0.0, // blendWeight
       true,
       208,
       1.0, // renderScale

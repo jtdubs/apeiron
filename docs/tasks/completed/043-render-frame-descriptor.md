@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 043: RenderFrameDescriptor — Typed Engine Contract

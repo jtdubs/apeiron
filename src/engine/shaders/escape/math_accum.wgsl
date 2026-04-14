@@ -13,7 +13,7 @@ struct CameraParams {
   coloring_mode: f32,
   jitter_x: f32,
   jitter_y: f32,
-  frame_count: f32,
+  blend_weight: f32,
   render_scale: f32,
 };
 
@@ -344,7 +344,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   let start_c = select(vec2<f32>(camera.cr, camera.ci) + uv_mapped * cos_theta, vec2<f32>(abs_cr, abs_ci) + delta_c, camera.use_perturbation > 0.5);
   
   let ret = execute_engine_math(start_z, start_c, delta_z, delta_c, 0u);
-  
-  let prev = textureLoad(prev_frame, vec2<i32>(in.position.xy), 0);
-  return mix(prev, ret, 1.0 / camera.frame_count);
+
+  // blend_weight == 0.0  → replace prev buffer (first frame / INTERACT)
+  // blend_weight == 1/N  → mix(prev, current, 1/N) for Nth accumulated frame
+  // select() avoids sampling prev_frame at all when no blending is needed.
+  let prev = select(ret, textureLoad(prev_frame, vec2<i32>(in.position.xy), 0), camera.blend_weight > 0.0);
+  return mix(prev, ret, select(1.0, camera.blend_weight, camera.blend_weight > 0.0));
 }

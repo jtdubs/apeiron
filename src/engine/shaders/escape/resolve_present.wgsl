@@ -18,6 +18,11 @@ fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
 
 @group(0) @binding(0) var g_buffer: texture_2d<f32>;
 
+// Minimal view into the camera uniform to read render_scale without
+// duplicating the full CameraParams layout here.
+struct CameraScaleParams { render_scale: f32 };
+@group(0) @binding(1) var<uniform> camera_scale: CameraScaleParams;
+
 struct ResolveUniforms {
   a: vec4<f32>,
   b: vec4<f32>,
@@ -36,7 +41,8 @@ struct ResolveUniforms {
   surface_mode: f32,
   surface_param_a: f32,
   surface_param_b: f32,
-  render_scale: f32,
+  // pad field removed — render_scale is now in camera_scale (group 0 binding 1)
+  pad: f32,
 };
 
 @group(1) @binding(0) var<uniform> params: ResolveUniforms;
@@ -50,8 +56,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   // Remap fragment position into G-Buffer sub-rect texel space.
   // When render_scale < 1.0 (INTERACT), this stretches the low-res
   // quadrant to fill the full canvas. When render_scale == 1.0 (STATIC)
-  // this is a no-op (multiply by 1.0).
-  let coord = vec2<i32>(floor(in.position.xy * params.render_scale));
+  // this is a no-op (multiply by 1.0). render_scale comes from the shared
+  // camera uniform (group 0 binding 1) — not from the palette buffer.
+  let coord = vec2<i32>(floor(in.position.xy * camera_scale.render_scale));
   let tex_color = textureLoad(g_buffer, coord, 0);
   let iter = tex_color.r;
   let de = tex_color.g;

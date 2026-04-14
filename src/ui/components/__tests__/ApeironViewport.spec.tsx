@@ -3,6 +3,7 @@ import { render, act, fireEvent } from '@testing-library/react';
 import { ApeironViewport } from '../ApeironViewport';
 import { viewportStore } from '../../stores/viewportStore';
 import { renderStore } from '../../stores/renderStore';
+import type { RenderFrameDescriptor } from '../../../engine/RenderFrameDescriptor';
 
 // Mock the WebGPU engine initialization since it crashes in JSDOM (no virtual GPU adapter)
 const { renderFrameMock, initEngineMock } = vi.hoisted(() => {
@@ -255,13 +256,15 @@ describe('ApeironViewport Orchestration', () => {
     });
 
     expect(renderFrameMock).toHaveBeenCalled();
-    const args = renderFrameMock.mock.calls[0];
+    // renderFrame now receives a single RenderFrameDescriptor object
+    const desc: RenderFrameDescriptor = renderFrameMock.mock.calls[0][0];
 
     // If 'f32', it combines anchors with deltas directly instead of treating them as purely delta passes.
     // Cr anchor is -0.8, delta is 0.
-    expect(args[2]).toBeCloseTo(-0.8);
+    expect(desc.cr).toBeCloseTo(-0.8);
   });
 
+<<<<<<< HEAD
   it('enforces Latest-Only Buffer to prevent worker queue overlap and flickering', async () => {
     // Start zoomed in to trigger perturbation
     act(() => {
@@ -309,7 +312,7 @@ describe('ApeironViewport Orchestration', () => {
     unmount();
   });
 
-  it('resets frameCount to 1.0 strictly without skipping a frame when geometry changes', async () => {
+  it('resets accumulationCount (blendWeight=0) strictly on geometry change', async () => {
     act(() => {
       viewportStore.setState({ zoom: 1.0, interactionState: 'STATIC', anchorCr: '-0.8' });
     });
@@ -325,22 +328,19 @@ describe('ApeironViewport Orchestration', () => {
       vi.advanceTimersByTime(16);
     });
 
-    // Initial render should be frame 1.0
+    // Initial render should have blendWeight = 0.0 (first frame, accumulationCount=1)
     expect(renderFrameMock).toHaveBeenCalled();
-    let args = renderFrameMock.mock.calls[0];
-    // arg order: zr,zi,cr,ci,scale,maxIter,sliceAngle,exponent,state,jitterX,jitterY,frameCount,renderScale,...
-    let passedFrameCount = args[11]; // index 11 is frameCount
-    expect(passedFrameCount).toBe(1.0);
+    let desc: RenderFrameDescriptor = renderFrameMock.mock.calls[0][0];
+    expect(desc.blendWeight).toBe(0.0);
 
     renderFrameMock.mockClear();
 
-    // Advance to next frame, should be accumulated as 2.0
+    // Advance to next frame — should be accumulating (blendWeight = 1/2)
     act(() => {
       vi.advanceTimersByTime(16);
     });
-    args = renderFrameMock.mock.calls[0];
-    passedFrameCount = args[11]; // frameCount still at index 11
-    expect(passedFrameCount).toBe(2.0);
+    desc = renderFrameMock.mock.calls[0][0];
+    expect(desc.blendWeight).toBeCloseTo(1.0 / 2);
 
     renderFrameMock.mockClear();
 
@@ -354,9 +354,8 @@ describe('ApeironViewport Orchestration', () => {
       vi.advanceTimersByTime(16);
     });
 
-    // It should have reset strictly back to 1.0 for the first frame of new geometry!
-    args = renderFrameMock.mock.calls[0];
-    passedFrameCount = args[11]; // frameCount still at index 11
-    expect(passedFrameCount).toBe(1.0);
+    // blendWeight must be 0.0 again — geometry change resets accumulationCount
+    desc = renderFrameMock.mock.calls[0][0];
+    expect(desc.blendWeight).toBe(0.0);
   });
 });

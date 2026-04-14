@@ -12,7 +12,7 @@ export function buildCameraUniforms(
   exponent: number,
   jitterX: number,
   jitterY: number,
-  frameCount: number,
+  blendWeight: number,
   hasValidActiveRefOrbits: boolean,
   refOrbitsLength: number | undefined,
   renderScale: number,
@@ -44,7 +44,7 @@ export function buildCameraUniforms(
     theme?.coloringMode === 'stripe' ? 1.0 : theme?.coloringMode === 'banded' ? 2.0 : 0.0,
     jitterX,
     jitterY,
-    frameCount,
+    blendWeight,
     renderScale,
   ]);
 }

@@ -1,4 +1,7 @@
-import type { RenderState } from '../ui/stores/renderStore';
+import type { RenderFrameDescriptor } from './RenderFrameDescriptor';
+import { buildCameraUniforms, buildPaletteUniforms } from './uniforms';
+
+// ─── AccumulationPass ────────────────────────────────────────────────────────
 
 export class AccumulationPass {
   private device: GPUDevice;
@@ -11,7 +14,7 @@ export class AccumulationPass {
     const mathModule = device.createShaderModule({ code: mathShaderCode });
 
     this.uniformsBuffer = device.createBuffer({
-      size: 64, // 16 floats
+      size: 64, // 16 floats × 4 bytes (CameraParams)
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -76,9 +79,8 @@ export class AccumulationPass {
     });
     mathPass.setPipeline(this.mathPipeline);
     mathPass.setBindGroup(0, bindGroup);
-    // Constrain rasterization to the scaled sub-rect so we only compute
-    // the pixels we actually need. The resolve pass upscales this region
-    // to fill the full canvas via the render_scale UV remap.
+    // Constrain rasterization to the DRS sub-rect. The resolve pass upscales
+    // this region to fill the full canvas via the render_scale UV remap.
     mathPass.setViewport(0, 0, renderWidth, renderHeight, 0, 1);
     mathPass.setScissorRect(0, 0, renderWidth, renderHeight);
     mathPass.draw(6);
@@ -86,10 +88,14 @@ export class AccumulationPass {
   }
 }
 
+// ─── PresentationPass ────────────────────────────────────────────────────────
+
 export class PresentationPass {
   private device: GPUDevice;
   private resolvePipeline: GPURenderPipeline;
   public paletteUniformsBuffer: GPUBuffer;
+  /** Dedicated 16-byte uniform buffer for render_scale (group 0, binding 1 in the resolve shader). */
+  public renderScaleBuffer: GPUBuffer;
   private bindGroup1: GPUBindGroup;
 
   constructor(device: GPUDevice, resolveShaderCode: string, canvasFormat: GPUTextureFormat) {
@@ -97,9 +103,18 @@ export class PresentationPass {
     const resolveModule = device.createShaderModule({ code: resolveShaderCode });
 
     this.paletteUniformsBuffer = device.createBuffer({
-      size: 128, // 32 floats
+      size: 128, // 32 floats × 4 bytes (ResolveUniforms)
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
+
+    // 16-byte buffer (min uniform size) holding a single f32 render_scale at offset 0.
+    // The resolve shader reads it via CameraScaleParams at @group(0) @binding(1).
+    this.renderScaleBuffer = device.createBuffer({
+      size: 16,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    // Default: full resolution (STATIC).
+    device.queue.writeBuffer(this.renderScaleBuffer, 0, new Float32Array([1.0, 0.0, 0.0, 0.0]));
 
     this.resolvePipeline = device.createRenderPipeline({
       layout: 'auto',
@@ -123,10 +138,18 @@ export class PresentationPass {
     });
   }
 
+  /**
+   * Build bind group 0 for the resolve pass.
+   * Binding 0: G-buffer texture view.
+   * Binding 1: renderScaleBuffer — a dedicated 16-byte uniform holding render_scale at offset 0.
+   */
   public getBindGroup0(gBufferView: GPUTextureView): GPUBindGroup {
     return this.device.createBindGroup({
       layout: this.resolvePipeline.getBindGroupLayout(0),
-      entries: [{ binding: 0, resource: gBufferView }],
+      entries: [
+        { binding: 0, resource: gBufferView },
+        { binding: 1, resource: { buffer: this.renderScaleBuffer } },
+      ],
     });
   }
 
@@ -153,7 +176,7 @@ export class PresentationPass {
   }
 }
 
-import { buildCameraUniforms, buildPaletteUniforms } from './uniforms';
+// ─── PassManager ─────────────────────────────────────────────────────────────
 
 export class PassManager {
   private device: GPUDevice;
@@ -167,14 +190,13 @@ export class PassManager {
   private gBufferTextureB: GPUTexture | null = null;
   private pingPongTargetIsB = false;
 
-  private resolveBindGroup0: GPUBindGroup | null = null;
   private activeRefOrbitsBuffer: GPUBuffer | null = null;
-
-  private needsMathUpdate = true;
-  private lastCameraState = '';
-  private lastThemeVersion = -1;
   private hasValidActiveRefOrbits = false;
   private lastRefOrbits: Float64Array | null | undefined = undefined;
+
+  // Version counters replace string-based diffing.
+  // Incremented externally via invalidate() when a genuine re-render is needed.
+  private lastThemeVersion = -1;
 
   constructor(
     device: GPUDevice,
@@ -210,152 +232,138 @@ export class PassManager {
     this.gBufferTextureA = this.device.createTexture(desc);
     this.gBufferTextureB = this.device.createTexture(desc);
     this.pingPongTargetIsB = false;
-
-    this.needsMathUpdate = true;
   }
 
   public getActiveGBuffer(): GPUTexture | null {
     return this.pingPongTargetIsB ? this.gBufferTextureB : this.gBufferTextureA;
   }
 
+  /**
+   * Render one frame using the provided descriptor.
+   *
+   * The descriptor is the single source of truth for everything the engine
+   * needs to know about this frame. No string diffing, no implicit internal
+   * state beyond the GPU buffers themselves.
+   *
+   * Callers (i.e. the RAF loop in ApeironViewport) are responsible for:
+   *   - Computing blendWeight (0.0 = replace, 1/N for Nth accumulated frame)
+   *   - Deciding whether to call render() at all (skip if nothing changed)
+   *   - Resetting their accumulation counter on geometry/mode transitions
+   */
   public render(
     targetView: GPUTextureView,
     width: number,
     height: number,
-    zr: number,
-    zi: number,
-    cr: number,
-    ci: number,
-    scale: number,
-    maxIter: number,
-    sliceAngle: number,
-    exponent: number,
-    interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST' = 'INTERACT_SAFE',
-    jitterX: number = 0.0,
-    jitterY: number = 0.0,
-    frameCount: number = 1.0,
-    renderScale: number = 1.0,
-    refOrbits?: Float64Array | null,
-    theme?: RenderState,
+    desc: RenderFrameDescriptor,
   ) {
     if (!this.gBufferTextureA || !this.gBufferTextureB) return;
 
     const aspectRatio = width / height;
-    const renderWidth = Math.max(1, Math.floor(width * renderScale));
-    const renderHeight = Math.max(1, Math.floor(height * renderScale));
+    const renderWidth = Math.max(1, Math.floor(width * desc.renderScale));
+    const renderHeight = Math.max(1, Math.floor(height * desc.renderScale));
 
-    let refOrbitsSwapped = false;
-    if (refOrbits !== undefined && refOrbits !== this.lastRefOrbits) {
-      if (refOrbits) {
+    // ── Ref orbits ───────────────────────────────────────────────────────────
+    if (desc.refOrbits !== undefined && desc.refOrbits !== this.lastRefOrbits) {
+      if (desc.refOrbits) {
         if (this.activeRefOrbitsBuffer) this.activeRefOrbitsBuffer.destroy();
         this.activeRefOrbitsBuffer = this.device.createBuffer({
-          size: refOrbits.byteLength,
+          size: desc.refOrbits.byteLength,
           usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
         this.device.queue.writeBuffer(
           this.activeRefOrbitsBuffer,
           0,
-          refOrbits.buffer,
-          refOrbits.byteOffset,
-          refOrbits.byteLength,
+          desc.refOrbits.buffer,
+          desc.refOrbits.byteOffset,
+          desc.refOrbits.byteLength,
         );
         this.hasValidActiveRefOrbits = true;
-        refOrbitsSwapped = true;
       } else if (this.hasValidActiveRefOrbits) {
         if (this.activeRefOrbitsBuffer) this.activeRefOrbitsBuffer.destroy();
         this.activeRefOrbitsBuffer = null;
         this.hasValidActiveRefOrbits = false;
-        refOrbitsSwapped = true;
       }
-      this.lastRefOrbits = refOrbits;
+      this.lastRefOrbits = desc.refOrbits;
     }
 
-    if (refOrbitsSwapped) {
-      this.needsMathUpdate = true;
-    }
-
+    // ── Camera uniforms ──────────────────────────────────────────────────────
+    // Written every frame — the RAF loop only calls render() when needed, so
+    // we skip the camState string-diff and always upload the current values.
     const actualRefMaxIter =
-      this.hasValidActiveRefOrbits && refOrbits ? (refOrbits.length - 8) / 2 : maxIter;
-    const paletteMaxIter = this.hasValidActiveRefOrbits ? actualRefMaxIter : maxIter;
+      this.hasValidActiveRefOrbits && desc.refOrbits
+        ? (desc.refOrbits.length - 8) / 2
+        : desc.maxIter;
+    const paletteMaxIter = this.hasValidActiveRefOrbits ? actualRefMaxIter : desc.maxIter;
 
-    const usePerturbationAllowed = !(theme && theme.precisionMode === 'f32');
-    const usePerturbation = this.hasValidActiveRefOrbits && usePerturbationAllowed ? 1.0 : 0.0;
+    const cameraData = buildCameraUniforms(
+      desc.zr,
+      desc.zi,
+      desc.cr,
+      desc.ci,
+      desc.zoom,
+      aspectRatio,
+      desc.maxIter,
+      desc.sliceAngle,
+      desc.exponent,
+      desc.jitterX,
+      desc.jitterY,
+      desc.blendWeight,
+      this.hasValidActiveRefOrbits,
+      desc.refOrbits ? desc.refOrbits.length : undefined,
+      desc.renderScale,
+      desc.theme,
+    );
+    this.device.queue.writeBuffer(this.accumPass.uniformsBuffer, 0, cameraData);
 
-    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation},${actualRefMaxIter},${exponent},${jitterX},${jitterY},${frameCount},${renderScale}`;
-
-    if (camState !== this.lastCameraState) {
-      this.needsMathUpdate = true;
-      this.lastCameraState = camState;
-
-      const cameraData = buildCameraUniforms(
-        zr,
-        zi,
-        cr,
-        ci,
-        scale,
-        aspectRatio,
-        maxIter,
-        sliceAngle,
-        exponent,
-        jitterX,
-        jitterY,
-        frameCount,
-        this.hasValidActiveRefOrbits,
-        refOrbits ? refOrbits.length : undefined,
-        renderScale,
-        theme,
-      );
-      this.device.queue.writeBuffer(this.accumPass.uniformsBuffer, 0, cameraData);
-
-      this.device.queue.writeBuffer(
-        this.presentPass.paletteUniformsBuffer,
-        64,
-        new Float32Array([paletteMaxIter]),
-      );
-    }
-
-    const themeVersion = theme?.themeVersion ?? -1;
-    if (themeVersion !== this.lastThemeVersion && theme) {
+    // ── Palette/resolve uniforms (only on theme change) ──────────────────────
+    const themeVersion = desc.theme?.themeVersion ?? -1;
+    if (themeVersion !== this.lastThemeVersion) {
       this.lastThemeVersion = themeVersion;
-
-      const paletteData = buildPaletteUniforms(theme, paletteMaxIter);
+      const paletteData = buildPaletteUniforms(desc.theme, paletteMaxIter);
       this.device.queue.writeBuffer(this.presentPass.paletteUniformsBuffer, 0, paletteData);
     }
-
-    // Write render_scale every frame (float index 29, byte offset 116) so the
-    // resolve shader always has the current value regardless of theme version.
-    // Note: buildPaletteUniforms writes 0.0 to this slot as pad; this overwrites it.
+    // Keep paletteMaxIter in sync even when theme version hasn't changed
+    // (e.g. refOrbits length changed but theme stayed the same).
     this.device.queue.writeBuffer(
       this.presentPass.paletteUniformsBuffer,
-      116,
-      new Float32Array([renderScale]),
+      64,
+      new Float32Array([paletteMaxIter]),
     );
 
+    // Write render_scale to its dedicated uniform buffer (group 0, binding 1 of the resolve pass).
+    // This must be written every frame so the resolve shader always has the correct scale.
+    this.device.queue.writeBuffer(
+      this.presentPass.renderScaleBuffer,
+      0,
+      new Float32Array([desc.renderScale]),
+    );
+
+    // ── GPU command submission ───────────────────────────────────────────────
     const commandEncoder = this.device.createCommandEncoder();
 
-    if (this.needsMathUpdate || interactionState === 'STATIC') {
-      this.pingPongTargetIsB = !this.pingPongTargetIsB;
-      const writeTex = this.pingPongTargetIsB ? this.gBufferTextureB : this.gBufferTextureA;
-      const readTex = this.pingPongTargetIsB ? this.gBufferTextureA : this.gBufferTextureB;
+    // Always run the accumulation pass — the RAF loop decides whether to
+    // call render() at all; the engine never skips the math pass internally.
+    this.pingPongTargetIsB = !this.pingPongTargetIsB;
+    const writeTex = this.pingPongTargetIsB ? this.gBufferTextureB : this.gBufferTextureA;
+    const readTex = this.pingPongTargetIsB ? this.gBufferTextureA : this.gBufferTextureB;
 
-      const currentBindGroup = this.accumPass.getBindGroup(
-        this.activeRefOrbitsBuffer,
-        readTex.createView(),
-      );
+    const accumBindGroup = this.accumPass.getBindGroup(
+      this.activeRefOrbitsBuffer,
+      readTex!.createView(),
+    );
+    this.accumPass.execute(
+      commandEncoder,
+      writeTex!.createView(),
+      accumBindGroup,
+      renderWidth,
+      renderHeight,
+    );
 
-      this.accumPass.execute(
-        commandEncoder,
-        writeTex.createView(),
-        currentBindGroup,
-        renderWidth,
-        renderHeight,
-      );
-      this.needsMathUpdate = false;
-    }
-
+    // Resolve pass: bind group 0 uses the dedicated renderScaleBuffer at binding 1
+    // so the resolve shader reads render_scale at offset 0 of that buffer.
     const latestTex = this.pingPongTargetIsB ? this.gBufferTextureB : this.gBufferTextureA;
-    this.resolveBindGroup0 = this.presentPass.getBindGroup0(latestTex.createView());
-    this.presentPass.execute(commandEncoder, targetView, this.resolveBindGroup0);
+    const resolveBindGroup0 = this.presentPass.getBindGroup0(latestTex!.createView());
+    this.presentPass.execute(commandEncoder, targetView, resolveBindGroup0);
 
     this.device.queue.submit([commandEncoder.finish()]);
   }
