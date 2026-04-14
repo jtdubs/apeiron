@@ -19,8 +19,8 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
     let points: Vec<Point> = serde_json::from_str(points_json).unwrap_or_else(|_| vec![]);
     
     // Each point yields: (max_iterations) * 2 floats for the orbit
-    // PLUS 4 metadata floats: [cycle_found, der_r, der_i, iter/escape]
-    let mut results = Vec::with_capacity(points.len() * ((max_iterations as usize * 2) + 4));
+    // PLUS 8 metadata floats: [cycle_found, der_r, der_i, iter/escape, abs_zr, abs_zi, abs_cr, abs_ci]
+    let mut results = Vec::with_capacity(points.len() * ((max_iterations as usize * 2) + 8));
 
     for p in points {
         let mut x = BigDecimal::from_str(&p.zr).unwrap_or(BigDecimal::zero());
@@ -134,6 +134,12 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
         results.push(der_r.to_f64().unwrap_or(0.0));
         results.push(der_i.to_f64().unwrap_or(0.0));
         results.push(if escaped { iter as f64 } else { max_iterations as f64 });
+        
+        // Append absolute tracking metadata to be retrieved cleanly by WebGPU without JS Float parsing
+        results.push(p.zr.parse::<f64>().unwrap_or(0.0));
+        results.push(p.zi.parse::<f64>().unwrap_or(0.0));
+        results.push(p.cr.parse::<f64>().unwrap_or(0.0));
+        results.push(p.ci.parse::<f64>().unwrap_or(0.0));
     }
 
     js_sys::Float64Array::from(&results[..])

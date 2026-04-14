@@ -128,12 +128,11 @@ export async function initEngine(
 
     let refOrbitsBuffer: GPUBuffer | null = null;
     if (refOrbits) {
-      const refOrbitsF32 = new Float32Array(refOrbits);
       refOrbitsBuffer = device.createBuffer({
-        size: refOrbitsF32.byteLength,
+        size: refOrbits.byteLength,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       });
-      device.queue.writeBuffer(refOrbitsBuffer, 0, refOrbitsF32);
+      device.queue.writeBuffer(refOrbitsBuffer, 0, refOrbits.buffer, refOrbits.byteOffset, refOrbits.byteLength);
       entries.push({ binding: 3, resource: { buffer: refOrbitsBuffer } });
     } else {
       refOrbitsBuffer = device.createBuffer({

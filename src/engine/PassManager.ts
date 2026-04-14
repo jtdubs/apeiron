@@ -213,12 +213,11 @@ export class PassManager {
     if (refOrbits !== undefined && refOrbits !== this.lastRefOrbits) {
       if (refOrbits) {
         if (this.activeRefOrbitsBuffer) this.activeRefOrbitsBuffer.destroy();
-        const refF32 = new Float32Array(refOrbits);
         this.activeRefOrbitsBuffer = this.device.createBuffer({
-          size: refF32.byteLength,
+          size: refOrbits.byteLength,
           usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
-        this.device.queue.writeBuffer(this.activeRefOrbitsBuffer, 0, refF32);
+        this.device.queue.writeBuffer(this.activeRefOrbitsBuffer, 0, refOrbits.buffer, refOrbits.byteOffset, refOrbits.byteLength);
         this.hasValidActiveRefOrbits = true;
         refOrbitsSwapped = true;
       } else if (this.hasValidActiveRefOrbits) {

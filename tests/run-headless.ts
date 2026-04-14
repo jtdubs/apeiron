@@ -61,7 +61,7 @@ async function main() {
     const rawCases = JSON.parse(casesJson);
 
     // Create the clusters
-    // For each case, we test 3 exact offset variations natively natively (Center, TopLeft, BottomRight)
+    // For each case, we test exact offset variations natively (Center, TopLeft, BottomRight, and extreme deep bounds)
     const clusterCases: {
       zr: number;
       zi: number;
@@ -69,6 +69,7 @@ async function main() {
       ci: number;
       dc_r: number;
       dc_i: number;
+      exponent?: number;
     }[] = [];
     for (const c of rawCases) {
       const zr = parseFloat(c.zr);
@@ -90,6 +91,27 @@ async function main() {
         dc_i: -1e-6,
         exponent,
       });
+      // Simulating extreme deep zoom resolving to 1e-15
+      clusterCases.push({
+        zr,
+        zi,
+        cr: cr + 2e-15,
+        ci: ci - 2e-15,
+        dc_r: 2e-15,
+        dc_i: -2e-15,
+        exponent,
+      });
+      clusterCases.push({
+        zr,
+        zi,
+        cr: cr - 2e-15,
+        ci: ci + 2e-15,
+        dc_r: -2e-15,
+        dc_i: 2e-15,
+        exponent,
+      });
+      // Simulating a proxy void fallback failure: shift delta far enough that the offset point escapes LATER than the anchor
+      clusterCases.push({ zr, zi, cr: cr + 0.05, ci: ci + 0.05, dc_r: 0.05, dc_i: 0.05, exponent });
     }
 
     const inputs = new Float32Array(clusterCases.length * 6);
@@ -133,16 +155,16 @@ async function main() {
 
     // NOTE: For WebGPU perturbation testing, `ref_orbits` must specifically represent ONLY the Anchor!
     // Since WebGPU computes against one anchor orbit array, and we interleaved our cluster variations,
-    // we need an array of Anchor orbits duplicated 3 times each to match the execution layout mathematically.
-    // Each anchor orbit is `100 * 2 + 4` = 204 floats.
-    // 8 cases * 3 variants = 24 matrices * 204 = 4896 floats.
-    const blockSize = 100 * 2 + 4;
+    // we need an array of Anchor orbits duplicated 5 times each to match the execution layout mathematically.
+    // Each anchor orbit is `100 * 2 + 8` = 208 floats.
+    const blockSize = 100 * 2 + 8;
+    const variantsPerCase = 6;
     const alignedRefOrbits = new Float64Array(clusterCases.length * blockSize);
     for (let c = 0; c < rawCases.length; c++) {
       // The original groundTruth contains exactly the Anchor runs
-      // Copy it into the 3 cluster slots
-      for (let variant = 0; variant < 3; variant++) {
-        const clusterIdx = c * 3 + variant;
+      // Copy it into the all cluster slots
+      for (let variant = 0; variant < variantsPerCase; variant++) {
+        const clusterIdx = c * variantsPerCase + variant;
         const srcStart = c * blockSize;
         alignedRefOrbits.set(
           groundTruth.subarray(srcStart, srcStart + blockSize),
@@ -194,15 +216,15 @@ async function main() {
     // 6. Fuzzy Match Tolerance Checker (against Ground Truth)
     let passed = true;
     const max_iterations = 100;
-    const blockSizeG = max_iterations * 2 + 4; // for accessing offsetsGroundTruth
+    const blockSizeG = max_iterations * 2 + 8; // for accessing offsetsGroundTruth
 
     for (let i = 0; i < clusterCases.length; i++) {
       const start = i * blockSizeG;
-      const rustEscapeIterOffset = start + blockSizeG - 1;
+      const rustEscapeIterOffset = start + blockSizeG - 5;
       const expectedIter = offsetsGroundTruth[rustEscapeIterOffset];
-      const cycle_found = offsetsGroundTruth[start + blockSizeG - 4];
-      const der_r = offsetsGroundTruth[start + blockSizeG - 3];
-      const der_i = offsetsGroundTruth[start + blockSizeG - 2];
+      const cycle_found = offsetsGroundTruth[start + blockSizeG - 8];
+      const der_r = offsetsGroundTruth[start + blockSizeG - 7];
+      const der_i = offsetsGroundTruth[start + blockSizeG - 6];
 
       console.log(
         `Point ${i}: expectedIter=${expectedIter}, cycle=${cycle_found}, der=${der_r}, ${der_i}`,
@@ -221,7 +243,7 @@ async function main() {
       }
 
       // F32 Base Math is strictly limited. It only matches shallow points reliably.
-      if (i < 4 * 3) {
+      if (i < 4 * 6) {
         if (Math.abs(expectedIter - Math.floor(f32Iter)) > tolerance) {
           console.error(
             `❌ Mismatch at shallow point ${i}: Expected ~${expectedIter}, got F32 WebGPU ${f32Iter}`,
