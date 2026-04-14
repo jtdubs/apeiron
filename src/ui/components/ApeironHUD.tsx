@@ -7,14 +7,33 @@ import { ScrubbableNumber } from './ScrubbableNumber';
 import { ApeironSettingsPanel } from './ApeironSettingsPanel';
 import './ApeironHUD.css';
 
-const getAbs = (state: Pick<ViewportState, 'anchorZr' | 'anchorZi' | 'anchorCr' | 'anchorCi' | 'deltaZr' | 'deltaZi' | 'deltaCr' | 'deltaCi'>) => [
+const getAbs = (
+  state: Pick<
+    ViewportState,
+    | 'anchorZr'
+    | 'anchorZi'
+    | 'anchorCr'
+    | 'anchorCi'
+    | 'deltaZr'
+    | 'deltaZi'
+    | 'deltaCr'
+    | 'deltaCi'
+  >,
+) => [
   parseFloat(state.anchorZr) + state.deltaZr,
   parseFloat(state.anchorZi) + state.deltaZi,
   parseFloat(state.anchorCr) + state.deltaCr,
   parseFloat(state.anchorCi) + state.deltaCi,
 ];
 
-const setAnchors = (state: Pick<ViewportState, 'setAnchorsAndDeltas' | 'sliceAngle' | 'exponent'>, zr: number, zi: number, cr: number, ci: number, zoom: number) => {
+const setAnchors = (
+  state: Pick<ViewportState, 'setAnchorsAndDeltas' | 'sliceAngle' | 'exponent'>,
+  zr: number,
+  zi: number,
+  cr: number,
+  ci: number,
+  zoom: number,
+) => {
   state.setAnchorsAndDeltas(
     zr.toString(),
     zi.toString(),
@@ -34,11 +53,19 @@ const HUDCoordinates = () => {
   const state = useStore(
     viewportStore,
     useShallow((s) => ({
-      anchorZr: s.anchorZr, anchorZi: s.anchorZi, anchorCr: s.anchorCr, anchorCi: s.anchorCi,
-      deltaZr: s.deltaZr, deltaZi: s.deltaZi, deltaCr: s.deltaCr, deltaCi: s.deltaCi,
-      zoom: s.zoom, sliceAngle: s.sliceAngle, exponent: s.exponent,
-      setAnchorsAndDeltas: s.setAnchorsAndDeltas
-    }))
+      anchorZr: s.anchorZr,
+      anchorZi: s.anchorZi,
+      anchorCr: s.anchorCr,
+      anchorCi: s.anchorCi,
+      deltaZr: s.deltaZr,
+      deltaZi: s.deltaZi,
+      deltaCr: s.deltaCr,
+      deltaCi: s.deltaCi,
+      zoom: s.zoom,
+      sliceAngle: s.sliceAngle,
+      exponent: s.exponent,
+      setAnchorsAndDeltas: s.setAnchorsAndDeltas,
+    })),
   );
 
   const renderCoordinate = (x: number, y: number, prefix: string, isC: boolean) => {
@@ -57,9 +84,23 @@ const HUDCoordinates = () => {
     return (
       <span style={{ display: 'flex', alignItems: 'center' }}>
         <span style={{ color: '#888', marginRight: '8px', width: '60px' }}>{prefix}</span>({' '}
-        <ScrubbableNumber value={x} onChange={onChangeRe} step={0.005} format={(v) => v.toFixed(6)} />
+        <ScrubbableNumber
+          value={x}
+          onChange={onChangeRe}
+          step={0.005}
+          format={(v) => v.toFixed(6)}
+          onInteractionStart={() => viewportStore.getState().setInteractionState('INTERACT_SAFE')}
+          onInteractionEnd={() => viewportStore.getState().setInteractionState('STATIC')}
+        />
         <span style={{ margin: '0 4px' }}>{y >= 0 ? '+' : '-'}</span>
-        <ScrubbableNumber value={y} onChange={onChangeIm} step={0.005} format={(v) => Math.abs(v).toFixed(6)} />
+        <ScrubbableNumber
+          value={y}
+          onChange={onChangeIm}
+          step={0.005}
+          format={(v) => Math.abs(v).toFixed(6)}
+          onInteractionStart={() => viewportStore.getState().setInteractionState('INTERACT_SAFE')}
+          onInteractionEnd={() => viewportStore.getState().setInteractionState('STATIC')}
+        />
         i )
       </span>
     );
@@ -90,6 +131,8 @@ const HUDCoordinates = () => {
           step={0.01}
           isLogScale={true}
           format={(v) => `${v.toExponential(2)}`}
+          onInteractionStart={() => viewportStore.getState().setInteractionState('INTERACT_SAFE')}
+          onInteractionEnd={() => viewportStore.getState().setInteractionState('STATIC')}
         />
       </span>
     </div>
@@ -104,20 +147,47 @@ const HUDEquation = () => {
     const clamped = Math.max(1.0, Math.min(6.0, val));
     const s = viewportStore.getState();
     setAnchorsAndDeltas(
-      s.anchorZr, s.anchorZi, s.anchorCr, s.anchorCi,
-      s.deltaZr, s.deltaZi, s.deltaCr, s.deltaCi,
-      s.zoom, s.sliceAngle, clamped
+      s.anchorZr,
+      s.anchorZi,
+      s.anchorCr,
+      s.anchorCi,
+      s.deltaZr,
+      s.deltaZi,
+      s.deltaCr,
+      s.deltaCi,
+      s.zoom,
+      s.sliceAngle,
+      clamped,
     );
   };
 
   return (
     <div className="hud-equation" style={{ flexDirection: 'column', gap: '8px' }}>
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <span>z<sub style={{ fontSize: '10px' }}>n+1</sub></span>
+        <span>
+          z<sub style={{ fontSize: '10px' }}>n+1</sub>
+        </span>
         <span style={{ margin: '0 6px' }}>=</span>
-        <span>z<sub style={{ fontSize: '10px' }}>n</sub></span>
-        <sup style={{ marginLeft: '2px', marginRight: '6px', fontSize: '12px', position: 'relative', top: '-0.4em' }}>
-          <ScrubbableNumber value={exponent} onChange={onChange} step={0.5} format={(v) => v.toFixed(1)} />
+        <span>
+          z<sub style={{ fontSize: '10px' }}>n</sub>
+        </span>
+        <sup
+          style={{
+            marginLeft: '2px',
+            marginRight: '6px',
+            fontSize: '12px',
+            position: 'relative',
+            top: '-0.4em',
+          }}
+        >
+          <ScrubbableNumber
+            value={exponent}
+            onChange={onChange}
+            step={0.5}
+            format={(v) => v.toFixed(1)}
+            onInteractionStart={() => viewportStore.getState().setInteractionState('INTERACT_SAFE')}
+            onInteractionEnd={() => viewportStore.getState().setInteractionState('STATIC')}
+          />
         </sup>
         <span> + c</span>
       </div>
@@ -132,9 +202,17 @@ const HUDLens = () => {
   const setSliceAngle = (angle: number) => {
     const s = viewportStore.getState();
     setAnchorsAndDeltas(
-      s.anchorZr, s.anchorZi, s.anchorCr, s.anchorCi,
-      s.deltaZr, s.deltaZi, s.deltaCr, s.deltaCi,
-      s.zoom, angle, s.exponent
+      s.anchorZr,
+      s.anchorZi,
+      s.anchorCr,
+      s.anchorCi,
+      s.deltaZr,
+      s.deltaZi,
+      s.deltaCr,
+      s.deltaCi,
+      s.zoom,
+      angle,
+      s.exponent,
     );
   };
 
@@ -145,7 +223,19 @@ const HUDLens = () => {
 
   const toZPlane = () => {
     const s = viewportStore.getState();
-    setAnchorsAndDeltas('0.0', '0.0', '-0.8', '0.156', 0.0, 0.0, 0.0, 0.0, 1.5, Math.PI / 2, s.exponent);
+    setAnchorsAndDeltas(
+      '0.0',
+      '0.0',
+      '-0.8',
+      '0.156',
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.5,
+      Math.PI / 2,
+      s.exponent,
+    );
   };
 
   return (
@@ -155,9 +245,15 @@ const HUDLens = () => {
           <button
             onClick={toCPlane}
             style={{
-              background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-              color: sliceAngle < 0.1 ? '#fff' : '#888', transition: 'color 0.2s',
-              fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              color: sliceAngle < 0.1 ? '#fff' : '#888',
+              transition: 'color 0.2s',
+              fontSize: '10px',
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
               fontWeight: sliceAngle < 0.1 ? 600 : 400,
             }}
           >
@@ -166,9 +262,15 @@ const HUDLens = () => {
           <button
             onClick={toZPlane}
             style={{
-              background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-              color: sliceAngle > Math.PI / 2 - 0.1 ? '#fff' : '#888', transition: 'color 0.2s',
-              fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              color: sliceAngle > Math.PI / 2 - 0.1 ? '#fff' : '#888',
+              transition: 'color 0.2s',
+              fontSize: '10px',
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
               fontWeight: sliceAngle > Math.PI / 2 - 0.1 ? 600 : 400,
             }}
           >
@@ -176,7 +278,15 @@ const HUDLens = () => {
           </button>
         </div>
         <div
-          style={{ position: 'relative', width: '100%', height: '24px', display: 'flex', alignItems: 'center', cursor: 'grab', touchAction: 'none' }}
+          style={{
+            position: 'relative',
+            width: '100%',
+            height: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            cursor: 'grab',
+            touchAction: 'none',
+          }}
           onPointerDown={(e) => {
             const target = e.currentTarget;
             target.setPointerCapture(e.pointerId);
@@ -188,28 +298,48 @@ const HUDLens = () => {
             };
             updateAngle(e.clientX);
             target.style.cursor = 'grabbing';
+            viewportStore.getState().setInteractionState('INTERACT_SAFE');
 
             const onMove = (ev: PointerEvent) => updateAngle(ev.clientX);
             const onUp = (ev: PointerEvent) => {
               target.style.cursor = 'grab';
-              try { target.releasePointerCapture(ev.pointerId); } catch { /* ignore */ }
+              try {
+                target.releasePointerCapture(ev.pointerId);
+              } catch {
+                /* ignore */
+              }
               window.removeEventListener('pointermove', onMove);
               window.removeEventListener('pointerup', onUp);
               window.removeEventListener('pointercancel', onUp);
+              viewportStore.getState().setInteractionState('STATIC');
             };
             window.addEventListener('pointermove', onMove);
             window.addEventListener('pointerup', onUp);
             window.addEventListener('pointercancel', onUp);
           }}
         >
-          <div style={{ position: 'absolute', width: '100%', height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '2px', pointerEvents: 'none' }} />
+          <div
+            style={{
+              position: 'absolute',
+              width: '100%',
+              height: '4px',
+              backgroundColor: 'rgba(255,255,255,0.1)',
+              borderRadius: '2px',
+              pointerEvents: 'none',
+            }}
+          />
           <div
             style={{
               position: 'absolute',
               left: `${(sliceAngle / (Math.PI / 2)) * 100}%`,
-              top: '50%', transform: 'translate(-50%, -50%)',
-              width: '12px', height: '12px', backgroundColor: '#4f46e5',
-              borderRadius: '50%', boxShadow: '0 0 8px rgba(79,70,229,0.8)', pointerEvents: 'none',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '12px',
+              height: '12px',
+              backgroundColor: '#4f46e5',
+              borderRadius: '50%',
+              boxShadow: '0 0 8px rgba(79,70,229,0.8)',
+              pointerEvents: 'none',
             }}
           />
         </div>
@@ -233,10 +363,18 @@ export const ApeironHUD: React.FC = () => {
         </div>
 
         <div className="hud-actions">
-          <button onClick={() => setShowSettings(!showSettings)} className="hud-icon-btn" style={{ fontSize: '16px' }}>
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className="hud-icon-btn"
+            style={{ fontSize: '16px' }}
+          >
             {showSettings ? '✕' : '⚙'}
           </button>
-          <button onClick={() => setIsMobileExpanded(!isMobileExpanded)} className="hud-icon-btn hud-mobile-only" style={{ fontSize: '12px' }}>
+          <button
+            onClick={() => setIsMobileExpanded(!isMobileExpanded)}
+            className="hud-icon-btn hud-mobile-only"
+            style={{ fontSize: '12px' }}
+          >
             {isMobileExpanded ? '▼' : '▲'}
           </button>
         </div>
