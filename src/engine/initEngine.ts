@@ -1,3 +1,6 @@
+import { RenderState } from '../ui/stores/renderStore';
+import { PassManager } from './PassManager';
+
 export interface ApeironEngine {
   device: GPUDevice;
   adapter: GPUAdapter;
@@ -19,28 +22,7 @@ export interface ApeironEngine {
     sliceAngle: number,
     exponent: number,
     refOrbits?: Float64Array | null,
-    theme?: {
-      themeVersion?: number;
-      precisionMode?: string;
-      paletteA: [number, number, number];
-      paletteB: [number, number, number];
-      paletteC: [number, number, number];
-      paletteD: [number, number, number];
-      lightAzimuth: number;
-      lightElevation: number;
-      diffuse: number;
-      shininess: number;
-      heightScale: number;
-      ambient: number;
-      coloringMode?: string;
-      colorDensity?: number;
-      colorPhase?: number;
-      surfaceMode?: string;
-      glowFalloff?: number;
-      glowScatter?: number;
-      contourFrequency?: number;
-      contourThickness?: number;
-    },
+    theme?: RenderState,
   ) => void;
   resize: () => void;
 }
@@ -190,157 +172,11 @@ export async function initEngine(
     return result;
   };
 
-  // Render pipelines for Canvas
-  let mathPipeline: GPURenderPipeline | null = null;
-  let resolvePipeline: GPURenderPipeline | null = null;
+  let passManager: PassManager | null = null;
 
-  let uniformsBuffer: GPUBuffer | null = null;
-  let mathBindGroup: GPUBindGroup | null = null;
-
-  let gBufferTexture: GPUTexture | null = null;
-  let resolveBindGroup0: GPUBindGroup | null = null;
-
-  let paletteUniformsBuffer: GPUBuffer | null = null;
-  let resolveBindGroup1: GPUBindGroup | null = null;
-
-  // Track Math State correctly
-  let needsMathUpdate = true;
-  let lastCameraState = '';
-  let lastThemeVersion = -1;
-
-  const initGBuffer = () => {
-    if (!canvas || !resolvePipeline) return;
-
-    if (gBufferTexture) {
-      gBufferTexture.destroy();
-    }
-
-    gBufferTexture = device.createTexture({
-      size: [canvas.width, canvas.height, 1],
-      format: 'rgba32float',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
-    });
-
-    resolveBindGroup0 = device.createBindGroup({
-      layout: resolvePipeline.getBindGroupLayout(0),
-      entries: [{ binding: 0, resource: gBufferTexture.createView() }],
-    });
-
-    needsMathUpdate = true;
-  };
-
-  let dummyRefOrbitsBuffer: GPUBuffer | null = null;
   if (canvas) {
-    dummyRefOrbitsBuffer = device.createBuffer({
-      size: 16,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(dummyRefOrbitsBuffer, 0, new Float32Array([0.0, 0.0, 0.0, 0.0]));
-
-    const mathModule = device.createShaderModule({ code: mathShaderCode });
-    const resolveModule = device.createShaderModule({ code: resolveShaderCode });
-
-    uniformsBuffer = device.createBuffer({
-      size: 48, // 12 floats
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-
-    paletteUniformsBuffer = device.createBuffer({
-      size: 128, // 32 floats: 4 * vec4 + max_iter float + azimuth + elevation + diff + shiny + height + ambient + coloring + col_dens + col_phase + surface + paramA + paramB + pad = 128 bytes
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-
-    // Default 'neon' theme vectors.
-    const paletteData = new Float32Array([
-      0.5,
-      0.5,
-      0.5,
-      0.0, // a
-      0.5,
-      0.5,
-      0.5,
-      0.0, // b
-      1.0,
-      1.0,
-      1.0,
-      0.0, // c
-      0.0,
-      0.33,
-      0.67,
-      0.0, // d
-      100.0,
-      0.0,
-      0.0,
-      0.0, // max_iter + padding
-
-      45.0, // azimuth
-      45.0, // elevation
-      1.0, // diffuse
-      32.0, // shininess
-
-      0.1, // heightScale
-      0.2, // ambient
-      0.0, // coloringMode
-      3.0, // colorDensity
-      0.0, // colorPhase
-      1.0, // surfaceMode
-      1.0, // surfaceParamA
-      1.0, // surfaceParamB
-      0.0, // pad
-    ]);
-    device.queue.writeBuffer(paletteUniformsBuffer, 0, paletteData);
-
-    mathPipeline = device.createRenderPipeline({
-      layout: 'auto',
-      vertex: {
-        module: mathModule,
-        entryPoint: 'vs_main',
-      },
-      fragment: {
-        module: mathModule,
-        entryPoint: 'fs_main',
-        targets: [{ format: 'rgba32float' }],
-      },
-      primitive: {
-        topology: 'triangle-list',
-      },
-    });
-
-    mathBindGroup = device.createBindGroup({
-      layout: mathPipeline.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: { buffer: uniformsBuffer } },
-        { binding: 3, resource: { buffer: dummyRefOrbitsBuffer } },
-      ],
-    });
-
-    resolvePipeline = device.createRenderPipeline({
-      layout: 'auto',
-      vertex: {
-        module: resolveModule,
-        entryPoint: 'vs_main',
-      },
-      fragment: {
-        module: resolveModule,
-        entryPoint: 'fs_main',
-        targets: [{ format: canvasFormat }],
-      },
-      primitive: {
-        topology: 'triangle-list',
-      },
-    });
-
-    resolveBindGroup1 = device.createBindGroup({
-      layout: resolvePipeline.getBindGroupLayout(1),
-      entries: [{ binding: 0, resource: { buffer: paletteUniformsBuffer } }],
-    });
-
-    initGBuffer();
+    passManager = new PassManager(device, canvas, canvasFormat, mathShaderCode, resolveShaderCode);
   }
-
-  // Ref orbit tracking inside the engine
-  let activeRefOrbitsBuffer: GPUBuffer | null = null;
-  let hasValidActiveRefOrbits = false;
 
   const renderFrame = (
     zr: number,
@@ -352,188 +188,22 @@ export async function initEngine(
     sliceAngle: number,
     exponent: number,
     refOrbits?: Float64Array | null,
-    theme?: {
-      themeVersion?: number;
-      precisionMode?: string;
-      paletteA: [number, number, number];
-      paletteB: [number, number, number];
-      paletteC: [number, number, number];
-      paletteD: [number, number, number];
-      lightAzimuth: number;
-      lightElevation: number;
-      diffuse: number;
-      shininess: number;
-      heightScale: number;
-      ambient: number;
-      coloringMode?: string;
-      colorDensity?: number;
-      colorPhase?: number;
-      surfaceMode?: string;
-      glowFalloff?: number;
-      glowScatter?: number;
-      contourFrequency?: number;
-      contourThickness?: number;
-    },
+    theme?: RenderState,
   ) => {
-    if (!context || !mathPipeline || !resolvePipeline || !gBufferTexture) return;
-
-    const aspectRatio = canvas!.width / canvas!.height;
-
-    let refOrbitsSwapped = false;
-    if (refOrbits !== undefined) {
-      if (refOrbits) {
-        if (activeRefOrbitsBuffer) activeRefOrbitsBuffer.destroy();
-        const refF32 = new Float32Array(refOrbits);
-        activeRefOrbitsBuffer = device.createBuffer({
-          size: refF32.byteLength,
-          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-        });
-        device.queue.writeBuffer(activeRefOrbitsBuffer, 0, refF32);
-        hasValidActiveRefOrbits = true;
-        refOrbitsSwapped = true;
-      } else if (hasValidActiveRefOrbits) {
-        if (activeRefOrbitsBuffer) activeRefOrbitsBuffer.destroy();
-        activeRefOrbitsBuffer = null;
-        hasValidActiveRefOrbits = false;
-        refOrbitsSwapped = true;
-      }
-    }
-
-    if (refOrbitsSwapped) {
-      mathBindGroup = device.createBindGroup({
-        layout: mathPipeline.getBindGroupLayout(0),
-        entries: [
-          { binding: 0, resource: { buffer: uniformsBuffer! } },
-          {
-            binding: 3,
-            resource: {
-              buffer: hasValidActiveRefOrbits ? activeRefOrbitsBuffer! : dummyRefOrbitsBuffer!,
-            },
-          },
-        ],
-      });
-      needsMathUpdate = true;
-    }
-
-    let actualRefMaxIter = maxIter;
-    if (hasValidActiveRefOrbits && refOrbits) {
-      actualRefMaxIter = (refOrbits.length - 4) / 2;
-    }
-
-    let usePerturbationAllowed = true;
-    if (theme && theme.precisionMode === 'f32') {
-      usePerturbationAllowed = false;
-    }
-    const usePerturbation = hasValidActiveRefOrbits && usePerturbationAllowed ? 1.0 : 0.0;
-    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation},${actualRefMaxIter},${exponent}`;
-
-    if (camState !== lastCameraState) {
-      needsMathUpdate = true;
-      lastCameraState = camState;
-
-      const cameraData = new Float32Array([
-        zr,
-        zi,
-        cr,
-        ci,
-        scale,
-        aspectRatio,
-        maxIter,
-        sliceAngle,
-        usePerturbation,
-        actualRefMaxIter,
-        exponent,
-        theme?.coloringMode === 'stripe' ? 1.0 : theme?.coloringMode === 'banded' ? 2.0 : 0.0,
-      ]);
-      device.queue.writeBuffer(uniformsBuffer!, 0, cameraData);
-
-      const paletteMaxIter = hasValidActiveRefOrbits ? actualRefMaxIter : maxIter;
-      device.queue.writeBuffer(paletteUniformsBuffer!, 64, new Float32Array([paletteMaxIter]));
-    }
-
-    const themeVersion = theme?.themeVersion ?? -1;
-    if (themeVersion !== lastThemeVersion && theme) {
-      lastThemeVersion = themeVersion;
-      const paletteData = new Float32Array([
-        ...theme.paletteA,
-        0.0,
-        ...theme.paletteB,
-        0.0,
-        ...theme.paletteC,
-        0.0,
-        ...theme.paletteD,
-        0.0,
-        theme.maxIter || 100.0, // will be overwritten immediately below but needed to align array
-        theme.lightAzimuth,
-        theme.lightElevation,
-        theme.diffuse,
-        theme.shininess,
-        theme.heightScale,
-        theme.ambient,
-        theme.coloringMode === 'stripe' ? 1.0 : theme.coloringMode === 'banded' ? 2.0 : 0.0,
-        theme.colorDensity ?? 3.0,
-        theme.colorPhase ?? 0.0,
-        theme.surfaceMode === 'off'
-          ? 0.0
-          : theme.surfaceMode === 'soft-glow'
-            ? 2.0
-            : theme.surfaceMode === 'contours'
-              ? 3.0
-              : 1.0, // surfaceMode
-        theme.surfaceMode === 'soft-glow'
-          ? (theme.glowFalloff ?? 20.0)
-          : theme.surfaceMode === 'contours'
-            ? (theme.contourFrequency ?? 20.0)
-            : 1.0, // surfaceParamA
-        theme.surfaceMode === 'soft-glow'
-          ? (theme.glowScatter ?? 1.0)
-          : theme.surfaceMode === 'contours'
-            ? (theme.contourThickness ?? 0.8)
-            : 1.0, // surfaceParamB
-        0.0, // pad
-      ]);
-      device.queue.writeBuffer(paletteUniformsBuffer!, 0, paletteData);
-    }
-
-    const commandEncoder = device.createCommandEncoder();
-
-    if (needsMathUpdate) {
-      const mathPass = commandEncoder.beginRenderPass({
-        colorAttachments: [
-          {
-            view: gBufferTexture.createView(),
-            clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-            loadOp: 'clear',
-            storeOp: 'store',
-          },
-        ],
-      });
-      mathPass.setPipeline(mathPipeline);
-      mathPass.setBindGroup(0, mathBindGroup!);
-      mathPass.draw(6);
-      mathPass.end();
-
-      needsMathUpdate = false;
-    }
-
-    const textureView = context.getCurrentTexture().createView();
-    const resolvePass = commandEncoder.beginRenderPass({
-      colorAttachments: [
-        {
-          view: textureView,
-          clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-          loadOp: 'clear',
-          storeOp: 'store',
-        },
-      ],
-    });
-    resolvePass.setPipeline(resolvePipeline);
-    resolvePass.setBindGroup(0, resolveBindGroup0!);
-    resolvePass.setBindGroup(1, resolveBindGroup1!);
-    resolvePass.draw(6);
-    resolvePass.end();
-
-    device.queue.submit([commandEncoder.finish()]);
+    if (!context || !passManager) return;
+    passManager.render(
+      context,
+      zr,
+      zi,
+      cr,
+      ci,
+      scale,
+      maxIter,
+      sliceAngle,
+      exponent,
+      refOrbits,
+      theme,
+    );
   };
 
   const resize = () => {
@@ -543,7 +213,9 @@ export async function initEngine(
         format: canvasFormat,
         alphaMode: 'opaque',
       });
-      initGBuffer();
+      if (passManager) {
+        passManager.initGBuffer();
+      }
     }
   };
 

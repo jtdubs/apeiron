@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 024: Engine PassManager & UI Cleanup
