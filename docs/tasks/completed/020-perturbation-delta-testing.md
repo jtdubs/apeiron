@@ -28,6 +28,6 @@ Identify and fix the critical gap in the headless test suite where automated reg
 
 ## Verification Steps
 
-- [ ] Modify `executeTestCompute` to support testing `delta_c != 0`.
-- [ ] Run `npm run test:engine` and observe whether it now captures the regression/divergence on deep zoom patches.
-- [ ] **Documentation Sync:** Update `docs/test-plan.md` to note that perturbation assertions require proxy validation at scaled pixel offsets, not just single analytical anchor points.
+- [x] Modify `executeTestCompute` to support testing `delta_c != 0`.
+- [x] Run `npm run test:engine` and observe whether it now captures the regression/divergence on deep zoom patches.
+- [x] **Documentation Sync:** Update `docs/test-plan.md` to note that perturbation assertions require proxy validation at scaled pixel offsets, not just single analytical anchor points.
