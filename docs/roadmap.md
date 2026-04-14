@@ -53,3 +53,11 @@
 ## Phase 8: Extensibility & Variations
 
 - [x] [Task 022: Variable Exponents](tasks/completed/022-variable-exponents.md)
+
+## Phase 9: State Sharing & Deep Linking
+
+- [ ] [Task 030: URL State Serialization (Deep Linking)](tasks/030-url-state-serialization.md)
+
+## Phase 10: Performance & Progressive Rendering
+
+- [ ] [Task 031: Progressive Rendering State Machine](tasks/031-progressive-rendering.md)
