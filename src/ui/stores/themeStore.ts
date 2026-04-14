@@ -6,6 +6,7 @@ export interface ThemeState {
   paletteB: [number, number, number];
   paletteC: [number, number, number];
   paletteD: [number, number, number];
+  paletteName: string;
 
   // lighting config
   lightAzimuth: number;
@@ -44,6 +45,7 @@ export interface ThemeState {
     b: [number, number, number],
     c: [number, number, number],
     d: [number, number, number],
+    name?: string,
   ) => void;
   setLighting: (
     azimuth: number,
@@ -61,6 +63,7 @@ export const themeStore = createStore<ThemeState>((set) => ({
   paletteB: [0.5, 0.5, 0.5],
   paletteC: [1.0, 1.0, 1.0],
   paletteD: [0.0, 0.33, 0.67],
+  paletteName: 'watermelon',
 
   lightAzimuth: 45.0,
   lightElevation: 45.0,
@@ -88,7 +91,8 @@ export const themeStore = createStore<ThemeState>((set) => ({
   setColorDensity: (val) => set({ colorDensity: val }),
   setColorPhase: (val) => set({ colorPhase: val }),
 
-  setPalette: (a, b, c, d) => set({ paletteA: a, paletteB: b, paletteC: c, paletteD: d }),
+  setPalette: (a, b, c, d, name) =>
+    set({ paletteA: a, paletteB: b, paletteC: c, paletteD: d, ...(name && { paletteName: name }) }),
   setLighting: (azimuth, elevation, diffuse, shininess, heightScale, ambient) =>
     set({
       lightAzimuth: azimuth,

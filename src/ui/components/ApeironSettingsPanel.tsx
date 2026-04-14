@@ -75,7 +75,9 @@ export const ApeironSettingsPanel: React.FC = () => {
         </div>
         <select
           value={state.coloringMode}
-          onChange={(e) => state.setColoringMode(e.target.value as 'iteration' | 'stripe')}
+          onChange={(e) =>
+            state.setColoringMode(e.target.value as 'iteration' | 'stripe' | 'banded')
+          }
           style={{
             width: '100%',
             background: 'rgba(0,0,0,0.3)',
@@ -156,9 +158,11 @@ export const ApeironSettingsPanel: React.FC = () => {
           Theme Palette
         </div>
         <select
+          value={state.paletteName}
           onChange={(e) => {
-            const theme = THEMES[e.target.value as keyof typeof THEMES];
-            if (theme) state.setPalette(theme.a, theme.b, theme.c, theme.d);
+            const key = e.target.value as keyof typeof THEMES;
+            const theme = THEMES[key];
+            if (theme) state.setPalette(theme.a, theme.b, theme.c, theme.d, key);
           }}
           style={{
             width: '100%',
