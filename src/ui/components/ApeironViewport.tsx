@@ -5,6 +5,7 @@ import type { ApeironEngine } from '../../engine/initEngine';
 import mathAccumWgsl from '../../engine/shaders/math_accum.wgsl?raw';
 import resolvePresentWgsl from '../../engine/shaders/resolve_present.wgsl?raw';
 import { viewportStore } from '../stores/viewportStore';
+import { themeStore } from '../stores/themeStore';
 
 export const ApeironViewport: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -44,8 +45,8 @@ export const ApeironViewport: React.FC = () => {
 
       if (isMiddleDragging) {
         // Rotate 4D Slice based on horizontal mouse movement
-        // We'll map full screen width to a 90 degree rotation (PI/2)
-        const angleDelta = (dx / rect.width) * (Math.PI / 2);
+        // We'll double the sensitivity: half screen width gives a 90 degree rotation
+        const angleDelta = (dx / rect.width) * Math.PI;
         viewportStore.getState().updateViewport(0, 0, 1.0, angleDelta);
       } else {
         // Calculate math delta for regular panning
@@ -63,9 +64,18 @@ export const ApeironViewport: React.FC = () => {
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      // Zoom into the center of the viewport currently
-      const deltaZoom = e.deltaY > 0 ? 1.05 : 0.95;
-      viewportStore.getState().updateViewport(0, 0, deltaZoom, 0.0);
+      const { zoom } = viewportStore.getState();
+      const deltaZoom = Math.pow(10, e.deltaY > 0 ? 0.1 : -0.1);
+
+      const rect = canvas.getBoundingClientRect();
+      const ndcX = ((e.clientX - rect.left) / rect.width) * 2.0 - 1.0;
+      const ndcY = -(((e.clientY - rect.top) / rect.height) * 2.0 - 1.0);
+
+      const aspect = rect.width / rect.height;
+      const mathDx = ndcX * zoom * aspect * (1.0 - deltaZoom);
+      const mathDy = ndcY * zoom * (1.0 - deltaZoom);
+
+      viewportStore.getState().updateViewport(mathDx, mathDy, deltaZoom, 0.0);
     };
 
     canvas.addEventListener('pointerdown', onPointerDown);
@@ -83,7 +93,8 @@ export const ApeironViewport: React.FC = () => {
         const loop = () => {
           if (!isMounted) return;
           const { zr, zi, cr, ci, zoom, maxIter, sliceAngle, refOrbits } = viewportStore.getState();
-          engine.renderFrame(zr, zi, cr, ci, zoom, maxIter, sliceAngle, refOrbits);
+          const theme = themeStore.getState();
+          engine.renderFrame(zr, zi, cr, ci, zoom, maxIter, sliceAngle, refOrbits, theme);
           requestRef.current = requestAnimationFrame(loop);
         };
         requestRef.current = requestAnimationFrame(loop);

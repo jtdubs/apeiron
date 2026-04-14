@@ -12,6 +12,13 @@ export interface ApeironEngine {
     maxIter: number,
     sliceAngle: number,
     refOrbits?: Float64Array | null,
+    theme?: {
+      precisionMode?: string;
+      paletteA: [number, number, number];
+      paletteB: [number, number, number];
+      paletteC: [number, number, number];
+      paletteD: [number, number, number];
+    },
   ) => void;
   resize: () => void;
 }
@@ -176,6 +183,7 @@ export async function initEngine(
   // Track Math State correctly
   let needsMathUpdate = true;
   let lastCameraState = '';
+  let lastThemeState = '';
 
   const initGBuffer = () => {
     if (!canvas || !resolvePipeline) return;
@@ -305,6 +313,13 @@ export async function initEngine(
     maxIter: number,
     sliceAngle: number,
     refOrbits?: Float64Array | null,
+    theme?: {
+      precisionMode?: string;
+      paletteA: [number, number, number];
+      paletteB: [number, number, number];
+      paletteC: [number, number, number];
+      paletteD: [number, number, number];
+    },
   ) => {
     if (!context || !mathPipeline || !resolvePipeline || !gBufferTexture) return;
 
@@ -351,7 +366,11 @@ export async function initEngine(
       actualRefMaxIter = (refOrbits.length - 4) / 2;
     }
 
-    const usePerturbation = hasValidActiveRefOrbits ? 1.0 : 0.0;
+    let usePerturbationAllowed = true;
+    if (theme && theme.precisionMode === 'f32') {
+      usePerturbationAllowed = false;
+    }
+    const usePerturbation = hasValidActiveRefOrbits && usePerturbationAllowed ? 1.0 : 0.0;
     const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation},${actualRefMaxIter}`;
 
     if (camState !== lastCameraState) {
@@ -376,6 +395,24 @@ export async function initEngine(
 
       const paletteMaxIter = hasValidActiveRefOrbits ? actualRefMaxIter : maxIter;
       device.queue.writeBuffer(paletteUniformsBuffer!, 64, new Float32Array([paletteMaxIter]));
+    }
+
+    const themeString = theme
+      ? JSON.stringify([theme.paletteA, theme.paletteB, theme.paletteC, theme.paletteD])
+      : '';
+    if (themeString !== lastThemeState && theme) {
+      lastThemeState = themeString;
+      const paletteData = new Float32Array([
+        ...theme.paletteA,
+        0.0,
+        ...theme.paletteB,
+        0.0,
+        ...theme.paletteC,
+        0.0,
+        ...theme.paletteD,
+        0.0,
+      ]);
+      device.queue.writeBuffer(paletteUniformsBuffer!, 0, paletteData);
     }
 
     const commandEncoder = device.createCommandEncoder();

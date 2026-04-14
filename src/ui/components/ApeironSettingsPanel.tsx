@@ -1,0 +1,234 @@
+import React from 'react';
+import { useStore } from 'zustand';
+import { themeStore } from '../stores/themeStore';
+import { ScrubbableNumber } from './ScrubbableNumber';
+
+const THEMES = {
+  monochrome: {
+    a: [0.5, 0.5, 0.5] as [number, number, number],
+    b: [0.5, 0.5, 0.5] as [number, number, number],
+    c: [1.0, 1.0, 1.0] as [number, number, number],
+    d: [0.0, 0.0, 0.0] as [number, number, number],
+  },
+  midnight: {
+    a: [0.5, 0.5, 0.5] as [number, number, number],
+    b: [0.5, 0.5, 0.5] as [number, number, number],
+    c: [1.0, 1.0, 1.0] as [number, number, number],
+    d: [0.0, 0.1, 0.2] as [number, number, number],
+  },
+  neon: {
+    a: [0.1, 0.2, 0.4] as [number, number, number],
+    b: [0.9, 0.8, 0.6] as [number, number, number],
+    c: [1.0, 1.0, 1.0] as [number, number, number],
+    d: [0.3, 0.2, 0.2] as [number, number, number],
+  },
+  fiery: {
+    a: [0.5, 0.5, 0.5] as [number, number, number],
+    b: [0.5, 0.5, 0.5] as [number, number, number],
+    c: [1.0, 0.7, 0.4] as [number, number, number],
+    d: [0.0, 0.15, 0.2] as [number, number, number],
+  },
+  watermelon: {
+    a: [0.5, 0.5, 0.5] as [number, number, number],
+    b: [0.5, 0.5, 0.5] as [number, number, number],
+    c: [1.0, 1.0, 1.0] as [number, number, number],
+    d: [0.0, 0.33, 0.67] as [number, number, number],
+  },
+  cyberpunk: {
+    a: [0.5, 0.5, 0.5] as [number, number, number],
+    b: [0.5, 0.5, 0.5] as [number, number, number],
+    c: [2.0, 1.0, 0.0] as [number, number, number],
+    d: [0.5, 0.2, 0.25] as [number, number, number],
+  },
+};
+
+export const ApeironSettingsPanel: React.FC = () => {
+  const state = useStore(themeStore);
+
+  return (
+    <div className="hud-settings-panel">
+      <h2
+        style={{
+          margin: '0 0 16px 0',
+          fontSize: '14px',
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: '1px',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          paddingBottom: '8px',
+        }}
+      >
+        Render Controls
+      </h2>
+
+      {/* Precision Modes */}
+      <div style={{ marginBottom: 16 }}>
+        <div
+          style={{
+            fontSize: '11px',
+            color: '#94a3b8',
+            marginBottom: 6,
+            textTransform: 'uppercase',
+          }}
+        >
+          Math Precision
+        </div>
+        <select
+          value={state.precisionMode}
+          onChange={(e) => state.setPrecisionMode(e.target.value as 'f32' | 'perturbation')}
+          style={{
+            width: '100%',
+            background: 'rgba(0,0,0,0.3)',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.2)',
+            padding: '6px 8px',
+            borderRadius: 4,
+            outline: 'none',
+          }}
+        >
+          <option value="perturbation">Perturbation (Deep Zoom)</option>
+          <option value="f32">Native F32 (Fast)</option>
+        </select>
+      </div>
+
+      {/* Palette Selector */}
+      <div style={{ marginBottom: 16 }}>
+        <div
+          style={{
+            fontSize: '11px',
+            color: '#94a3b8',
+            marginBottom: 6,
+            textTransform: 'uppercase',
+          }}
+        >
+          Theme Palette
+        </div>
+        <select
+          onChange={(e) => {
+            const theme = THEMES[e.target.value as keyof typeof THEMES];
+            if (theme) state.setPalette(theme.a, theme.b, theme.c, theme.d);
+          }}
+          style={{
+            width: '100%',
+            background: 'rgba(0,0,0,0.3)',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.2)',
+            padding: '6px 8px',
+            borderRadius: 4,
+            outline: 'none',
+          }}
+        >
+          <option value="monochrome">Monochrome</option>
+          <option value="midnight">Midnight</option>
+          <option value="neon">Neon</option>
+          <option value="fiery">Fiery</option>
+          <option value="watermelon">Watermelon</option>
+          <option value="cyberpunk">Cyberpunk</option>
+        </select>
+      </div>
+
+      {/* Lighting Configuration */}
+      <div style={{ marginBottom: 16 }}>
+        <div
+          style={{
+            fontSize: '11px',
+            color: '#94a3b8',
+            marginBottom: 6,
+            textTransform: 'uppercase',
+          }}
+        >
+          Surface Lighting
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 4,
+            fontSize: '12px',
+          }}
+        >
+          <span>Azimuth</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+            <ScrubbableNumber
+              value={state.lightAzimuth}
+              onChange={(v) =>
+                state.setLighting(v, state.lightElevation, state.diffuse, state.shininess)
+              }
+              step={5}
+              min={0}
+              max={360}
+            />
+            <span>°</span>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 4,
+            fontSize: '12px',
+          }}
+        >
+          <span>Elevation</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+            <ScrubbableNumber
+              value={state.lightElevation}
+              onChange={(v) =>
+                state.setLighting(state.lightAzimuth, v, state.diffuse, state.shininess)
+              }
+              step={5}
+              min={0}
+              max={360}
+            />
+            <span>°</span>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 4,
+            fontSize: '12px',
+          }}
+        >
+          <span>Diffuse</span>
+          <ScrubbableNumber
+            value={state.diffuse}
+            onChange={(v) =>
+              state.setLighting(state.lightAzimuth, state.lightElevation, v, state.shininess)
+            }
+            step={0.1}
+            min={0}
+            max={2.0}
+          />
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '12px',
+          }}
+        >
+          <span>Shininess</span>
+          <ScrubbableNumber
+            value={state.shininess}
+            onChange={(v) =>
+              state.setLighting(state.lightAzimuth, state.lightElevation, state.diffuse, v)
+            }
+            step={2}
+            min={1}
+            max={128}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};

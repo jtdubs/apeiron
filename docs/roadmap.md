@@ -39,4 +39,5 @@
 
 ## Phase 7: UI Capabilities & Integration
 
-- [ ] [Task 019: Advanced UI Control Surfaces](tasks/019-advanced-ui-controls.md)
+- [x] [Task 019: Advanced UI Control Surfaces](tasks/completed/019-advanced-ui-controls.md)
+- [x] [Task 020: Integration of HUD Toolbar](tasks/completed/020-hud-toolbar.md)

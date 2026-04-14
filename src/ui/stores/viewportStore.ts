@@ -38,11 +38,11 @@ export interface ViewportState {
 export const viewportStore = createStore<ViewportState>((set) => ({
   zr: 0.0,
   zi: 0.0,
-  cr: -0.23020934464237622,
-  ci: 0.7163061353118946,
+  cr: -0.8,
+  ci: 0.156,
   sliceAngle: 0.0,
-  zoom: 0.00008,
-  maxIter: calculateMaxIter(0.00008),
+  zoom: 1.5,
+  maxIter: calculateMaxIter(1.5),
   refOrbits: null,
 
   setRefOrbits: (orbits) => set({ refOrbits: orbits }),

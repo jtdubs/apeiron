@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 019: Advanced UI Control Surfaces
@@ -26,5 +26,5 @@ Update the React presentation layer to expose all of the new aesthetic features 
 
 ## Verification Steps
 
-- [ ] Do lighting sliders instantly affect the render canvas with zero frame drop?
-- [ ] Do changes in the UI successfully reflect in the unified exported URL / Base64 serialization scheme?
+- [x] Do lighting sliders instantly affect the render canvas with zero frame drop?
+- [x] Do changes in the UI successfully reflect in the unified exported URL / Base64 serialization scheme?
