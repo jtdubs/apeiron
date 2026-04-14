@@ -30,8 +30,10 @@ export interface ViewportState {
   exponent: number;
   maxIter: number;
   refOrbits: Float64Array | null;
+  interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST';
 
   setRefOrbits: (orbits: Float64Array | null) => void;
+  setInteractionState: (state: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST') => void;
   setAnchorsAndDeltas: (
     azr: string,
     azi: string,
@@ -64,8 +66,10 @@ export const viewportStore = createStore<ViewportState>((set) => ({
   exponent: 2.0,
   maxIter: calculateMaxIter(1.5),
   refOrbits: null,
+  interactionState: 'STATIC',
 
   setRefOrbits: (orbits) => set({ refOrbits: orbits }),
+  setInteractionState: (interactionState) => set({ interactionState }),
 
   setAnchorsAndDeltas: (azr, azi, acr, aci, dzr, dzi, dcr, dci, zoom, sliceAngle, exponent) =>
     set({
