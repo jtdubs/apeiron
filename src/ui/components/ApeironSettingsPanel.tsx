@@ -64,7 +64,7 @@ export const ApeironSettingsPanel: React.FC = () => {
       {/* Precision Modes */}
       <div
         style={{
-          marginBottom: 24,
+          marginBottom: 12,
           borderBottom: '1px solid rgba(255,255,255,0.1)',
           paddingBottom: '16px',
         }}
@@ -100,7 +100,7 @@ export const ApeironSettingsPanel: React.FC = () => {
       {/* Theme Pipeline */}
       <div
         style={{
-          marginBottom: 24,
+          marginBottom: 12,
           borderBottom: '1px solid rgba(255,255,255,0.1)',
           paddingBottom: '16px',
         }}
