@@ -76,10 +76,20 @@ async function main() {
       const cr = parseFloat(c.cr);
       const ci = parseFloat(c.ci);
 
-      clusterCases.push({ zr, zi, cr, ci, dc_r: 0.0, dc_i: 0.0 });
+      const exponent = c.exponent !== undefined ? parseFloat(c.exponent) : 2.0;
+
+      clusterCases.push({ zr, zi, cr, ci, dc_r: 0.0, dc_i: 0.0, exponent });
       // Simulating a deep zoom pixel cluster natively at 1e-6
-      clusterCases.push({ zr, zi, cr: cr + 1e-6, ci: ci + 1e-6, dc_r: 1e-6, dc_i: 1e-6 });
-      clusterCases.push({ zr, zi, cr: cr - 1e-6, ci: ci - 1e-6, dc_r: -1e-6, dc_i: -1e-6 });
+      clusterCases.push({ zr, zi, cr: cr + 1e-6, ci: ci + 1e-6, dc_r: 1e-6, dc_i: 1e-6, exponent });
+      clusterCases.push({
+        zr,
+        zi,
+        cr: cr - 1e-6,
+        ci: ci - 1e-6,
+        dc_r: -1e-6,
+        dc_i: -1e-6,
+        exponent,
+      });
     }
 
     const inputs = new Float32Array(clusterCases.length * 6);
@@ -99,6 +109,7 @@ async function main() {
         zi: c.zi.toString(),
         cr: c.cr.toString(),
         ci: c.ci.toString(),
+        exponent: c.exponent,
       })),
     );
 
@@ -140,12 +151,45 @@ async function main() {
       }
     }
 
-    // 5. Run WebGPU Compute
-    console.log('Executing WebGPU Compute pass (Perturbation Math)...');
-    const perturbGpuResult = await engine.executeTestCompute(inputs, alignedRefOrbits, 100, true);
+    // 5. Run WebGPU Compute in batches by exponent
+    console.log(
+      'Executing WebGPU Compute pass (Perturbation & F32 Base Math) grouped by exponent...',
+    );
+    const perturbGpuResult = new Float32Array(clusterCases.length * 2);
+    const f32GpuResult = new Float32Array(clusterCases.length * 2);
 
-    console.log('Executing WebGPU Compute pass (F32 Base Math)...');
-    const f32GpuResult = await engine.executeTestCompute(inputs, undefined, 100, false);
+    let currentExp = clusterCases[0].exponent;
+    let expStartIdx = 0;
+
+    for (let i = 0; i <= clusterCases.length; i++) {
+      if (i === clusterCases.length || clusterCases[i].exponent !== currentExp) {
+        const batchInputs = inputs.subarray(expStartIdx * 6, i * 6);
+        const batchRefOrbits = alignedRefOrbits.subarray(expStartIdx * blockSize, i * blockSize);
+
+        const pRes = await engine.executeTestCompute(
+          batchInputs,
+          batchRefOrbits,
+          100,
+          true,
+          currentExp,
+        );
+        const fRes = await engine.executeTestCompute(
+          batchInputs,
+          undefined,
+          100,
+          false,
+          currentExp,
+        );
+
+        perturbGpuResult.set(pRes, expStartIdx * 2);
+        f32GpuResult.set(fRes, expStartIdx * 2);
+
+        if (i < clusterCases.length) {
+          currentExp = clusterCases[i].exponent;
+          expStartIdx = i;
+        }
+      }
+    }
 
     // 6. Fuzzy Match Tolerance Checker (against Ground Truth)
     let passed = true;

@@ -2,7 +2,13 @@ export interface ApeironEngine {
   device: GPUDevice;
   adapter: GPUAdapter;
   context: GPUCanvasContext | null;
-  executeTestCompute: (input: Float32Array, refOrbits?: Float64Array) => Promise<Float32Array>;
+  executeTestCompute: (
+    input: Float32Array,
+    refOrbits?: Float64Array,
+    maxIter?: number,
+    usePerturbation?: boolean,
+    exponent?: number,
+  ) => Promise<Float32Array>;
   renderFrame: (
     zr: number,
     zi: number,
@@ -70,6 +76,7 @@ export async function initEngine(
     refOrbits?: Float64Array,
     maxIter: number = 100,
     usePerturbation: boolean = true,
+    exponent: number = 2.0,
   ): Promise<Float32Array> => {
     // Input is interleaved points: [zr, zi, target_cr, target_ci, delta_r, delta_i]
     // Output is interleaved bounds: [iter, escaped]
@@ -111,7 +118,7 @@ export async function initEngine(
       0.0,
       usePerturbation ? 1.0 : 0.0,
       maxIter,
-      2.0, // test default exponent
+      exponent,
       0.0,
     ]);
     device.queue.writeBuffer(cameraTestBuffer, 0, cameraData);
