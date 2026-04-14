@@ -84,3 +84,4 @@
 ## Phase 14: Mobile Performance
 
 - [x] [Task 042: Zero-Resize Dynamic Resolution Scaling](tasks/completed/042-zero-resize-drs.md)
+- [ ] [Task 043: RenderFrameDescriptor — Typed Engine Contract](tasks/043-render-frame-descriptor.md)
