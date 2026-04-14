@@ -9,6 +9,7 @@
 - [x] [Task 005: Create Automated Headless Regression Runner](tasks/completed/005-headless-regression-runner.md)
 - [x] [Task 026: Frontend Worker Testing](tasks/completed/026-frontend-worker-testing.md)
 - [x] [Task 029: Headless PassManager Testing and Render Artifact Detection](tasks/completed/029-headless-passmanager-testing.md)
+- [x] [Task 033: Refactor Headless Testing Harness](tasks/completed/033-refactor-testing-harness.md)
 
 ## Phase 2: Tier 1 Rendering ($f32$)
 
