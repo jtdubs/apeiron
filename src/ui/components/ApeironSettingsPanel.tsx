@@ -140,8 +140,8 @@ export const ApeironSettingsPanel: React.FC = () => {
             outline: 'none',
           }}
         >
-          <option value="perturbation">Perturbation (Deep Zoom)</option>
-          <option value="f32">Native F32 (Fast)</option>
+          <option value="perturbation">Auto-Hybrid (F32 ➔ Perturbation)</option>
+          <option value="f32">Strict Native F32 (Macro Only)</option>
         </select>
       </div>
 
