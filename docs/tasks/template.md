@@ -19,8 +19,9 @@ status: open
 
 ## Implementation Plan
 
-1. [Step 1 of how this will be executed technically]
-2. [Step 2...]
+1. [If Bug Fix: Write a failing, isolated test case to deterministically reproduce the issue without modifying application code]
+2. [Step 1 of how this will be executed technically]
+3. [Step 2...]
 
 ## Verification Steps
 

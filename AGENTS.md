@@ -49,3 +49,12 @@ glitches, you are explicitly required to review the `docs/math-backend-design.md
   3. Move the completed task file into the `docs/tasks/completed/` directory to maintain a clean
      active workspace while preserving historical context.
   4. Create a task-scoped `git commit` incorporating all file changes pertinent to that specific task, keeping the repository history clean and incremental.
+
+## 5. Debugging Protocol
+
+When resolving rendering glitches, logic flaws, or any application bugs, you MUST adhere to the following Test-Driven Bug Resolution process:
+
+1. **Document:** Ensure the bug is clearly documented in a task file within `docs/tasks/`.
+2. **Research:** Analyze the technical design docs and current implementation to determine likely mathematical, architectural, or state-driven causes of the bug.
+3. **Reproduce via Test:** Add a test case that definitively detects and fails due to the bug. **CRITICAL:** Do not modify the application code during this step. The test must be isolated from the system's runtime behavior to ensure it accurately reproduces the flaw in the current implementation.
+4. **Fix and Validate:** Only after a failing test case is committed, attempt to fix the application code. Use the newly created test case to verify that the fix resolves the issue deterministically.

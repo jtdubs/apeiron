@@ -44,10 +44,18 @@ The outermost layer relies on React, Zustand, and a Web Worker (communicating ba
   2. The actual Rust Web Worker class is natively intercepted and executed in real-time by `@vitest/web-worker`, granting full validation of `postMessage` data-passing strings and absolute deltas.
   3. We apply `vi.useFakeTimers()` inside isolated hooks to guarantee exact debounce timings (e.g., verifying rendering falls back to `STATIC` _exactly_ 150ms after the last user pan).
 
-## 5. Recommended Debugging Workflow
+## 5. Test-Driven Bug Resolution Protocol
 
-1. **State Machine UI error:** Add a `react-testing-library` verification to `src/ui/components/__tests__/` relying on `vi.advanceTimersByTime`.
-2. **Visual Fractal glitch identified:** The coordinate inputs are extracted into a new entry in `tests/cases.json`.
-3. The Rust generator compiles the exact mathematical ground-truth ArrayBuffer.
-4. The WGSL shader is debugged and continuously validated against Flavor A until the epsilon error bounds pass.
-5. The passing WGSL array is cached to prevent future regressions via Flavor B tests.
+Across all application layers, any identified bug or rendering glitch must be resolved using the following strict test-driven workflow:
+
+1. **Document:** Ensure the bug is detailed comprehensively in a `docs/tasks/` file.
+2. **Research:** Review the implementation and relevant design documentation (e.g., `math-backend-design.md`, `rendering-engine-design.md`) to isolate the theoretical root causes (state machines, WebGPU float tolerances, worker starvation, etc.).
+3. **Reproduce via Test:** Create a deterministic test case that specifically detects the bug and fails under the current implementation. **Crucially, do not modify application source code during this step.** Whether it requires a new ground-truth entry in `tests/cases.json`, a new array validation in `run-headless.ts`, or a UI state mock in Vitest, the test must capture the faulty state without altering application mechanics.
+4. **Fix and Validate:** Once a test definitively fails because of the documented bug, implement the patch in the application code. Iterate on the source code until the isolated test case succeeds, validating the resolution.
+
+For visual or mathematical glitches specifically, trace this path:
+
+- Extract the coordinate inputs into a new entry in `tests/cases.json`.
+- Have the Rust generator compile the exact mathematical ground-truth ArrayBuffer (or analyze for expected out-of-bounds metrics like `NaN`/`Infinity`).
+- Debug the WGSL pipeline and validate headlessly until mathematical parity is achieved and the test passes.
+- Save the passing WGSL array baseline to prevent future regressions via Layer 2 "Flavor B" regression checks.
