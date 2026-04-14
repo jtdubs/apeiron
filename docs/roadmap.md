@@ -56,7 +56,7 @@
 
 ## Phase 9: State Sharing & Deep Linking
 
-- [ ] [Task 030: URL State Serialization (Deep Linking)](tasks/030-url-state-serialization.md)
+- [x] [Task 030: URL State Serialization (Deep Linking)](tasks/completed/030-url-state-serialization.md)
 
 ## Phase 10: Performance & Progressive Rendering
 

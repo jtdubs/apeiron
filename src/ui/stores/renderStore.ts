@@ -1,5 +1,44 @@
 import { createStore } from 'zustand/vanilla';
 
+export const THEMES = {
+  monochrome: {
+    a: [0.5, 0.5, 0.5] as [number, number, number],
+    b: [0.5, 0.5, 0.5] as [number, number, number],
+    c: [1.0, 1.0, 1.0] as [number, number, number],
+    d: [0.0, 0.0, 0.0] as [number, number, number],
+  },
+  midnight: {
+    a: [0.5, 0.5, 0.5] as [number, number, number],
+    b: [0.5, 0.5, 0.5] as [number, number, number],
+    c: [1.0, 1.0, 1.0] as [number, number, number],
+    d: [0.0, 0.1, 0.2] as [number, number, number],
+  },
+  neon: {
+    a: [0.1, 0.2, 0.4] as [number, number, number],
+    b: [0.9, 0.8, 0.6] as [number, number, number],
+    c: [1.0, 1.0, 1.0] as [number, number, number],
+    d: [0.3, 0.2, 0.2] as [number, number, number],
+  },
+  fiery: {
+    a: [0.5, 0.5, 0.5] as [number, number, number],
+    b: [0.5, 0.5, 0.5] as [number, number, number],
+    c: [1.0, 0.7, 0.4] as [number, number, number],
+    d: [0.0, 0.15, 0.2] as [number, number, number],
+  },
+  watermelon: {
+    a: [0.5, 0.5, 0.5] as [number, number, number],
+    b: [0.5, 0.5, 0.5] as [number, number, number],
+    c: [1.0, 1.0, 1.0] as [number, number, number],
+    d: [0.0, 0.33, 0.67] as [number, number, number],
+  },
+  cyberpunk: {
+    a: [0.5, 0.5, 0.5] as [number, number, number],
+    b: [0.5, 0.5, 0.5] as [number, number, number],
+    c: [2.0, 1.0, 0.0] as [number, number, number],
+    d: [0.5, 0.2, 0.25] as [number, number, number],
+  },
+};
+
 export interface RenderState {
   // palettes: a, b, c, d
   paletteA: [number, number, number];

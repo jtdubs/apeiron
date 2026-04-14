@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 030: URL State Serialization (Deep Linking)
