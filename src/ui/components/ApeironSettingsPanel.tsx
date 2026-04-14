@@ -61,77 +61,14 @@ export const ApeironSettingsPanel: React.FC = () => {
         Render Controls
       </h2>
 
-      {/* Coloring Modes */}
-      <div style={{ marginBottom: 16 }}>
-        <div
-          style={{
-            fontSize: '11px',
-            color: '#94a3b8',
-            marginBottom: 6,
-            textTransform: 'uppercase',
-          }}
-        >
-          Coloring Mode
-        </div>
-        <select
-          value={state.coloringMode}
-          onChange={(e) =>
-            state.setColoringMode(e.target.value as 'iteration' | 'stripe' | 'banded')
-          }
-          style={{
-            width: '100%',
-            background: 'rgba(0,0,0,0.3)',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.2)',
-            padding: '6px 8px',
-            borderRadius: 4,
-            outline: 'none',
-          }}
-        >
-          <option value="iteration">Continuous Escape Time</option>
-          <option value="banded">Banded (Integer Steps)</option>
-          <option value="stripe">Triangle Inequality Average (Stripe)</option>
-        </select>
-      </div>
-
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 4,
-          fontSize: '12px',
-        }}
-      >
-        <span>Frequency</span>
-        <ScrubbableNumber
-          value={state.colorDensity}
-          onChange={(val) => state.setColorDensity(val)}
-          min={0.1}
-          max={100.0}
-          step={0.1}
-          isLogScale={true}
-        />
-      </div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 16,
-          fontSize: '12px',
-        }}
-      >
-        <span>Phase</span>
-        <ScrubbableNumber
-          value={state.colorPhase}
-          onChange={(val) => state.setColorPhase(val)}
-          step={0.1}
-        />
-      </div>
-
       {/* Precision Modes */}
-      <div style={{ marginBottom: 16 }}>
+      <div
+        style={{
+          marginBottom: 24,
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          paddingBottom: '16px',
+        }}
+      >
         <div
           style={{
             fontSize: '11px',
@@ -160,8 +97,14 @@ export const ApeironSettingsPanel: React.FC = () => {
         </select>
       </div>
 
-      {/* Palette Selector */}
-      <div style={{ marginBottom: 16 }}>
+      {/* Theme Pipeline */}
+      <div
+        style={{
+          marginBottom: 24,
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          paddingBottom: '16px',
+        }}
+      >
         <div
           style={{
             fontSize: '11px',
@@ -170,7 +113,7 @@ export const ApeironSettingsPanel: React.FC = () => {
             textTransform: 'uppercase',
           }}
         >
-          Theme Palette
+          Color Palette
         </div>
         <select
           value={state.paletteName}
@@ -187,6 +130,7 @@ export const ApeironSettingsPanel: React.FC = () => {
             padding: '6px 8px',
             borderRadius: 4,
             outline: 'none',
+            marginBottom: 12,
           }}
         >
           <option value="monochrome">Monochrome</option>
@@ -196,6 +140,72 @@ export const ApeironSettingsPanel: React.FC = () => {
           <option value="watermelon">Watermelon</option>
           <option value="cyberpunk">Cyberpunk</option>
         </select>
+
+        <div
+          style={{
+            fontSize: '11px',
+            color: '#94a3b8',
+            marginBottom: 6,
+            textTransform: 'uppercase',
+          }}
+        >
+          Mapping Mode
+        </div>
+        <select
+          value={state.coloringMode}
+          onChange={(e) =>
+            state.setColoringMode(e.target.value as 'iteration' | 'stripe' | 'banded')
+          }
+          style={{
+            width: '100%',
+            background: 'rgba(0,0,0,0.3)',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.2)',
+            padding: '6px 8px',
+            borderRadius: 4,
+            outline: 'none',
+            marginBottom: 8,
+          }}
+        >
+          <option value="iteration">Continuous Escape Time</option>
+          <option value="banded">Banded (Integer Steps)</option>
+          <option value="stripe">Triangle Inequality Average (Stripe)</option>
+        </select>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 4,
+            fontSize: '12px',
+          }}
+        >
+          <span>Frequency</span>
+          <ScrubbableNumber
+            value={state.colorDensity}
+            onChange={(val) => state.setColorDensity(val)}
+            min={0.1}
+            max={100.0}
+            step={0.1}
+            isLogScale={true}
+          />
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '12px',
+          }}
+        >
+          <span>Phase Offset</span>
+          <ScrubbableNumber
+            value={state.colorPhase}
+            onChange={(val) => state.setColorPhase(val)}
+            step={0.1}
+          />
+        </div>
       </div>
 
       {/* Surface Configuration */}
