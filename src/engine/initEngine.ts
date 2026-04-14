@@ -34,6 +34,11 @@ export interface ApeironEngine {
       coloringMode?: string;
       colorDensity?: number;
       colorPhase?: number;
+      surfaceMode?: string;
+      glowFalloff?: number;
+      glowScatter?: number;
+      contourFrequency?: number;
+      contourThickness?: number;
     },
   ) => void;
   resize: () => void;
@@ -129,6 +134,7 @@ export async function initEngine(
       maxIter,
       exponent,
       0.0, // coloringMode in test
+      0.0, // surfaceMode in test
     ]);
     device.queue.writeBuffer(cameraTestBuffer, 0, cameraData);
 
@@ -240,7 +246,7 @@ export async function initEngine(
     });
 
     paletteUniformsBuffer = device.createBuffer({
-      size: 112, // 4 * vec4 + max_iter float + 3 pad + azimuth + elevation + diff + shiny + height + ambient + 2 pad = 112 bytes
+      size: 128, // 32 floats: 4 * vec4 + max_iter float + azimuth + elevation + diff + shiny + height + ambient + coloring + col_dens + col_phase + surface + paramA + paramB + pad = 128 bytes
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -274,8 +280,13 @@ export async function initEngine(
 
       0.1, // heightScale
       0.2, // ambient
-      0.0, // pad1
-      0.0, // pad2
+      0.0, // coloringMode
+      3.0, // colorDensity
+      0.0, // colorPhase
+      1.0, // surfaceMode
+      1.0, // surfaceParamA
+      1.0, // surfaceParamB
+      0.0, // pad
     ]);
     device.queue.writeBuffer(paletteUniformsBuffer, 0, paletteData);
 
@@ -423,7 +434,7 @@ export async function initEngine(
         usePerturbation,
         actualRefMaxIter,
         exponent,
-        theme?.coloringMode === 'stripe' ? 1.0 : 0.0,
+        theme?.coloringMode === 'stripe' ? 1.0 : theme?.coloringMode === 'banded' ? 2.0 : 0.0,
       ]);
       device.queue.writeBuffer(uniformsBuffer!, 0, cameraData);
 
@@ -446,6 +457,11 @@ export async function initEngine(
           theme.coloringMode,
           theme.colorDensity,
           theme.colorPhase,
+          theme.surfaceMode,
+          theme.glowFalloff,
+          theme.glowScatter,
+          theme.contourFrequency,
+          theme.contourThickness,
         ])
       : '';
     if (themeString !== lastThemeState && theme) {
@@ -466,11 +482,27 @@ export async function initEngine(
         theme.shininess,
         theme.heightScale,
         theme.ambient,
-        theme.coloringMode === 'stripe' ? 1.0 : 0.0,
+        theme.coloringMode === 'stripe' ? 1.0 : theme.coloringMode === 'banded' ? 2.0 : 0.0,
         theme.colorDensity ?? 3.0,
         theme.colorPhase ?? 0.0,
-        0.0, // pad7
-        0.0, // pad8
+        theme.surfaceMode === 'off'
+          ? 0.0
+          : theme.surfaceMode === 'soft-glow'
+            ? 2.0
+            : theme.surfaceMode === 'contours'
+              ? 3.0
+              : 1.0, // surfaceMode
+        theme.surfaceMode === 'soft-glow'
+          ? (theme.glowFalloff ?? 20.0)
+          : theme.surfaceMode === 'contours'
+            ? (theme.contourFrequency ?? 20.0)
+            : 1.0, // surfaceParamA
+        theme.surfaceMode === 'soft-glow'
+          ? (theme.glowScatter ?? 1.0)
+          : theme.surfaceMode === 'contours'
+            ? (theme.contourThickness ?? 0.8)
+            : 1.0, // surfaceParamB
+        0.0, // pad
       ]);
       device.queue.writeBuffer(paletteUniformsBuffer!, 0, paletteData);
     }

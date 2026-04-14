@@ -30,11 +30,13 @@ struct ResolveUniforms {
   shininess: f32,
   height_scale: f32,
   ambient: f32,
-  pad4: f32,
+  coloring_mode: f32,
   color_density: f32,
   color_phase: f32,
-  pad7: f32,
-  pad8: f32,
+  surface_mode: f32,
+  surface_param_a: f32,
+  surface_param_b: f32,
+  pad: f32,
 };
 
 @group(1) @binding(0) var<uniform> params: ResolveUniforms;
@@ -58,29 +60,44 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(0.0, 0.0, 0.0, 1.0);
   } else {
     var t: f32;
-    if (params.pad4 > 0.5) {
-      t = iter; // TIA is theoretically returned directly bounded by [0, 1] mapped per iteration.
+    if (params.coloring_mode > 1.5) {
+      t = floor(iter) / params.max_iter; // Banded
+    } else if (params.coloring_mode > 0.5) {
+      t = iter; // TIA is directly bounded
     } else {
-      t = iter / params.max_iter;
+      t = iter / params.max_iter; // Continuous
     }
     
     // We scale t slightly so colors cycle nicely
     let base_color = palette_func(t * params.color_density + params.color_phase, params.a.xyz, params.b.xyz, params.c.xyz, params.d.xyz);
     
-    let N = normalize(vec3<f32>(nx, ny, params.height_scale));
+    var final_col = base_color;
     
-    let az = radians(params.light_azimuth);
-    let el = radians(params.light_elevation);
-    let L = normalize(vec3<f32>(cos(az)*cos(el), sin(az)*cos(el), sin(el)));
-    
-    let V = vec3<f32>(0.0, 0.0, 1.0);
-    
-    let diff = max(dot(N, L), 0.0) * params.diffuse;
-    
-    let H = normalize(L + V);
-    let spec = pow(max(dot(N, H), 0.0), params.shininess);
-    
-    let final_col = base_color * (params.ambient + diff) + vec3<f32>(spec);
+    if (params.surface_mode == 1.0) {
+      let N = normalize(vec3<f32>(nx, ny, params.height_scale));
+      let az = radians(params.light_azimuth);
+      let el = radians(params.light_elevation);
+      let L = normalize(vec3<f32>(cos(az)*cos(el), sin(az)*cos(el), sin(el)));
+      let V = vec3<f32>(0.0, 0.0, 1.0);
+      let diff = max(dot(N, L), 0.0) * params.diffuse;
+      let H = normalize(L + V);
+      let spec = pow(max(dot(N, H), 0.0), params.shininess);
+      final_col = base_color * (params.ambient + diff) + vec3<f32>(spec);
+    } else if (params.surface_mode == 2.0) {
+      // Soft Glow
+      // param_a = glow falloff, param_b = glow scatter/intensity
+      let glow = clamp(pow(de * params.surface_param_a, 0.5), 0.0, 1.0);
+      final_col = base_color * (params.ambient + glow * params.surface_param_b);
+    } else if (params.surface_mode == 3.0) {
+      // Contours
+      // param_a = contour frequency, param_b = contour thickness
+      let contour = fract(de * params.surface_param_a);
+      let edge = step(params.surface_param_b, contour);
+      final_col = base_color * (params.ambient + 1.0) * (1.0 - edge * 0.5);
+    } else {
+      // Off
+      final_col = base_color;
+    }
     
     return vec4<f32>(clamp(final_col, vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
   }

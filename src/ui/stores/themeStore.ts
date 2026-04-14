@@ -17,9 +17,21 @@ export interface ThemeState {
 
   // modes
   precisionMode: 'f32' | 'perturbation';
-  coloringMode: 'iteration' | 'stripe';
+  coloringMode: 'iteration' | 'stripe' | 'banded';
+  surfaceMode: 'off' | '3d-topography' | 'soft-glow' | 'contours';
   setPrecisionMode: (mode: 'f32' | 'perturbation') => void;
-  setColoringMode: (mode: 'iteration' | 'stripe') => void;
+  setColoringMode: (mode: 'iteration' | 'stripe' | 'banded') => void;
+  setSurfaceMode: (mode: 'off' | '3d-topography' | 'soft-glow' | 'contours') => void;
+
+  // surface tweaks
+  glowFalloff: number;
+  glowScatter: number;
+  contourFrequency: number;
+  contourThickness: number;
+  setGlowFalloff: (val: number) => void;
+  setGlowScatter: (val: number) => void;
+  setContourFrequency: (val: number) => void;
+  setContourThickness: (val: number) => void;
 
   // coloring
   colorDensity: number;
@@ -59,10 +71,20 @@ export const themeStore = createStore<ThemeState>((set) => ({
 
   precisionMode: 'perturbation',
   coloringMode: 'iteration',
+  surfaceMode: '3d-topography',
+  glowFalloff: 20.0,
+  glowScatter: 1.0,
+  contourFrequency: 20.0,
+  contourThickness: 0.8,
   colorDensity: 3.0,
   colorPhase: 0.0,
   setPrecisionMode: (mode) => set({ precisionMode: mode }),
   setColoringMode: (mode) => set({ coloringMode: mode }),
+  setSurfaceMode: (mode) => set({ surfaceMode: mode }),
+  setGlowFalloff: (val) => set({ glowFalloff: val }),
+  setGlowScatter: (val) => set({ glowScatter: val }),
+  setContourFrequency: (val) => set({ contourFrequency: val }),
+  setContourThickness: (val) => set({ contourThickness: val }),
   setColorDensity: (val) => set({ colorDensity: val }),
   setColorPhase: (val) => set({ colorPhase: val }),
 
