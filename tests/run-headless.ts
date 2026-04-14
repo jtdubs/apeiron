@@ -51,7 +51,7 @@ async function main() {
 
   try {
     const mathAccumWgsl = fs.readFileSync(
-      path.resolve('./src/engine/shaders/math_accum.wgsl'),
+      path.resolve('./src/engine/shaders/escape/math_accum.wgsl'),
       'utf8',
     );
     const engine = await initEngine(undefined, mathAccumWgsl, '');

@@ -2,8 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { initEngine } from '../../engine/initEngine';
 import type { ApeironEngine } from '../../engine/initEngine';
 
-import mathAccumWgsl from '../../engine/shaders/math_accum.wgsl?raw';
-import resolvePresentWgsl from '../../engine/shaders/resolve_present.wgsl?raw';
+import mathAccumWgsl from '../../engine/shaders/escape/math_accum.wgsl?raw';
+import resolvePresentWgsl from '../../engine/shaders/escape/resolve_present.wgsl?raw';
 import { viewportStore } from '../stores/viewportStore';
 import { themeStore } from '../stores/themeStore';
 
