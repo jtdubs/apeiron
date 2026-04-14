@@ -25,6 +25,12 @@ export interface ApeironEngine {
       paletteB: [number, number, number];
       paletteC: [number, number, number];
       paletteD: [number, number, number];
+      lightAzimuth: number;
+      lightElevation: number;
+      diffuse: number;
+      shininess: number;
+      heightScale: number;
+      ambient: number;
     },
   ) => void;
   resize: () => void;
@@ -231,7 +237,7 @@ export async function initEngine(
     });
 
     paletteUniformsBuffer = device.createBuffer({
-      size: 80, // 4 * vec4 (16 bytes each) = 64. plus max_iter float + 3 pads -> 80 bytes
+      size: 112, // 4 * vec4 + max_iter float + 3 pad + azimuth + elevation + diff + shiny + height + ambient + 2 pad = 112 bytes
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -257,6 +263,16 @@ export async function initEngine(
       0.0,
       0.0,
       0.0, // max_iter + padding
+
+      45.0, // azimuth
+      45.0, // elevation
+      1.0, // diffuse
+      32.0, // shininess
+
+      0.1, // heightScale
+      0.2, // ambient
+      0.0, // pad1
+      0.0, // pad2
     ]);
     device.queue.writeBuffer(paletteUniformsBuffer, 0, paletteData);
 
@@ -328,6 +344,12 @@ export async function initEngine(
       paletteB: [number, number, number];
       paletteC: [number, number, number];
       paletteD: [number, number, number];
+      lightAzimuth: number;
+      lightElevation: number;
+      diffuse: number;
+      shininess: number;
+      heightScale: number;
+      ambient: number;
     },
   ) => {
     if (!context || !mathPipeline || !resolvePipeline || !gBufferTexture) return;
@@ -407,7 +429,18 @@ export async function initEngine(
     }
 
     const themeString = theme
-      ? JSON.stringify([theme.paletteA, theme.paletteB, theme.paletteC, theme.paletteD])
+      ? JSON.stringify([
+          theme.paletteA,
+          theme.paletteB,
+          theme.paletteC,
+          theme.paletteD,
+          theme.lightAzimuth,
+          theme.lightElevation,
+          theme.diffuse,
+          theme.shininess,
+          theme.heightScale,
+          theme.ambient,
+        ])
       : '';
     if (themeString !== lastThemeState && theme) {
       lastThemeState = themeString;
@@ -419,6 +452,18 @@ export async function initEngine(
         ...theme.paletteC,
         0.0,
         ...theme.paletteD,
+        0.0,
+        theme.maxIter || 100.0, // will be overwritten immediately below but needed to align array
+        0.0,
+        0.0,
+        0.0,
+        theme.lightAzimuth,
+        theme.lightElevation,
+        theme.diffuse,
+        theme.shininess,
+        theme.heightScale,
+        theme.ambient,
+        0.0,
         0.0,
       ]);
       device.queue.writeBuffer(paletteUniformsBuffer!, 0, paletteData);

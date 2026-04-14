@@ -18,15 +18,28 @@ fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
 
 @group(0) @binding(0) var g_buffer: texture_2d<f32>;
 
-struct PaletteUniforms {
+struct ResolveUniforms {
   a: vec4<f32>,
   b: vec4<f32>,
   c: vec4<f32>,
   d: vec4<f32>,
   max_iter: f32, // to calculate t
+  pad1: f32,
+  pad2: f32,
+  pad3: f32,
+  
+  light_azimuth: f32,
+  light_elevation: f32,
+  diffuse: f32,
+  shininess: f32,
+  
+  height_scale: f32,
+  ambient: f32,
+  pad4: f32,
+  pad5: f32,
 };
 
-@group(1) @binding(0) var<uniform> palette: PaletteUniforms;
+@group(1) @binding(0) var<uniform> params: ResolveUniforms;
 
 fn palette_func(t: f32, a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>) -> vec3<f32> {
   return a + b * cos(6.28318530718 * (c * t + d));
@@ -38,16 +51,35 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   let coord = vec2<i32>(floor(in.position.xy));
   let tex_color = textureLoad(g_buffer, coord, 0);
   let iter = tex_color.r;
+  let de = tex_color.g;
+  let nx = tex_color.b;
+  let ny = tex_color.a;
 
-  if (iter >= palette.max_iter) {
+  if (iter >= params.max_iter) {
     // Inside the set (Black)
     return vec4<f32>(0.0, 0.0, 0.0, 1.0);
   } else {
     // Outside the set (Cosine Palette based on smooth iterations)
-    let t = iter / palette.max_iter;
+    let t = iter / params.max_iter;
     
     // We scale t slightly so colors cycle nicely
-    let col = palette_func(t * 3.0, palette.a.xyz, palette.b.xyz, palette.c.xyz, palette.d.xyz);
-    return vec4<f32>(col, 1.0);
+    let base_color = palette_func(t * 3.0, params.a.xyz, params.b.xyz, params.c.xyz, params.d.xyz);
+    
+    let N = normalize(vec3<f32>(nx, ny, params.height_scale));
+    
+    let az = radians(params.light_azimuth);
+    let el = radians(params.light_elevation);
+    let L = normalize(vec3<f32>(cos(az)*cos(el), sin(az)*cos(el), sin(el)));
+    
+    let V = vec3<f32>(0.0, 0.0, 1.0);
+    
+    let diff = max(dot(N, L), 0.0) * params.diffuse;
+    
+    let H = normalize(L + V);
+    let spec = pow(max(dot(N, H), 0.0), params.shininess);
+    
+    let final_col = base_color * (params.ambient + diff) + vec3<f32>(spec);
+    
+    return vec4<f32>(clamp(final_col, vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
   }
 }

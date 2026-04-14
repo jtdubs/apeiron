@@ -12,6 +12,8 @@ export interface ThemeState {
   lightElevation: number;
   diffuse: number;
   shininess: number;
+  heightScale: number;
+  ambient: number;
 
   // modes
   precisionMode: 'f32' | 'perturbation';
@@ -23,7 +25,14 @@ export interface ThemeState {
     c: [number, number, number],
     d: [number, number, number],
   ) => void;
-  setLighting: (azimuth: number, elevation: number, diffuse: number, shininess: number) => void;
+  setLighting: (
+    azimuth: number,
+    elevation: number,
+    diffuse: number,
+    shininess: number,
+    heightScale: number,
+    ambient: number,
+  ) => void;
 }
 
 export const themeStore = createStore<ThemeState>((set) => ({
@@ -37,11 +46,20 @@ export const themeStore = createStore<ThemeState>((set) => ({
   lightElevation: 45.0,
   diffuse: 1.0,
   shininess: 32.0,
+  heightScale: 0.1,
+  ambient: 0.2,
 
   precisionMode: 'perturbation',
   setPrecisionMode: (mode) => set({ precisionMode: mode }),
 
   setPalette: (a, b, c, d) => set({ paletteA: a, paletteB: b, paletteC: c, paletteD: d }),
-  setLighting: (azimuth, elevation, diffuse, shininess) =>
-    set({ lightAzimuth: azimuth, lightElevation: elevation, diffuse, shininess }),
+  setLighting: (azimuth, elevation, diffuse, shininess, heightScale, ambient) =>
+    set({
+      lightAzimuth: azimuth,
+      lightElevation: elevation,
+      diffuse,
+      shininess,
+      heightScale,
+      ambient,
+    }),
 }));

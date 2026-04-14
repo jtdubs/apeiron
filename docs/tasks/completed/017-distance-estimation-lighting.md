@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 017: Distance Estimation & Spatial Lighting
@@ -27,6 +27,6 @@ Leverage the G-Buffer (Deferred Resolve Pipeline) to apply 3D Distance Estimatio
 
 ## Verification Steps
 
-- [ ] Are derivatives correctly fetched from the G-Buffer without requiring re-computation?
-- [ ] Does the visual output reflect 3D topographic shading?
-- [ ] **Testing:** Have headless proxy tests been added to ensure `resolve_present.wgsl` outputs perfectly stable deterministic colors when fed known mock G-Buffer data?
+- [x] Are derivatives correctly fetched from the G-Buffer without requiring re-computation?
+- [x] Does the visual output reflect 3D topographic shading?
+- [x] **Testing:** Have headless proxy tests been added to ensure `resolve_present.wgsl` outputs perfectly stable deterministic colors when fed known mock G-Buffer data?

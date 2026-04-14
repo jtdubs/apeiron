@@ -154,7 +154,14 @@ export const ApeironSettingsPanel: React.FC = () => {
             <ScrubbableNumber
               value={state.lightAzimuth}
               onChange={(v) =>
-                state.setLighting(v, state.lightElevation, state.diffuse, state.shininess)
+                state.setLighting(
+                  v,
+                  state.lightElevation,
+                  state.diffuse,
+                  state.shininess,
+                  state.heightScale,
+                  state.ambient,
+                )
               }
               step={5}
               min={0}
@@ -178,7 +185,14 @@ export const ApeironSettingsPanel: React.FC = () => {
             <ScrubbableNumber
               value={state.lightElevation}
               onChange={(v) =>
-                state.setLighting(state.lightAzimuth, v, state.diffuse, state.shininess)
+                state.setLighting(
+                  state.lightAzimuth,
+                  v,
+                  state.diffuse,
+                  state.shininess,
+                  state.heightScale,
+                  state.ambient,
+                )
               }
               step={5}
               min={0}
@@ -201,7 +215,14 @@ export const ApeironSettingsPanel: React.FC = () => {
           <ScrubbableNumber
             value={state.diffuse}
             onChange={(v) =>
-              state.setLighting(state.lightAzimuth, state.lightElevation, v, state.shininess)
+              state.setLighting(
+                state.lightAzimuth,
+                state.lightElevation,
+                v,
+                state.shininess,
+                state.heightScale,
+                state.ambient,
+              )
             }
             step={0.1}
             min={0}
@@ -221,11 +242,73 @@ export const ApeironSettingsPanel: React.FC = () => {
           <ScrubbableNumber
             value={state.shininess}
             onChange={(v) =>
-              state.setLighting(state.lightAzimuth, state.lightElevation, state.diffuse, v)
+              state.setLighting(
+                state.lightAzimuth,
+                state.lightElevation,
+                state.diffuse,
+                v,
+                state.heightScale,
+                state.ambient,
+              )
             }
             step={2}
             min={1}
             max={128}
+          />
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 4,
+            fontSize: '12px',
+          }}
+        >
+          <span>Height Scale</span>
+          <ScrubbableNumber
+            value={state.heightScale}
+            onChange={(v) =>
+              state.setLighting(
+                state.lightAzimuth,
+                state.lightElevation,
+                state.diffuse,
+                state.shininess,
+                v,
+                state.ambient,
+              )
+            }
+            step={0.01}
+            min={0}
+            max={1.0}
+          />
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '12px',
+          }}
+        >
+          <span>Ambient</span>
+          <ScrubbableNumber
+            value={state.ambient}
+            onChange={(v) =>
+              state.setLighting(
+                state.lightAzimuth,
+                state.lightElevation,
+                state.diffuse,
+                state.shininess,
+                state.heightScale,
+                v,
+              )
+            }
+            step={0.05}
+            min={0}
+            max={1.0}
           />
         </div>
       </div>

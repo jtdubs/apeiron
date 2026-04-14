@@ -35,7 +35,7 @@
 
 ## Phase 6: Distance Estimation & Aesthetics (G-Buffer Resolve)
 
-- [ ] [Task 017: Distance Estimation & Spatial Lighting](tasks/017-distance-estimation-lighting.md)
+- [x] [Task 017: Distance Estimation & Spatial Lighting](tasks/completed/017-distance-estimation-lighting.md)
 - [ ] [Task 018: Triangle Inequality Average (Stripe Rendering)](tasks/018-tia-stripe-average.md)
 
 ## Phase 7: UI Capabilities & Integration
