@@ -25,7 +25,7 @@ apeiron/
 │   └── util/             (Shared helpers, Base64 State serialization)
 │
 ├── tests/                (Headless Data-matching execution)
-│   ├── run-headless.ts   (Deno/Node headless test orchestrator)
+│   ├── engine.deno.ts    (Deno test suite using WebGPUTestHarness)
 │   ├── cases.json        (The master regression lockfile of test coordinates)
 │   └── artifacts/        (Cached WebGPU Float32Array buffers for strict regressions)
 │
