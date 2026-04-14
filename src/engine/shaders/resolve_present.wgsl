@@ -23,20 +23,18 @@ struct ResolveUniforms {
   b: vec4<f32>,
   c: vec4<f32>,
   d: vec4<f32>,
-  max_iter: f32, // to calculate t
-  pad1: f32,
-  pad2: f32,
-  pad3: f32,
-  
+  max_iter: f32,
   light_azimuth: f32,
   light_elevation: f32,
   diffuse: f32,
   shininess: f32,
-  
   height_scale: f32,
   ambient: f32,
   pad4: f32,
-  pad5: f32,
+  color_density: f32,
+  color_phase: f32,
+  pad7: f32,
+  pad8: f32,
 };
 
 @group(1) @binding(0) var<uniform> params: ResolveUniforms;
@@ -67,7 +65,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     }
     
     // We scale t slightly so colors cycle nicely
-    let base_color = palette_func(t * 3.0, params.a.xyz, params.b.xyz, params.c.xyz, params.d.xyz);
+    let base_color = palette_func(t * params.color_density + params.color_phase, params.a.xyz, params.b.xyz, params.c.xyz, params.d.xyz);
     
     let N = normalize(vec3<f32>(nx, ny, params.height_scale));
     

@@ -32,6 +32,8 @@ export interface ApeironEngine {
       heightScale: number;
       ambient: number;
       coloringMode?: string;
+      colorDensity?: number;
+      colorPhase?: number;
     },
   ) => void;
   resize: () => void;
@@ -442,6 +444,8 @@ export async function initEngine(
           theme.heightScale,
           theme.ambient,
           theme.coloringMode,
+          theme.colorDensity,
+          theme.colorPhase,
         ])
       : '';
     if (themeString !== lastThemeState && theme) {
@@ -456,9 +460,6 @@ export async function initEngine(
         ...theme.paletteD,
         0.0,
         theme.maxIter || 100.0, // will be overwritten immediately below but needed to align array
-        0.0,
-        0.0,
-        0.0,
         theme.lightAzimuth,
         theme.lightElevation,
         theme.diffuse,
@@ -466,7 +467,10 @@ export async function initEngine(
         theme.heightScale,
         theme.ambient,
         theme.coloringMode === 'stripe' ? 1.0 : 0.0,
-        0.0,
+        theme.colorDensity ?? 3.0,
+        theme.colorPhase ?? 0.0,
+        0.0, // pad7
+        0.0, // pad8
       ]);
       device.queue.writeBuffer(paletteUniformsBuffer!, 0, paletteData);
     }
