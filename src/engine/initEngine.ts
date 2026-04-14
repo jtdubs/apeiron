@@ -365,6 +365,14 @@ export async function initEngine(
       shininess: number;
       heightScale: number;
       ambient: number;
+      coloringMode?: string;
+      colorDensity?: number;
+      colorPhase?: number;
+      surfaceMode?: string;
+      glowFalloff?: number;
+      glowScatter?: number;
+      contourFrequency?: number;
+      contourThickness?: number;
     },
   ) => {
     if (!context || !mathPipeline || !resolvePipeline || !gBufferTexture) return;

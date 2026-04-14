@@ -1,6 +1,6 @@
 import { createStore } from 'zustand/vanilla';
 
-export interface ThemeState {
+export interface RenderState {
   // palettes: a, b, c, d
   paletteA: [number, number, number];
   paletteB: [number, number, number];
@@ -59,7 +59,7 @@ export interface ThemeState {
   ) => void;
 }
 
-export const themeStore = createStore<ThemeState>((set) => ({
+export const renderStore = createStore<RenderState>((set) => ({
   themeVersion: 0,
   // Default 'neon'
   paletteA: [0.5, 0.5, 0.5],

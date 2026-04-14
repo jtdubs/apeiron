@@ -5,7 +5,7 @@ import type { ApeironEngine } from '../../engine/initEngine';
 import mathAccumWgsl from '../../engine/shaders/escape/math_accum.wgsl?raw';
 import resolvePresentWgsl from '../../engine/shaders/escape/resolve_present.wgsl?raw';
 import { viewportStore } from '../stores/viewportStore';
-import { themeStore } from '../stores/themeStore';
+import { renderStore } from '../stores/renderStore';
 
 export const ApeironViewport: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -90,7 +90,7 @@ export const ApeironViewport: React.FC = () => {
         const loop = () => {
           if (!isMounted) return;
           const state = viewportStore.getState();
-          const theme = themeStore.getState();
+          const theme = renderStore.getState();
 
           const isPerturb = state.refOrbits !== null && theme.precisionMode !== 'f32';
 

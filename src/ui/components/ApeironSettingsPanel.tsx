@@ -1,6 +1,6 @@
 import React from 'react';
 import { useStore } from 'zustand';
-import { themeStore } from '../stores/themeStore';
+import { renderStore } from '../stores/renderStore';
 import { ScrubbableNumber } from './ScrubbableNumber';
 
 const THEMES = {
@@ -43,54 +43,20 @@ const THEMES = {
 };
 
 export const ApeironSettingsPanel: React.FC = () => {
-  const state = useStore(themeStore);
+  const state = useStore(renderStore);
 
   return (
     <div className="hud-settings-panel">
-      <h2
-        style={{
-          margin: '0',
-          fontSize: '14px',
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '1px',
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
-          paddingBottom: '8px',
-        }}
-      >
-        Render Controls
-      </h2>
+      <h2 className="hud-settings-header">Render Controls</h2>
 
       {/* Precision Modes */}
-      <div
-        style={{
-          marginBottom: 0,
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
-          paddingBottom: '16px',
-        }}
-      >
-        <div
-          style={{
-            fontSize: '11px',
-            color: '#94a3b8',
-            marginBottom: 6,
-            textTransform: 'uppercase',
-          }}
-        >
-          Math Precision
-        </div>
+      <div className="hud-settings-section">
+        <div className="hud-settings-label">Math Precision</div>
         <select
           value={state.precisionMode}
           onChange={(e) => state.setPrecisionMode(e.target.value as 'f32' | 'perturbation')}
-          style={{
-            width: '100%',
-            background: 'rgba(0,0,0,0.3)',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.2)',
-            padding: '6px 8px',
-            borderRadius: 4,
-            outline: 'none',
-          }}
+          className="hud-settings-select"
+          style={{ marginBottom: 12 }}
         >
           <option value="perturbation">Auto-Hybrid (F32 ➔ Perturbation)</option>
           <option value="f32">Strict Native F32 (Macro Only)</option>
@@ -98,23 +64,8 @@ export const ApeironSettingsPanel: React.FC = () => {
       </div>
 
       {/* Theme Pipeline */}
-      <div
-        style={{
-          marginBottom: 0,
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
-          paddingBottom: '16px',
-        }}
-      >
-        <div
-          style={{
-            fontSize: '11px',
-            color: '#94a3b8',
-            marginBottom: 6,
-            textTransform: 'uppercase',
-          }}
-        >
-          Color Palette
-        </div>
+      <div className="hud-settings-section">
+        <div className="hud-settings-label">Color Palette</div>
         <select
           value={state.paletteName}
           onChange={(e) => {
@@ -122,16 +73,8 @@ export const ApeironSettingsPanel: React.FC = () => {
             const theme = THEMES[key];
             if (theme) state.setPalette(theme.a, theme.b, theme.c, theme.d, key);
           }}
-          style={{
-            width: '100%',
-            background: 'rgba(0,0,0,0.3)',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.2)',
-            padding: '6px 8px',
-            borderRadius: 4,
-            outline: 'none',
-            marginBottom: 12,
-          }}
+          className="hud-settings-select"
+          style={{ marginBottom: 12 }}
         >
           <option value="monochrome">Monochrome</option>
           <option value="midnight">Midnight</option>
@@ -141,46 +84,21 @@ export const ApeironSettingsPanel: React.FC = () => {
           <option value="cyberpunk">Cyberpunk</option>
         </select>
 
-        <div
-          style={{
-            fontSize: '11px',
-            color: '#94a3b8',
-            marginBottom: 6,
-            textTransform: 'uppercase',
-          }}
-        >
-          Mapping Mode
-        </div>
+        <div className="hud-settings-label">Mapping Mode</div>
         <select
           value={state.coloringMode}
           onChange={(e) =>
             state.setColoringMode(e.target.value as 'iteration' | 'stripe' | 'banded')
           }
-          style={{
-            width: '100%',
-            background: 'rgba(0,0,0,0.3)',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.2)',
-            padding: '6px 8px',
-            borderRadius: 4,
-            outline: 'none',
-            marginBottom: 8,
-          }}
+          className="hud-settings-select"
+          style={{ marginBottom: 8 }}
         >
           <option value="iteration">Continuous Escape Time</option>
           <option value="banded">Banded (Integer Steps)</option>
           <option value="stripe">Triangle Inequality Average (Stripe)</option>
         </select>
 
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 4,
-            fontSize: '12px',
-          }}
-        >
+        <div className="hud-settings-flex-row">
           <span>Frequency</span>
           <ScrubbableNumber
             value={state.colorDensity}
@@ -191,14 +109,7 @@ export const ApeironSettingsPanel: React.FC = () => {
             isLogScale={true}
           />
         </div>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '12px',
-          }}
-        >
+        <div className="hud-settings-flex-row">
           <span>Phase Offset</span>
           <ScrubbableNumber
             value={state.colorPhase}
@@ -209,17 +120,8 @@ export const ApeironSettingsPanel: React.FC = () => {
       </div>
 
       {/* Surface Configuration */}
-      <div style={{ marginBottom: 16 }}>
-        <div
-          style={{
-            fontSize: '11px',
-            color: '#94a3b8',
-            marginBottom: 6,
-            textTransform: 'uppercase',
-          }}
-        >
-          Surface Mode
-        </div>
+      <div className="hud-settings-section">
+        <div className="hud-settings-label">Surface Mode</div>
         <select
           value={state.surfaceMode}
           onChange={(e) =>
@@ -227,16 +129,8 @@ export const ApeironSettingsPanel: React.FC = () => {
               e.target.value as 'off' | '3d-topography' | 'soft-glow' | 'contours',
             )
           }
-          style={{
-            width: '100%',
-            background: 'rgba(0,0,0,0.3)',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.2)',
-            padding: '6px 8px',
-            borderRadius: 4,
-            outline: 'none',
-            marginBottom: '16px',
-          }}
+          className="hud-settings-select"
+          style={{ marginBottom: 16 }}
         >
           <option value="off">Off (Flat Color)</option>
           <option value="3d-topography">3D Topography</option>
@@ -246,26 +140,9 @@ export const ApeironSettingsPanel: React.FC = () => {
 
         {state.surfaceMode === '3d-topography' && (
           <>
-            <div
-              style={{
-                fontSize: '11px',
-                color: '#94a3b8',
-                marginBottom: 6,
-                textTransform: 'uppercase',
-              }}
-            >
-              Surface Lighting
-            </div>
+            <div className="hud-settings-label">Surface Lighting</div>
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 4,
-                fontSize: '12px',
-              }}
-            >
+            <div className="hud-settings-flex-row">
               <span>Azimuth</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                 <ScrubbableNumber
@@ -288,15 +165,7 @@ export const ApeironSettingsPanel: React.FC = () => {
               </div>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 4,
-                fontSize: '12px',
-              }}
-            >
+            <div className="hud-settings-flex-row">
               <span>Elevation</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                 <ScrubbableNumber
@@ -319,15 +188,7 @@ export const ApeironSettingsPanel: React.FC = () => {
               </div>
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 4,
-                fontSize: '12px',
-              }}
-            >
+            <div className="hud-settings-flex-row">
               <span>Diffuse</span>
               <ScrubbableNumber
                 value={state.diffuse}
@@ -347,14 +208,7 @@ export const ApeironSettingsPanel: React.FC = () => {
               />
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                fontSize: '12px',
-              }}
-            >
+            <div className="hud-settings-flex-row">
               <span>Shininess</span>
               <ScrubbableNumber
                 value={state.shininess}
@@ -376,15 +230,7 @@ export const ApeironSettingsPanel: React.FC = () => {
               />
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 4,
-                fontSize: '12px',
-              }}
-            >
+            <div className="hud-settings-flex-row">
               <span>Height Scale</span>
               <ScrubbableNumber
                 value={state.heightScale}
@@ -404,14 +250,7 @@ export const ApeironSettingsPanel: React.FC = () => {
               />
             </div>
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                fontSize: '12px',
-              }}
-            >
+            <div className="hud-settings-flex-row">
               <span>Ambient</span>
               <ScrubbableNumber
                 value={state.ambient}
@@ -435,25 +274,8 @@ export const ApeironSettingsPanel: React.FC = () => {
 
         {state.surfaceMode === 'soft-glow' && (
           <>
-            <div
-              style={{
-                fontSize: '11px',
-                color: '#94a3b8',
-                marginBottom: 6,
-                textTransform: 'uppercase',
-              }}
-            >
-              Glow Settings
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 4,
-                fontSize: '12px',
-              }}
-            >
+            <div className="hud-settings-label">Glow Settings</div>
+            <div className="hud-settings-flex-row">
               <span>Falloff</span>
               <ScrubbableNumber
                 value={state.glowFalloff}
@@ -464,15 +286,7 @@ export const ApeironSettingsPanel: React.FC = () => {
                 isLogScale={true}
               />
             </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 4,
-                fontSize: '12px',
-              }}
-            >
+            <div className="hud-settings-flex-row">
               <span>Scatter</span>
               <ScrubbableNumber
                 value={state.glowScatter}
@@ -487,25 +301,8 @@ export const ApeironSettingsPanel: React.FC = () => {
 
         {state.surfaceMode === 'contours' && (
           <>
-            <div
-              style={{
-                fontSize: '11px',
-                color: '#94a3b8',
-                marginBottom: 6,
-                textTransform: 'uppercase',
-              }}
-            >
-              Contour Settings
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 4,
-                fontSize: '12px',
-              }}
-            >
+            <div className="hud-settings-label">Contour Settings</div>
+            <div className="hud-settings-flex-row">
               <span>Frequency</span>
               <ScrubbableNumber
                 value={state.contourFrequency}
@@ -516,15 +313,7 @@ export const ApeironSettingsPanel: React.FC = () => {
                 isLogScale={true}
               />
             </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 4,
-                fontSize: '12px',
-              }}
-            >
+            <div className="hud-settings-flex-row">
               <span>Thickness</span>
               <ScrubbableNumber
                 value={state.contourThickness}
