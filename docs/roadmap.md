@@ -85,3 +85,9 @@
 
 - [x] [Task 042: Zero-Resize Dynamic Resolution Scaling](tasks/completed/042-zero-resize-drs.md)
 - [x] [Task 043: RenderFrameDescriptor — Typed Engine Contract](tasks/completed/043-render-frame-descriptor.md)
+
+## Phase 15: Interior-Coverage Lag Elimination
+
+- [ ] [Task 044: Frame-Time Telemetry & Interactive Quality Budget](tasks/044-frame-time-telemetry.md)
+- [ ] [Task 045: Adaptive Dynamic Resolution Scaling (ADRS)](tasks/045-adaptive-drs.md)
+- [ ] [Task 046: Shader Interior Early-Out (Period Detection)](tasks/046-shader-interior-early-out.md)
