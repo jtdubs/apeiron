@@ -141,7 +141,7 @@ export const ApeironViewport: React.FC = () => {
       if (logTimeoutId) clearTimeout(logTimeoutId);
       logTimeoutId = window.setTimeout(() => {
         console.log(
-          `📍 Viewport Config - zr: ${state.zr}, zi: ${state.zi}, cr: ${state.cr}, ci: ${state.ci}, zoom: ${state.zoom}`,
+          `📍 Viewport Config - z_anchor: ${state.anchorZr}, ${state.anchorZi} | c_anchor: ${state.anchorCr}, ${state.anchorCi} | zoom: ${state.zoom}`,
         );
       }, 250);
 
