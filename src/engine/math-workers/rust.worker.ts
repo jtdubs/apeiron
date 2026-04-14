@@ -24,11 +24,12 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     }
     await wasmInit;
 
-    const result = compute_mandelbrot(casesJson, maxIterations);
+    const resultData = compute_mandelbrot(casesJson, maxIterations);
 
-    // The result from compute_mandelbrot is a js_sys::Float64Array.
-    // wasm-bindgen handles copying this data into the JS heap, meaning we
-    // do not need to call .free() as the JS Garbage Collector manages it.
+    // Explicitly copy the WASM-memory backed array into a native, standalone JS ArrayBuffer.
+    // If we don't copy it, structured cloning will fail with a DataCloneError, or transferring it
+    // will catastrophically detach the entire WASM memory block.
+    const resultCopy = new Float64Array(resultData);
 
     // TS sometimes confuses self with Window instead of DedicatedWorkerGlobalScope
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,9 +37,9 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
       {
         id,
         type: 'COMPUTE_RESULT',
-        result,
+        result: resultCopy,
       } as WorkerOutputMessage,
-      [result.buffer as ArrayBuffer],
+      [resultCopy.buffer], // Safe to transfer since it's a native copy
     );
   }
 };

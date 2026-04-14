@@ -109,7 +109,15 @@ export const ApeironViewport: React.FC = () => {
     };
 
     let timeoutId: number | null = null;
+    let logTimeoutId: number | null = null;
     const unsub = viewportStore.subscribe((state, prevState) => {
+      if (logTimeoutId) clearTimeout(logTimeoutId);
+      logTimeoutId = window.setTimeout(() => {
+        console.log(
+          `📍 Viewport Config - zr: ${state.zr}, zi: ${state.zi}, cr: ${state.cr}, ci: ${state.ci}, zoom: ${state.zoom}`,
+        );
+      }, 250);
+
       // We only compute new orbits if we are deep zooming
       if (state.zoom < 1e-4) {
         // If position or zoom changed, debounce and ask for a new anchor array
@@ -169,6 +177,7 @@ export const ApeironViewport: React.FC = () => {
       }
       unsub();
       if (timeoutId) clearTimeout(timeoutId);
+      if (logTimeoutId) clearTimeout(logTimeoutId);
       worker.terminate();
       resizeObserver.disconnect();
       canvas.removeEventListener('pointerdown', onPointerDown);

@@ -29,8 +29,8 @@
 - [x] [Task 013: Rust Origin Limit-Cycle Detection](tasks/completed/013-rust-limit-cycles.md)
 - [x] [Task 014: Web Worker Orchestration for WASM](tasks/completed/014-wasm-web-worker.md)
 - [x] [Task 015: WebGPU Perturbation Shader Pipeline](tasks/completed/015-webgpu-perturbation.md)
-
 - [x] [Task 016: React Perturbation Wiring](tasks/completed/016-react-perturbation-wiring.md)
+- [x] [Task 021: Resolving Bivariate Glitch Bands](tasks/completed/021-resolving-bivariate-glitch-bands.md)
 
 ## Phase 6: Distance Estimation & Aesthetics (G-Buffer Resolve)
 

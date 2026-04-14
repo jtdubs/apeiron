@@ -58,18 +58,91 @@ async function main() {
     console.log('WebGPU Context established.');
 
     // Parse the input cases for WebGPU
-    const cases = JSON.parse(casesJson);
-    const inputs = new Float32Array(cases.length * 4);
-    for (let i = 0; i < cases.length; i++) {
-      inputs[i * 4] = parseFloat(cases[i].zr);
-      inputs[i * 4 + 1] = parseFloat(cases[i].zi);
-      inputs[i * 4 + 2] = parseFloat(cases[i].cr);
-      inputs[i * 4 + 3] = parseFloat(cases[i].ci);
+    const rawCases = JSON.parse(casesJson);
+
+    // Create the clusters
+    // For each case, we test 3 exact offset variations natively natively (Center, TopLeft, BottomRight)
+    const clusterCases: {
+      zr: number;
+      zi: number;
+      cr: number;
+      ci: number;
+      dc_r: number;
+      dc_i: number;
+    }[] = [];
+    for (const c of rawCases) {
+      const zr = parseFloat(c.zr);
+      const zi = parseFloat(c.zi);
+      const cr = parseFloat(c.cr);
+      const ci = parseFloat(c.ci);
+
+      clusterCases.push({ zr, zi, cr, ci, dc_r: 0.0, dc_i: 0.0 });
+      // Simulating a deep zoom pixel cluster natively at 1e-6
+      clusterCases.push({ zr, zi, cr: cr + 1e-6, ci: ci + 1e-6, dc_r: 1e-6, dc_i: 1e-6 });
+      clusterCases.push({ zr, zi, cr: cr - 1e-6, ci: ci - 1e-6, dc_r: -1e-6, dc_i: -1e-6 });
+    }
+
+    const inputs = new Float32Array(clusterCases.length * 6);
+    for (let i = 0; i < clusterCases.length; i++) {
+      inputs[i * 6] = clusterCases[i].zr;
+      inputs[i * 6 + 1] = clusterCases[i].zi;
+      inputs[i * 6 + 2] = clusterCases[i].cr;
+      inputs[i * 6 + 3] = clusterCases[i].ci;
+      inputs[i * 6 + 4] = clusterCases[i].dc_r;
+      inputs[i * 6 + 5] = clusterCases[i].dc_i;
+    }
+
+    // Request Ground Truth for the EXACT mathematically evaluated geometry positions
+    const offsetsJson = JSON.stringify(
+      clusterCases.map((c) => ({
+        zr: c.zr.toString(),
+        zi: c.zi.toString(),
+        cr: c.cr.toString(),
+        ci: c.ci.toString(),
+      })),
+    );
+
+    console.log('Generating offset mathematical truths mathematically....');
+    const offsetsGroundTruth = await new Promise<Float64Array>((resolve, reject) => {
+      const localWorker = new Worker(new URL(`file://${workerPath}`).href, { type: 'module' });
+      localWorker.onmessage = (e: MessageEvent<WorkerOutputMessage>) => {
+        if (e.data.type === 'COMPUTE_RESULT') {
+          resolve(e.data.result);
+          localWorker.terminate();
+        }
+      };
+      localWorker.onerror = (e) => reject(e);
+      localWorker.postMessage({
+        id: 2,
+        type: 'COMPUTE',
+        casesJson: offsetsJson,
+        maxIterations: 100,
+      } as WorkerInputMessage);
+    });
+
+    // NOTE: For WebGPU perturbation testing, `ref_orbits` must specifically represent ONLY the Anchor!
+    // Since WebGPU computes against one anchor orbit array, and we interleaved our cluster variations,
+    // we need an array of Anchor orbits duplicated 3 times each to match the execution layout mathematically.
+    // Each anchor orbit is `100 * 2 + 4` = 204 floats.
+    // 8 cases * 3 variants = 24 matrices * 204 = 4896 floats.
+    const blockSize = 100 * 2 + 4;
+    const alignedRefOrbits = new Float64Array(clusterCases.length * blockSize);
+    for (let c = 0; c < rawCases.length; c++) {
+      // The original groundTruth contains exactly the Anchor runs
+      // Copy it into the 3 cluster slots
+      for (let variant = 0; variant < 3; variant++) {
+        const clusterIdx = c * 3 + variant;
+        const srcStart = c * blockSize;
+        alignedRefOrbits.set(
+          groundTruth.subarray(srcStart, srcStart + blockSize),
+          clusterIdx * blockSize,
+        );
+      }
     }
 
     // 5. Run WebGPU Compute
     console.log('Executing WebGPU Compute pass (Perturbation Math)...');
-    const perturbGpuResult = await engine.executeTestCompute(inputs, groundTruth, 100, true);
+    const perturbGpuResult = await engine.executeTestCompute(inputs, alignedRefOrbits, 100, true);
 
     console.log('Executing WebGPU Compute pass (F32 Base Math)...');
     const f32GpuResult = await engine.executeTestCompute(inputs, undefined, 100, false);
@@ -77,15 +150,15 @@ async function main() {
     // 6. Fuzzy Match Tolerance Checker (against Ground Truth)
     let passed = true;
     const max_iterations = 100;
-    const blockSize = max_iterations * 2 + 4;
+    const blockSizeG = max_iterations * 2 + 4; // for accessing offsetsGroundTruth
 
-    for (let i = 0; i < cases.length; i++) {
-      const start = i * blockSize;
-      const rustEscapeIterOffset = start + blockSize - 1;
-      const expectedIter = groundTruth[rustEscapeIterOffset];
-      const cycle_found = groundTruth[start + blockSize - 4];
-      const der_r = groundTruth[start + blockSize - 3];
-      const der_i = groundTruth[start + blockSize - 2];
+    for (let i = 0; i < clusterCases.length; i++) {
+      const start = i * blockSizeG;
+      const rustEscapeIterOffset = start + blockSizeG - 1;
+      const expectedIter = offsetsGroundTruth[rustEscapeIterOffset];
+      const cycle_found = offsetsGroundTruth[start + blockSizeG - 4];
+      const der_r = offsetsGroundTruth[start + blockSizeG - 3];
+      const der_i = offsetsGroundTruth[start + blockSizeG - 2];
 
       console.log(
         `Point ${i}: expectedIter=${expectedIter}, cycle=${cycle_found}, der=${der_r}, ${der_i}`,
@@ -103,8 +176,8 @@ async function main() {
         passed = false;
       }
 
-      // F32 Base Math is strictly limited. It only matches indices 0-3 (shallow roots).
-      if (i < 4) {
+      // F32 Base Math is strictly limited. It only matches shallow points reliably.
+      if (i < 4 * 3) {
         if (Math.abs(expectedIter - Math.floor(f32Iter)) > tolerance) {
           console.error(
             `❌ Mismatch at shallow point ${i}: Expected ~${expectedIter}, got F32 WebGPU ${f32Iter}`,

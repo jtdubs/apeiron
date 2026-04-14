@@ -63,10 +63,11 @@ export async function initEngine(
     maxIter: number = 100,
     usePerturbation: boolean = true,
   ): Promise<Float32Array> => {
-    // Input is interleaved points: [zr, zi, cr, ci, ...]
-    // Output is interleaved bounds: [iter, escaped, ...]
+    // Input is interleaved points: [zr, zi, target_cr, target_ci, delta_r, delta_i]
+    // Output is interleaved bounds: [iter, escaped]
     const inputSize = input.byteLength;
-    const outputSize = (input.length / 4) * 2 * 4; // 2 floats output per 4 floats input, * 4 bytes
+    const computeUnits = input.length / 6;
+    const outputSize = computeUnits * 2 * 4; // 2 floats output per compute unit, * 4 bytes
 
     // Separate Input Buffer
     const inputStorageBuffer = device.createBuffer({
@@ -101,7 +102,7 @@ export async function initEngine(
       maxIter,
       0.0,
       usePerturbation ? 1.0 : 0.0,
-      0.0,
+      maxIter,
       0.0,
       0.0,
     ]);
@@ -140,7 +141,7 @@ export async function initEngine(
     const passEncoder = commandEncoder.beginComputePass();
     passEncoder.setPipeline(computePipeline);
     passEncoder.setBindGroup(0, bindGroup);
-    passEncoder.dispatchWorkgroups(input.length / 4);
+    passEncoder.dispatchWorkgroups(computeUnits);
     passEncoder.end();
 
     commandEncoder.copyBufferToBuffer(outputStorageBuffer, 0, stagingBuffer, 0, outputSize);
@@ -345,8 +346,13 @@ export async function initEngine(
       needsMathUpdate = true;
     }
 
+    let actualRefMaxIter = maxIter;
+    if (hasValidActiveRefOrbits && refOrbits) {
+      actualRefMaxIter = (refOrbits.length - 4) / 2;
+    }
+
     const usePerturbation = hasValidActiveRefOrbits ? 1.0 : 0.0;
-    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation}`;
+    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation},${actualRefMaxIter}`;
 
     if (camState !== lastCameraState) {
       needsMathUpdate = true;
@@ -362,13 +368,14 @@ export async function initEngine(
         maxIter,
         sliceAngle,
         usePerturbation,
-        0.0,
+        actualRefMaxIter,
         0.0,
         0.0,
       ]);
       device.queue.writeBuffer(uniformsBuffer!, 0, cameraData);
 
-      device.queue.writeBuffer(paletteUniformsBuffer!, 64, new Float32Array([maxIter]));
+      const paletteMaxIter = hasValidActiveRefOrbits ? actualRefMaxIter : maxIter;
+      device.queue.writeBuffer(paletteUniformsBuffer!, 64, new Float32Array([paletteMaxIter]));
     }
 
     const commandEncoder = device.createCommandEncoder();
