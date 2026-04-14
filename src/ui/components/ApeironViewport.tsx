@@ -21,6 +21,9 @@ export const ApeironViewport: React.FC = () => {
     let isMiddleMouseDragging = false;
     let lastCentroid = { x: 0, y: 0 };
     let lastDistance = 0;
+    let wheelTimeoutId: number | null = null;
+    let cssWidth = window.innerWidth;
+    let cssHeight = window.innerHeight;
 
     const getPointersMetrics = () => {
       if (activePointers.size === 0) return null;
@@ -51,6 +54,7 @@ export const ApeironViewport: React.FC = () => {
       if (e.pointerType === 'mouse' && (e.button === 1 || e.shiftKey || e.altKey || e.ctrlKey)) {
         isMiddleMouseDragging = true;
       }
+      viewportStore.getState().setInteractionState('INTERACT_SAFE');
       canvas.setPointerCapture(e.pointerId);
     };
 
@@ -101,6 +105,9 @@ export const ApeironViewport: React.FC = () => {
         lastCentroid = { x: metrics.cx, y: metrics.cy };
         lastDistance = metrics.distance;
       }
+      if (activePointers.size === 0) {
+        viewportStore.getState().setInteractionState('STATIC');
+      }
       if (e.pointerType === 'mouse') {
         isMiddleMouseDragging = false;
       }
@@ -124,6 +131,12 @@ export const ApeironViewport: React.FC = () => {
       const mathDx = ndcX * zoom * aspect * (1.0 - deltaZoom);
       const mathDy = ndcY * zoom * (1.0 - deltaZoom);
 
+      viewportStore.getState().setInteractionState('INTERACT_SAFE');
+      if (wheelTimeoutId) window.clearTimeout(wheelTimeoutId);
+      wheelTimeoutId = window.setTimeout(() => {
+        viewportStore.getState().setInteractionState('STATIC');
+      }, 150);
+
       viewportStore.getState().updateViewport(mathDx, mathDy, deltaZoom, 0.0);
     };
 
@@ -138,6 +151,7 @@ export const ApeironViewport: React.FC = () => {
         const engine = await initEngine(canvas, mathAccumWgsl, resolvePresentWgsl);
         if (!isMounted) return;
         engineRef.current = engine;
+        let lastRenderStateKey = '';
 
         const loop = () => {
           if (!isMounted) return;
@@ -151,18 +165,33 @@ export const ApeironViewport: React.FC = () => {
           const passCr = isPerturb ? state.deltaCr : parseFloat(state.anchorCr) + state.deltaCr;
           const passCi = isPerturb ? state.deltaCi : parseFloat(state.anchorCi) + state.deltaCi;
 
-          engine.renderFrame(
-            passZr,
-            passZi,
-            passCr,
-            passCi,
-            state.zoom,
-            state.maxIter,
-            state.sliceAngle,
-            state.exponent,
-            state.refOrbits,
-            theme,
-          );
+          const targetDpr = state.interactionState === 'STATIC' ? (window.devicePixelRatio || 1) : 1.0;
+          const targetWidth = Math.max(1, Math.floor(cssWidth * targetDpr));
+          const targetHeight = Math.max(1, Math.floor(cssHeight * targetDpr));
+
+          if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            engine.resize();
+          }
+
+          const renderStateKey = `${passZr},${passZi},${passCr},${passCi},${state.zoom},${state.sliceAngle},${state.exponent},${state.maxIter},${state.refOrbits !== null},${theme.themeVersion},${canvas.width},${canvas.height}`;
+
+          if (renderStateKey !== lastRenderStateKey) {
+            engine.renderFrame(
+              passZr,
+              passZi,
+              passCr,
+              passCi,
+              state.zoom,
+              state.maxIter,
+              state.sliceAngle,
+              state.exponent,
+              state.refOrbits,
+              theme,
+            );
+            lastRenderStateKey = renderStateKey;
+          }
           requestRef.current = requestAnimationFrame(loop);
         };
         requestRef.current = requestAnimationFrame(loop);
@@ -322,15 +351,9 @@ export const ApeironViewport: React.FC = () => {
       if (!canvas) return;
       for (const entry of entries) {
         if (entry.target === canvas) {
-          // Adjust internal canvas resolution to match physical pixels
-          const dpr = window.devicePixelRatio || 1;
           const rect = canvas.getBoundingClientRect();
-          canvas.width = rect.width * dpr;
-          canvas.height = rect.height * dpr;
-
-          if (engineRef.current) {
-            engineRef.current.resize();
-          }
+          cssWidth = rect.width;
+          cssHeight = rect.height;
         }
       }
     });
@@ -345,6 +368,7 @@ export const ApeironViewport: React.FC = () => {
       unsub();
       if (timeoutId) clearTimeout(timeoutId);
       if (logTimeoutId) clearTimeout(logTimeoutId);
+      if (wheelTimeoutId) window.clearTimeout(wheelTimeoutId);
       worker.terminate();
       resizeObserver.disconnect();
       canvas.removeEventListener('pointerdown', onPointerDown);
