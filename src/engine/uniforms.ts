@@ -10,6 +10,9 @@ export function buildCameraUniforms(
   maxIter: number,
   sliceAngle: number,
   exponent: number,
+  jitterX: number,
+  jitterY: number,
+  frameCount: number,
   hasValidActiveRefOrbits: boolean,
   refOrbitsLength: number | undefined,
   theme?: RenderState,
@@ -38,6 +41,10 @@ export function buildCameraUniforms(
     actualRefMaxIter,
     exponent,
     theme?.coloringMode === 'stripe' ? 1.0 : theme?.coloringMode === 'banded' ? 2.0 : 0.0,
+    jitterX,
+    jitterY,
+    frameCount,
+    0.0, // pad to 16 floats
   ]);
 }
 

@@ -60,5 +60,5 @@
 
 ## Phase 10: Performance & Progressive Rendering
 
-- [ ] [Task 031: Progressive Rendering State Machine](tasks/031-progressive-rendering.md)
+- [x] [Task 031: Progressive Rendering State Machine](tasks/completed/031-progressive-rendering.md)
 - [x] [Task 032: Performance Optimizations (Panning Latency)](tasks/completed/032-performance-optimizations.md)
