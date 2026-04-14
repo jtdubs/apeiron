@@ -244,6 +244,7 @@ export class PassManager {
     }
     const usePerturbation = this.hasValidActiveRefOrbits && usePerturbationAllowed ? 1.0 : 0.0;
     const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation},${actualRefMaxIter},${exponent}`;
+    const paletteMaxIter = this.hasValidActiveRefOrbits ? actualRefMaxIter : maxIter;
 
     if (camState !== this.lastCameraState) {
       this.needsMathUpdate = true;
@@ -265,7 +266,6 @@ export class PassManager {
       ]);
       this.device.queue.writeBuffer(this.accumPass.uniformsBuffer, 0, cameraData);
 
-      const paletteMaxIter = this.hasValidActiveRefOrbits ? actualRefMaxIter : maxIter;
       this.device.queue.writeBuffer(
         this.presentPass.paletteUniformsBuffer,
         64,
@@ -295,7 +295,7 @@ export class PassManager {
         0.0,
         ...theme.paletteD,
         0.0,
-        0.0, // placeholder for max_iter, written above
+        paletteMaxIter, // properly populated during theme full-buffer rewrite
         theme.lightAzimuth,
         theme.lightElevation,
         theme.diffuse,
