@@ -37,6 +37,7 @@
 
 - [x] [Task 017: Distance Estimation & Spatial Lighting](tasks/completed/017-distance-estimation-lighting.md)
 - [x] [Task 018: Triangle Inequality Average (Stripe Rendering)](tasks/completed/018-tia-stripe-average.md)
+- [x] [Task 023: Legacy UI Config Parity](tasks/completed/023-legacy-ui-parity.md)
 
 ## Phase 7: UI Capabilities & Integration
 
