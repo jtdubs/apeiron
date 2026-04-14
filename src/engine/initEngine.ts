@@ -31,6 +31,7 @@ export interface ApeironEngine {
       shininess: number;
       heightScale: number;
       ambient: number;
+      coloringMode?: string;
     },
   ) => void;
   resize: () => void;
@@ -125,7 +126,7 @@ export async function initEngine(
       usePerturbation ? 1.0 : 0.0,
       maxIter,
       exponent,
-      0.0,
+      0.0, // coloringMode in test
     ]);
     device.queue.writeBuffer(cameraTestBuffer, 0, cameraData);
 
@@ -420,7 +421,7 @@ export async function initEngine(
         usePerturbation,
         actualRefMaxIter,
         exponent,
-        0.0,
+        theme?.coloringMode === 'stripe' ? 1.0 : 0.0,
       ]);
       device.queue.writeBuffer(uniformsBuffer!, 0, cameraData);
 
@@ -440,6 +441,7 @@ export async function initEngine(
           theme.shininess,
           theme.heightScale,
           theme.ambient,
+          theme.coloringMode,
         ])
       : '';
     if (themeString !== lastThemeState && theme) {
@@ -463,7 +465,7 @@ export async function initEngine(
         theme.shininess,
         theme.heightScale,
         theme.ambient,
-        0.0,
+        theme.coloringMode === 'stripe' ? 1.0 : 0.0,
         0.0,
       ]);
       device.queue.writeBuffer(paletteUniformsBuffer!, 0, paletteData);

@@ -17,7 +17,9 @@ export interface ThemeState {
 
   // modes
   precisionMode: 'f32' | 'perturbation';
+  coloringMode: 'iteration' | 'stripe';
   setPrecisionMode: (mode: 'f32' | 'perturbation') => void;
+  setColoringMode: (mode: 'iteration' | 'stripe') => void;
 
   setPalette: (
     a: [number, number, number],
@@ -50,7 +52,9 @@ export const themeStore = createStore<ThemeState>((set) => ({
   ambient: 0.2,
 
   precisionMode: 'perturbation',
+  coloringMode: 'iteration',
   setPrecisionMode: (mode) => set({ precisionMode: mode }),
+  setColoringMode: (mode) => set({ coloringMode: mode }),
 
   setPalette: (a, b, c, d) => set({ paletteA: a, paletteB: b, paletteC: c, paletteD: d }),
   setLighting: (azimuth, elevation, diffuse, shininess, heightScale, ambient) =>

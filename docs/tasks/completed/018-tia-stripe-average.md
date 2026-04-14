@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 018: Triangle Inequality Average (Stripe Rendering)
@@ -26,5 +26,5 @@ Introduce Triangle Inequality Average (TIA) logic into the G-Buffer accumulation
 
 ## Verification Steps
 
-- [ ] Does stripe shading render smoothly?
-- [ ] **Testing:** Does the numerical regression suite cover extreme zoom TIA proxies to ensure they don't break strict math test boundaries?
+- [x] Does stripe shading render smoothly?
+- [x] **Testing:** Does the numerical regression suite cover extreme zoom TIA proxies to ensure they don't break strict math test boundaries?

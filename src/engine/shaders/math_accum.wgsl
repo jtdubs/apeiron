@@ -10,7 +10,7 @@ struct CameraParams {
   use_perturbation: f32,
   ref_max_iter: f32,
   exponent: f32,
-  pad3: f32,
+  coloring_mode: f32,
 };
 
 @group(0) @binding(0) var<uniform> camera: CameraParams;
@@ -24,7 +24,7 @@ fn complex_mul(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
   return vec2<f32>(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
 }
 
-fn get_de_and_norm(iter: f32, zx: f32, zy: f32, der_x: f32, der_y: f32, offset: f32) -> vec4<f32> {
+fn get_escape_data(iter: f32, zx: f32, zy: f32, der_x: f32, der_y: f32, offset: f32, tia_sum: f32) -> vec4<f32> {
   let mag_sq = zx * zx + zy * zy;
   let log_z = 0.5 * log(mag_sq);
   let p = max(camera.exponent, 2.0);
@@ -45,21 +45,30 @@ fn get_de_and_norm(iter: f32, zx: f32, zy: f32, der_x: f32, der_y: f32, offset: 
           ny = ny_norm / len_n;
       }
   }
-  return vec4<f32>(smooth_iter, de, nx, ny);
+  
+  var ret_x = smooth_iter;
+  if (camera.coloring_mode > 0.5) {
+     let exact_iter = max(1.0, iter + offset);
+     ret_x = tia_sum / exact_iter;
+  }
+  return vec4<f32>(ret_x, de, nx, ny);
 }
 
-fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_iter: f32, max_iterations: f32, start_der_x: f32, start_der_y: f32) -> vec4<f32> {
+fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_iter: f32, max_iterations: f32, start_der_x: f32, start_der_y: f32, start_tia: f32) -> vec4<f32> {
   var x = start_z.x;
   var y = start_z.y;
   var der_x = start_der_x;
   var der_y = start_der_y;
   var iter = start_iter;
   let d = camera.exponent;
+  var prev_z_mag = length(vec2<f32>(x, y));
+  let c_mag = length(start_c);
+  var tia_sum = start_tia;
 
   while (iter < max_iterations) {
     let mag_sq = x * x + y * y;
     if (mag_sq > 4.0) {
-      return get_de_and_norm(iter, x, y, der_x, der_y, 1.0);
+      return get_escape_data(iter, x, y, der_x, der_y, 1.0, tia_sum);
     }
     
     var new_x: f32;
@@ -102,17 +111,25 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
       new_der_y = dx_z * der_y + dy_z * der_x;
     }
     
+    let cur_z_mag = length(vec2<f32>(new_x, new_y));
+    let n_mag = pow(prev_z_mag, d);
+    let den = n_mag + c_mag - abs(n_mag - c_mag);
+    if (den > 0.0) {
+       tia_sum += (cur_z_mag - abs(n_mag - c_mag)) / den;
+    }
+    prev_z_mag = cur_z_mag;
+    
     x = new_x;
     y = new_y;
     der_x = new_der_x;
     der_y = new_der_y;
     iter += 1.0;
   }
-  return vec4<f32>(iter, 0.0, 0.0, 0.0);
+  return vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
 }
 
 fn calculate_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, max_iterations: f32) -> vec4<f32> {
-  return continue_mandelbrot_iterations(start_z, start_c, 0.0, max_iterations, 1.0, 0.0);
+  return continue_mandelbrot_iterations(start_z, start_c, 0.0, max_iterations, 1.0, 0.0, 0.0);
 }
 
 @group(0) @binding(1) var<storage, read> data_in: array<f32>;
@@ -131,8 +148,12 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
   
   let initial_x = ref_orbits[ref_offset] + dz.x;
   let initial_y = ref_orbits[ref_offset + 1u] + dz.y;
+  var prev_z_mag = length(vec2<f32>(initial_x, initial_y));
+  let c_mag = length(start_c);
+  var tia_sum = 0.0;
+  
   if (initial_x * initial_x + initial_y * initial_y > 4.0) {
-    return get_de_and_norm(iter, initial_x, initial_y, der_x, der_y, 1.0);
+    return get_escape_data(iter, initial_x, initial_y, der_x, der_y, 1.0, tia_sum);
   }
 
   while (iter < max_iterations) {
@@ -198,27 +219,34 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     
     let next_zx = ref_orbits[ref_offset + u32(iter + 1.0) * 2u];
     let next_zy = ref_orbits[ref_offset + u32(iter + 1.0) * 2u + 1u];
-    
     let cur_x = next_zx + dz.x;
     let cur_y = next_zy + dz.y;
+    
+    let cur_z_mag = length(vec2<f32>(cur_x, cur_y));
+    let n_mag = pow(prev_z_mag, d);
+    let den = n_mag + c_mag - abs(n_mag - c_mag);
+    if (den > 0.0) {
+       tia_sum += (cur_z_mag - abs(n_mag - c_mag)) / den;
+    }
+    prev_z_mag = cur_z_mag;
     
     let cur_mag = cur_x * cur_x + cur_y * cur_y;
     
     if (cur_mag > 1000000.0) {
-      return vec4<f32>(iter, 0.0, 0.0, 0.0);
+      return vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
     }
     
     if (cur_mag > 4.0) {
-      return get_de_and_norm(iter, cur_x, cur_y, der_x, der_y, 2.0);
+      return get_escape_data(iter, cur_x, cur_y, der_x, der_y, 2.0, tia_sum);
     }
     
     iter += 1.0;
     
     if (iter >= ref_escaped_iter && ref_escaped_iter < max_iterations) {
-      return continue_mandelbrot_iterations(vec2<f32>(cur_x, cur_y), start_c, iter, max_iterations, der_x, der_y);
+      return continue_mandelbrot_iterations(vec2<f32>(cur_x, cur_y), start_c, iter, max_iterations, der_x, der_y, tia_sum);
     }
   }
-  return vec4<f32>(iter, 0.0, 0.0, 0.0);
+  return vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
 }
 
 fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u32) -> vec4<f32> {

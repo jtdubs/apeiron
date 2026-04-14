@@ -61,6 +61,36 @@ export const ApeironSettingsPanel: React.FC = () => {
         Render Controls
       </h2>
 
+      {/* Coloring Modes */}
+      <div style={{ marginBottom: 16 }}>
+        <div
+          style={{
+            fontSize: '11px',
+            color: '#94a3b8',
+            marginBottom: 6,
+            textTransform: 'uppercase',
+          }}
+        >
+          Coloring Mode
+        </div>
+        <select
+          value={state.coloringMode}
+          onChange={(e) => state.setColoringMode(e.target.value as 'iteration' | 'stripe')}
+          style={{
+            width: '100%',
+            background: 'rgba(0,0,0,0.3)',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.2)',
+            padding: '6px 8px',
+            borderRadius: 4,
+            outline: 'none',
+          }}
+        >
+          <option value="iteration">Continuous Escape Time</option>
+          <option value="stripe">Triangle Inequality Average (Stripe)</option>
+        </select>
+      </div>
+
       {/* Precision Modes */}
       <div style={{ marginBottom: 16 }}>
         <div

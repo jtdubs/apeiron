@@ -59,8 +59,12 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     // Inside the set (Black)
     return vec4<f32>(0.0, 0.0, 0.0, 1.0);
   } else {
-    // Outside the set (Cosine Palette based on smooth iterations)
-    let t = iter / params.max_iter;
+    var t: f32;
+    if (params.pad4 > 0.5) {
+      t = iter; // TIA is theoretically returned directly bounded by [0, 1] mapped per iteration.
+    } else {
+      t = iter / params.max_iter;
+    }
     
     // We scale t slightly so colors cycle nicely
     let base_color = palette_func(t * 3.0, params.a.xyz, params.b.xyz, params.c.xyz, params.d.xyz);
