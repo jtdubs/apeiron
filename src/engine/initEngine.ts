@@ -134,7 +134,6 @@ export async function initEngine(
       maxIter,
       exponent,
       0.0, // coloringMode in test
-      0.0, // surfaceMode in test
     ]);
     device.queue.writeBuffer(cameraTestBuffer, 0, cameraData);
 
