@@ -11,11 +11,11 @@ export const ApeironHUD: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
 
   const setSliceAngle = (angle: number) => {
-    state.setViewport(state.zr, state.zi, state.cr, state.ci, state.zoom, angle);
+    state.setViewport(state.zr, state.zi, state.cr, state.ci, state.zoom, angle, state.exponent);
   };
 
   const setAnchors = (zr: number, zi: number, cr: number, ci: number, zoom: number) => {
-    state.setViewport(zr, zi, cr, ci, zoom, state.sliceAngle);
+    state.setViewport(zr, zi, cr, ci, zoom, state.sliceAngle, state.exponent);
   };
 
   const renderCoordinate = (x: number, y: number, prefix: string, isC: boolean) => {
@@ -61,7 +61,7 @@ export const ApeironHUD: React.FC = () => {
             <div className="hud-lens-labels">
               <button
                 onClick={() => {
-                  state.setViewport(0.0, 0.0, -0.8, 0.156, 1.5, 0);
+                  state.setViewport(0.0, 0.0, -0.8, 0.156, 1.5, 0, state.exponent);
                 }}
                 style={{
                   background: 'none',
@@ -80,7 +80,7 @@ export const ApeironHUD: React.FC = () => {
               </button>
               <button
                 onClick={() => {
-                  state.setViewport(0.0, 0.0, -0.8, 0.156, 1.5, Math.PI / 2);
+                  state.setViewport(0.0, 0.0, -0.8, 0.156, 1.5, Math.PI / 2, state.exponent);
                 }}
                 style={{
                   background: 'none',
@@ -185,7 +185,23 @@ export const ApeironHUD: React.FC = () => {
                   top: '-0.4em',
                 }}
               >
-                2
+                <ScrubbableNumber
+                  value={state.exponent}
+                  onChange={(val) => {
+                    const clamped = Math.max(1.0, Math.min(6.0, val));
+                    state.setViewport(
+                      state.zr,
+                      state.zi,
+                      state.cr,
+                      state.ci,
+                      state.zoom,
+                      state.sliceAngle,
+                      clamped,
+                    );
+                  }}
+                  step={0.5}
+                  format={(v) => v.toFixed(1)}
+                />
               </sup>
               <span> + c</span>
             </div>

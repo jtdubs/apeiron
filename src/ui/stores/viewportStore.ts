@@ -21,6 +21,7 @@ export interface ViewportState {
   ci: number;
   sliceAngle: number;
   zoom: number;
+  exponent: number;
   maxIter: number;
   refOrbits: Float64Array | null;
   setRefOrbits: (orbits: Float64Array | null) => void;
@@ -31,6 +32,7 @@ export interface ViewportState {
     ci: number,
     zoom: number,
     sliceAngle: number,
+    exponent: number,
   ) => void;
   updateViewport: (deltaX: number, deltaY: number, deltaZoom: number, deltaAngle: number) => void;
 }
@@ -42,13 +44,14 @@ export const viewportStore = createStore<ViewportState>((set) => ({
   ci: 0.156,
   sliceAngle: 0.0,
   zoom: 1.5,
+  exponent: 2.0,
   maxIter: calculateMaxIter(1.5),
   refOrbits: null,
 
   setRefOrbits: (orbits) => set({ refOrbits: orbits }),
 
-  setViewport: (zr, zi, cr, ci, zoom, sliceAngle) =>
-    set({ zr, zi, cr, ci, zoom, sliceAngle, maxIter: calculateMaxIter(zoom) }),
+  setViewport: (zr, zi, cr, ci, zoom, sliceAngle, exponent) =>
+    set({ zr, zi, cr, ci, zoom, sliceAngle, exponent, maxIter: calculateMaxIter(zoom) }),
 
   updateViewport: (deltaX, deltaY, deltaZoom, deltaAngle) =>
     set((state) => {

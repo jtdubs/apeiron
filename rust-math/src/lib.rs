@@ -3,6 +3,7 @@ use bigdecimal::{BigDecimal, Zero, One};
 use std::str::FromStr;
 use serde::Deserialize;
 use bigdecimal::ToPrimitive;
+use bigdecimal::FromPrimitive;
 
 #[derive(Deserialize)]
 pub struct Point {
@@ -10,6 +11,7 @@ pub struct Point {
     pub zi: String,
     pub cr: String,
     pub ci: String,
+    pub exponent: Option<f64>,
 }
 
 #[wasm_bindgen]
@@ -25,6 +27,7 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
         let mut y = BigDecimal::from_str(&p.zi).unwrap_or(BigDecimal::zero());
         let x0 = BigDecimal::from_str(&p.cr).unwrap_or(BigDecimal::zero());
         let y0 = BigDecimal::from_str(&p.ci).unwrap_or(BigDecimal::zero());
+        let d = p.exponent.unwrap_or(2.0);
 
         let mut check_x = x.clone();
         let mut check_y = y.clone();
@@ -53,14 +56,52 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
                 break;
             }
 
-            let temp_der_r = (&two * (&x * &der_r - &y * &der_i) + BigDecimal::one()).with_prec(100); 
-            let temp_der_i = (&two * (&x * &der_i + &y * &der_r)).with_prec(100);
-            der_r = temp_der_r;
-            der_i = temp_der_i;
+            if d == 2.0 {
+                let temp_der_r = (&two * (&x * &der_r - &y * &der_i) + BigDecimal::one()).with_prec(100); 
+                let temp_der_i = (&two * (&x * &der_i + &y * &der_r)).with_prec(100);
+                der_r = temp_der_r;
+                der_i = temp_der_i;
 
-            let new_x = (&x2 - &y2 + &x0).with_prec(100);
-            y = (&two * &x * &y + &y0).with_prec(100);
-            x = new_x;
+                let new_x = (&x2 - &y2 + &x0).with_prec(100);
+                y = (&two * &x * &y + &y0).with_prec(100);
+                x = new_x;
+            } else if d.fract() == 0.0 && d > 1.0 {
+                let count = d as u32;
+                let mut temp_x = x.clone();
+                let mut temp_y = y.clone();
+                let orig_x = x.clone();
+                let orig_y = y.clone();
+                for _ in 1..count {
+                    let next_x = (&temp_x * &orig_x - &temp_y * &orig_y).with_prec(100);
+                    let next_y = (&temp_x * &orig_y + &temp_y * &orig_x).with_prec(100);
+                    temp_x = next_x;
+                    temp_y = next_y;
+                }
+                x = (temp_x + &x0).with_prec(100);
+                y = (temp_y + &y0).with_prec(100);
+                
+                der_r = BigDecimal::one();
+                der_i = BigDecimal::zero();
+            } else {
+                let x_f = x.to_f64().unwrap_or(0.0);
+                let y_f = y.to_f64().unwrap_or(0.0);
+                let r = (x_f * x_f + y_f * y_f).sqrt();
+                let th = y_f.atan2(x_f);
+                let r_pow = r.powf(d);
+                let new_x_f = r_pow * (d * th).cos();
+                let new_y_f = r_pow * (d * th).sin();
+                
+                if let (Some(bd_x), Some(bd_y)) = (BigDecimal::from_f64(new_x_f), BigDecimal::from_f64(new_y_f)) {
+                    x = (bd_x + &x0).with_prec(100);
+                    y = (bd_y + &y0).with_prec(100);
+                } else {
+                    escaped = true;
+                    break;
+                }
+                
+                der_r = BigDecimal::one();
+                der_i = BigDecimal::zero();
+            }
 
             if x == check_x && y == check_y {
                 cycle_found = true;

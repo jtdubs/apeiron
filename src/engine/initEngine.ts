@@ -11,6 +11,7 @@ export interface ApeironEngine {
     scale: number,
     maxIter: number,
     sliceAngle: number,
+    exponent: number,
     refOrbits?: Float64Array | null,
     theme?: {
       precisionMode?: string;
@@ -98,7 +99,7 @@ export async function initEngine(
       size: 48, // 12 floats!
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-    // [zr, zi, cr, ci, scale, aspect, maxIter, sliceAngle, use_perturbation, pad, pad, pad]
+    // [zr, zi, cr, ci, scale, aspect, maxIter, sliceAngle, use_perturbation, ref_max_iter, exponent, pad]
     const cameraData = new Float32Array([
       0.0,
       0.0,
@@ -110,7 +111,7 @@ export async function initEngine(
       0.0,
       usePerturbation ? 1.0 : 0.0,
       maxIter,
-      0.0,
+      2.0, // test default exponent
       0.0,
     ]);
     device.queue.writeBuffer(cameraTestBuffer, 0, cameraData);
@@ -312,6 +313,7 @@ export async function initEngine(
     scale: number,
     maxIter: number,
     sliceAngle: number,
+    exponent: number,
     refOrbits?: Float64Array | null,
     theme?: {
       precisionMode?: string;
@@ -371,7 +373,7 @@ export async function initEngine(
       usePerturbationAllowed = false;
     }
     const usePerturbation = hasValidActiveRefOrbits && usePerturbationAllowed ? 1.0 : 0.0;
-    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation},${actualRefMaxIter}`;
+    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation},${actualRefMaxIter},${exponent}`;
 
     if (camState !== lastCameraState) {
       needsMathUpdate = true;
@@ -388,7 +390,7 @@ export async function initEngine(
         sliceAngle,
         usePerturbation,
         actualRefMaxIter,
-        0.0,
+        exponent,
         0.0,
       ]);
       device.queue.writeBuffer(uniformsBuffer!, 0, cameraData);

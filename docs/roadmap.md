@@ -41,3 +41,7 @@
 
 - [x] [Task 019: Advanced UI Control Surfaces](tasks/completed/019-advanced-ui-controls.md)
 - [x] [Task 020: Integration of HUD Toolbar](tasks/completed/020-hud-toolbar.md)
+
+## Phase 8: Extensibility & Variations
+
+- [x] [Task 022: Variable Exponents](tasks/completed/022-variable-exponents.md)

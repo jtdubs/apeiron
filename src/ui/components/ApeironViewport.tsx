@@ -92,9 +92,10 @@ export const ApeironViewport: React.FC = () => {
 
         const loop = () => {
           if (!isMounted) return;
-          const { zr, zi, cr, ci, zoom, maxIter, sliceAngle, refOrbits } = viewportStore.getState();
+          const { zr, zi, cr, ci, zoom, maxIter, sliceAngle, refOrbits, exponent } =
+            viewportStore.getState();
           const theme = themeStore.getState();
-          engine.renderFrame(zr, zi, cr, ci, zoom, maxIter, sliceAngle, refOrbits, theme);
+          engine.renderFrame(zr, zi, cr, ci, zoom, maxIter, sliceAngle, exponent, refOrbits, theme);
           requestRef.current = requestAnimationFrame(loop);
         };
         requestRef.current = requestAnimationFrame(loop);
@@ -145,6 +146,7 @@ export const ApeironViewport: React.FC = () => {
                 zi: state.zi.toString(),
                 cr: state.cr.toString(),
                 ci: state.ci.toString(),
+                exponent: state.exponent,
               },
             ]);
             worker.postMessage({
