@@ -1,18 +1,29 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, act } from '@testing-library/react';
+import { render, act, fireEvent } from '@testing-library/react';
 import { ApeironViewport } from '../ApeironViewport';
 import { viewportStore } from '../../stores/viewportStore';
+import { renderStore } from '../../stores/renderStore';
 
 // Mock the WebGPU engine initialization since it crashes in JSDOM (no virtual GPU adapter)
+const { renderFrameMock, initEngineMock } = vi.hoisted(() => {
+  const renderFrameMock = vi.fn();
+  return {
+    renderFrameMock,
+    initEngineMock: vi.fn().mockResolvedValue({
+      renderFrame: renderFrameMock,
+      resize: vi.fn(),
+    }),
+  };
+});
+
 vi.mock('../../../engine/initEngine', () => ({
-  initEngine: vi.fn().mockResolvedValue({
-    renderFrame: vi.fn(),
-    resize: vi.fn(),
-  }),
+  initEngine: initEngineMock,
 }));
 
-describe('ApeironViewport WebWorker Orchestration', () => {
+describe('ApeironViewport Orchestration', () => {
   beforeEach(() => {
+    window.HTMLElement.prototype.setPointerCapture = vi.fn();
+    window.HTMLElement.prototype.releasePointerCapture = vi.fn();
     vi.useFakeTimers();
     // Reset our zustand store
     viewportStore.setState({
@@ -69,5 +80,148 @@ describe('ApeironViewport WebWorker Orchestration', () => {
     expect(viewportStore.getState().deltaCr).toBe(0.0);
     const anchorCrValue = parseFloat(viewportStore.getState().anchorCr);
     expect(anchorCrValue).toBeCloseTo(-0.799);
+  });
+
+  it('maintains 150ms debounce across continuous rapid panning', async () => {
+    act(() => {
+      viewportStore.setState({ zoom: 1e-5 });
+    });
+    render(<ApeironViewport />);
+
+    // Rapid pan simulation (every 50ms)
+    for (let i = 0; i < 5; i++) {
+      act(() => {
+        viewportStore.setState({
+          deltaCr: 0.001 * (i + 1),
+          deltaCi: 0.001 * (i + 1),
+        });
+        vi.advanceTimersByTime(50);
+      });
+      // Anchor should not have reset deltas yet
+      expect(viewportStore.getState().deltaCr).not.toBe(0.0);
+    }
+
+    // Now advance remaining 150ms
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+
+    // After 150ms of silence, it should reset deltas
+    expect(viewportStore.getState().deltaCr).toBe(0.0);
+    const anchorCrValue = parseFloat(viewportStore.getState().anchorCr);
+    expect(anchorCrValue).toBeCloseTo(-0.795); // -0.8 + 0.005
+  });
+
+  it('bypasses perturbation and clears refOrbits when zooming out past 1e-4', async () => {
+    act(() => {
+      viewportStore.setState({
+        zoom: 1e-5,
+        refOrbits: new Float64Array(10),
+      });
+    });
+
+    render(<ApeironViewport />);
+    expect(viewportStore.getState().refOrbits).not.toBeNull();
+
+    act(() => {
+      viewportStore.getState().updateViewport(0, 0, 10000, 0); // deltaZoom = 10000 -> zoom becomes 0.1
+    });
+
+    // Subscriptions should instantly clear refOrbits to prevent GPU explosion
+    expect(viewportStore.getState().refOrbits).toBeNull();
+  });
+
+  it('updates sliceAngle constraints during middle-mouse 4D dragging', async () => {
+    const { container } = render(<ApeironViewport />);
+    const canvas = container.querySelector('canvas')!;
+
+    canvas.getBoundingClientRect = vi
+      .fn()
+      .mockReturnValue({ left: 0, top: 0, width: 1000, height: 1000 });
+
+    expect(viewportStore.getState().sliceAngle).toBe(0);
+
+    // Simulate middle mouse down
+    fireEvent.pointerDown(canvas, {
+      pointerId: 1,
+      pointerType: 'mouse',
+      button: 1,
+      clientX: 100,
+      clientY: 100,
+    });
+
+    act(() => {
+      fireEvent.pointerMove(canvas, {
+        pointerId: 1,
+        pointerType: 'mouse',
+        button: 1,
+        clientX: 200,
+        clientY: 100,
+      });
+    });
+
+    // Angle should have increased
+    const updatedAngle = viewportStore.getState().sliceAngle;
+    expect(updatedAngle).toBeGreaterThan(0);
+
+    fireEvent.pointerUp(canvas, { pointerId: 1, pointerType: 'mouse', button: 1 });
+  });
+
+  it('handles pinch-to-zoom multi-touch centroid math', async () => {
+    const { container } = render(<ApeironViewport />);
+    const canvas = container.querySelector('canvas')!;
+
+    // Mock rect
+    canvas.getBoundingClientRect = vi
+      .fn()
+      .mockReturnValue({ left: 0, top: 0, width: 1000, height: 1000 });
+
+    fireEvent.pointerDown(canvas, { pointerId: 1, clientX: 400, clientY: 500 });
+    fireEvent.pointerDown(canvas, { pointerId: 2, clientX: 600, clientY: 500 });
+
+    const initialZoom = viewportStore.getState().zoom;
+
+    act(() => {
+      // Move pointers further apart (pinch out to zoom in)
+      fireEvent.pointerMove(canvas, { pointerId: 1, clientX: 300, clientY: 500 });
+      fireEvent.pointerMove(canvas, { pointerId: 2, clientX: 700, clientY: 500 });
+    });
+
+    const newZoom = viewportStore.getState().zoom;
+    expect(newZoom).toBeLessThan(initialZoom); // Zoomed in
+
+    fireEvent.pointerUp(canvas, { pointerId: 1 });
+    fireEvent.pointerUp(canvas, { pointerId: 2 });
+  });
+
+  it('forces f32 precision override even while possessing orbits', async () => {
+    act(() => {
+      viewportStore.setState({
+        zoom: 1e-5,
+        refOrbits: new Float64Array(10),
+      });
+      renderStore.setState({
+        precisionMode: 'f32',
+      });
+    });
+
+    render(<ApeironViewport />);
+
+    // Flush microtasks to allow abstract initEngine Promise to resolve
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Wait for the renderFrame loop to be called
+    act(() => {
+      vi.advanceTimersByTime(50); // multiple frames
+    });
+
+    expect(renderFrameMock).toHaveBeenCalled();
+    const args = renderFrameMock.mock.calls[0];
+
+    // If 'f32', it combines anchors with deltas directly instead of treating them as purely delta passes.
+    // Cr anchor is -0.8, delta is 0.
+    expect(args[2]).toBeCloseTo(-0.8);
   });
 });
