@@ -94,24 +94,39 @@ export const ApeironSettingsPanel: React.FC = () => {
         </select>
       </div>
 
-      <div style={{ marginBottom: 12 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 4,
+          fontSize: '12px',
+        }}
+      >
+        <span>Frequency</span>
         <ScrubbableNumber
-          label="Color Density"
           value={state.colorDensity}
           onChange={(val) => state.setColorDensity(val)}
           min={0.1}
           max={100.0}
           step={0.1}
-          sensitivity={0.1}
+          isLogScale={true}
         />
       </div>
-      <div style={{ marginBottom: 16 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 16,
+          fontSize: '12px',
+        }}
+      >
+        <span>Phase</span>
         <ScrubbableNumber
-          label="Color Phase"
           value={state.colorPhase}
           onChange={(val) => state.setColorPhase(val)}
           step={0.1}
-          sensitivity={0.05}
         />
       </div>
 
