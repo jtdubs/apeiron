@@ -49,7 +49,7 @@ export const ApeironSettingsPanel: React.FC = () => {
     <div className="hud-settings-panel">
       <h2
         style={{
-          margin: '0 0 16px 0',
+          margin: '0',
           fontSize: '14px',
           fontWeight: 600,
           textTransform: 'uppercase',
@@ -64,7 +64,7 @@ export const ApeironSettingsPanel: React.FC = () => {
       {/* Precision Modes */}
       <div
         style={{
-          marginBottom: 12,
+          marginBottom: 0,
           borderBottom: '1px solid rgba(255,255,255,0.1)',
           paddingBottom: '16px',
         }}
@@ -100,7 +100,7 @@ export const ApeironSettingsPanel: React.FC = () => {
       {/* Theme Pipeline */}
       <div
         style={{
-          marginBottom: 12,
+          marginBottom: 0,
           borderBottom: '1px solid rgba(255,255,255,0.1)',
           paddingBottom: '16px',
         }}
