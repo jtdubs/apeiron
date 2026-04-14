@@ -191,14 +191,7 @@
     grid-template-areas:
       'lens actions'
       'divider divider'
-      'bottom bottom';
-  }
-
-  .is-expanded .hud-mobile-bottom-row {
-    display: flex;
-    grid-area: bottom;
-    align-items: center;
-    justify-content: center;
+      'equation coords';
   }
 
   .hud-lens {

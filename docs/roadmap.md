@@ -44,6 +44,7 @@
 - [x] [Task 019: Advanced UI Control Surfaces](tasks/completed/019-advanced-ui-controls.md)
 - [x] [Task 020: Integration of HUD Toolbar](tasks/completed/020-hud-toolbar.md)
 - [x] [Task 024: Engine PassManager & UI Cleanup](tasks/completed/024-engine-passmanager-refactor.md)
+- [x] [Task 025: Mobile HUD & Interaction Fixes](tasks/completed/025-mobile-fixes.md)
 
 ## Phase 8: Extensibility & Variations
 

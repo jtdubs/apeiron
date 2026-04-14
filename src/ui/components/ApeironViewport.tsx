@@ -17,46 +17,98 @@ export const ApeironViewport: React.FC = () => {
     if (!canvas) return;
 
     let isMounted = true;
-    let isDragging = false;
-    let isMiddleDragging = false;
-    let lastX = 0;
-    let lastY = 0;
+    const activePointers = new Map<number, { x: number; y: number }>();
+    let isMiddleMouseDragging = false;
+    let lastCentroid = { x: 0, y: 0 };
+    let lastDistance = 0;
+
+    const getPointersMetrics = () => {
+      if (activePointers.size === 0) return null;
+      let cx = 0;
+      let cy = 0;
+      for (const p of activePointers.values()) {
+        cx += p.x;
+        cy += p.y;
+      }
+      cx /= activePointers.size;
+      cy /= activePointers.size;
+
+      let distance = 0;
+      if (activePointers.size === 2) {
+        const pts = Array.from(activePointers.values());
+        distance = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+      }
+      return { cx, cy, distance };
+    };
 
     const onPointerDown = (e: PointerEvent) => {
-      if (e.button === 1 || e.shiftKey || e.altKey || e.ctrlKey) {
-        isMiddleDragging = true;
-      } else {
-        isDragging = true;
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const metrics = getPointersMetrics();
+      if (metrics) {
+        lastCentroid = { x: metrics.cx, y: metrics.cy };
+        lastDistance = metrics.distance;
       }
-      lastX = e.clientX;
-      lastY = e.clientY;
+      if (e.pointerType === 'mouse' && (e.button === 1 || e.shiftKey || e.altKey || e.ctrlKey)) {
+        isMiddleMouseDragging = true;
+      }
       canvas.setPointerCapture(e.pointerId);
     };
 
     const onPointerMove = (e: PointerEvent) => {
-      if (!isDragging && !isMiddleDragging) return;
-      const dx = e.clientX - lastX;
-      const dy = e.clientY - lastY;
-      lastX = e.clientX;
-      lastY = e.clientY;
+      if (!activePointers.has(e.pointerId)) return;
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      const metrics = getPointersMetrics();
+      if (!metrics) return;
+
+      const dx = metrics.cx - lastCentroid.x;
+      const dy = metrics.cy - lastCentroid.y;
 
       const rect = canvas.getBoundingClientRect();
       const { zoom } = viewportStore.getState();
 
-      if (isMiddleDragging) {
-        const angleDelta = (dx / rect.width) * Math.PI;
-        viewportStore.getState().updateViewport(0, 0, 1.0, angleDelta);
-      } else {
+      if (activePointers.size === 2) {
+        const distDelta = metrics.distance - lastDistance;
+        const zoomFactor = Math.pow(0.995, distDelta);
+
+        const ndcX = ((metrics.cx - rect.left) / rect.width) * 2.0 - 1.0;
+        const ndcY = -(((metrics.cy - rect.top) / rect.height) * 2.0 - 1.0);
+        const aspect = rect.width / rect.height;
+
+        const mathDx = ndcX * zoom * aspect * (1.0 - zoomFactor);
+        const mathDy = ndcY * zoom * (1.0 - zoomFactor);
+
+        const sliceAngleDelta = (dx / rect.width) * Math.PI;
+
+        viewportStore.getState().updateViewport(mathDx, mathDy, zoomFactor, sliceAngleDelta);
+      } else if (isMiddleMouseDragging) {
+        const sliceAngleDelta = (dx / rect.width) * Math.PI;
+        viewportStore.getState().updateViewport(0, 0, 1.0, sliceAngleDelta);
+      } else if (activePointers.size === 1) {
         const mathDx = -2.0 * (dx / rect.width) * zoom * (rect.width / rect.height);
         const mathDy = 2.0 * (dy / rect.height) * zoom;
         viewportStore.getState().updateViewport(mathDx, mathDy, 1.0, 0.0);
       }
+
+      lastCentroid = { x: metrics.cx, y: metrics.cy };
+      lastDistance = metrics.distance;
     };
 
     const onPointerUp = (e: PointerEvent) => {
-      isDragging = false;
-      isMiddleDragging = false;
-      canvas.releasePointerCapture(e.pointerId);
+      activePointers.delete(e.pointerId);
+      const metrics = getPointersMetrics();
+      if (metrics) {
+        lastCentroid = { x: metrics.cx, y: metrics.cy };
+        lastDistance = metrics.distance;
+      }
+      if (e.pointerType === 'mouse') {
+        isMiddleMouseDragging = false;
+      }
+      try {
+        canvas.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
     };
 
     const onWheel = (e: WheelEvent) => {
@@ -245,6 +297,7 @@ export const ApeironViewport: React.FC = () => {
         width: '100vw',
         height: '100vh',
         display: 'block',
+        touchAction: 'none',
       }}
     />
   );
