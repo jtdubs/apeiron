@@ -83,4 +83,4 @@
 
 ## Phase 14: Mobile Performance
 
-- [ ] [Task 042: Zero-Resize Dynamic Resolution Scaling](tasks/042-zero-resize-drs.md)
+- [x] [Task 042: Zero-Resize Dynamic Resolution Scaling](tasks/completed/042-zero-resize-drs.md)

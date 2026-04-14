@@ -22,6 +22,7 @@ describe('PassManager Pure Function Uniform Building', () => {
       1.0,
       true,
       rustBufferLength,
+      1.0, // renderScale
       undefined,
     );
 
@@ -57,6 +58,7 @@ describe('PassManager Pure Function Uniform Building', () => {
       1.0,
       true,
       208,
+      1.0, // renderScale
       theme,
     );
     expect(uniforms[8]).toBe(0.0);

@@ -61,6 +61,8 @@ export class AccumulationPass {
     commandEncoder: GPUCommandEncoder,
     gBufferView: GPUTextureView,
     bindGroup: GPUBindGroup,
+    renderWidth: number,
+    renderHeight: number,
   ) {
     const mathPass = commandEncoder.beginRenderPass({
       colorAttachments: [
@@ -74,6 +76,11 @@ export class AccumulationPass {
     });
     mathPass.setPipeline(this.mathPipeline);
     mathPass.setBindGroup(0, bindGroup);
+    // Constrain rasterization to the scaled sub-rect so we only compute
+    // the pixels we actually need. The resolve pass upscales this region
+    // to fill the full canvas via the render_scale UV remap.
+    mathPass.setViewport(0, 0, renderWidth, renderHeight, 0, 1);
+    mathPass.setScissorRect(0, 0, renderWidth, renderHeight);
     mathPass.draw(6);
     mathPass.end();
   }
@@ -227,15 +234,15 @@ export class PassManager {
     jitterX: number = 0.0,
     jitterY: number = 0.0,
     frameCount: number = 1.0,
+    renderScale: number = 1.0,
     refOrbits?: Float64Array | null,
     theme?: RenderState,
   ) {
-    if (width !== this.width || height !== this.height) {
-      this.initGBuffer(width, height);
-    }
     if (!this.gBufferTextureA || !this.gBufferTextureB) return;
 
     const aspectRatio = width / height;
+    const renderWidth = Math.max(1, Math.floor(width * renderScale));
+    const renderHeight = Math.max(1, Math.floor(height * renderScale));
 
     let refOrbitsSwapped = false;
     if (refOrbits !== undefined && refOrbits !== this.lastRefOrbits) {
@@ -274,7 +281,7 @@ export class PassManager {
     const usePerturbationAllowed = !(theme && theme.precisionMode === 'f32');
     const usePerturbation = this.hasValidActiveRefOrbits && usePerturbationAllowed ? 1.0 : 0.0;
 
-    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation},${actualRefMaxIter},${exponent},${jitterX},${jitterY},${frameCount}`;
+    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation},${actualRefMaxIter},${exponent},${jitterX},${jitterY},${frameCount},${renderScale}`;
 
     if (camState !== this.lastCameraState) {
       this.needsMathUpdate = true;
@@ -295,6 +302,7 @@ export class PassManager {
         frameCount,
         this.hasValidActiveRefOrbits,
         refOrbits ? refOrbits.length : undefined,
+        renderScale,
         theme,
       );
       this.device.queue.writeBuffer(this.accumPass.uniformsBuffer, 0, cameraData);
@@ -314,6 +322,15 @@ export class PassManager {
       this.device.queue.writeBuffer(this.presentPass.paletteUniformsBuffer, 0, paletteData);
     }
 
+    // Write render_scale every frame (float index 29, byte offset 116) so the
+    // resolve shader always has the current value regardless of theme version.
+    // Note: buildPaletteUniforms writes 0.0 to this slot as pad; this overwrites it.
+    this.device.queue.writeBuffer(
+      this.presentPass.paletteUniformsBuffer,
+      116,
+      new Float32Array([renderScale]),
+    );
+
     const commandEncoder = this.device.createCommandEncoder();
 
     if (this.needsMathUpdate || interactionState === 'STATIC') {
@@ -326,7 +343,13 @@ export class PassManager {
         readTex.createView(),
       );
 
-      this.accumPass.execute(commandEncoder, writeTex.createView(), currentBindGroup);
+      this.accumPass.execute(
+        commandEncoder,
+        writeTex.createView(),
+        currentBindGroup,
+        renderWidth,
+        renderHeight,
+      );
       this.needsMathUpdate = false;
     }
 

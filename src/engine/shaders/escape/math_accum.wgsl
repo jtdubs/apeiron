@@ -14,7 +14,7 @@ struct CameraParams {
   jitter_x: f32,
   jitter_y: f32,
   frame_count: f32,
-  pad: f32,
+  render_scale: f32,
 };
 
 @group(0) @binding(0) var<uniform> camera: CameraParams;

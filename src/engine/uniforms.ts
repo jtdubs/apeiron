@@ -15,6 +15,7 @@ export function buildCameraUniforms(
   frameCount: number,
   hasValidActiveRefOrbits: boolean,
   refOrbitsLength: number | undefined,
+  renderScale: number,
   theme?: RenderState,
 ): Float32Array {
   let actualRefMaxIter = maxIter;
@@ -44,7 +45,7 @@ export function buildCameraUniforms(
     jitterX,
     jitterY,
     frameCount,
-    0.0, // pad to 16 floats
+    renderScale,
   ]);
 }
 

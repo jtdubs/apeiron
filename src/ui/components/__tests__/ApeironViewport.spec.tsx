@@ -328,6 +328,7 @@ describe('ApeironViewport Orchestration', () => {
     // Initial render should be frame 1.0
     expect(renderFrameMock).toHaveBeenCalled();
     let args = renderFrameMock.mock.calls[0];
+    // arg order: zr,zi,cr,ci,scale,maxIter,sliceAngle,exponent,state,jitterX,jitterY,frameCount,renderScale,...
     let passedFrameCount = args[11]; // index 11 is frameCount
     expect(passedFrameCount).toBe(1.0);
 
@@ -338,7 +339,7 @@ describe('ApeironViewport Orchestration', () => {
       vi.advanceTimersByTime(16);
     });
     args = renderFrameMock.mock.calls[0];
-    passedFrameCount = args[11];
+    passedFrameCount = args[11]; // frameCount still at index 11
     expect(passedFrameCount).toBe(2.0);
 
     renderFrameMock.mockClear();
@@ -355,7 +356,7 @@ describe('ApeironViewport Orchestration', () => {
 
     // It should have reset strictly back to 1.0 for the first frame of new geometry!
     args = renderFrameMock.mock.calls[0];
-    passedFrameCount = args[11];
+    passedFrameCount = args[11]; // frameCount still at index 11
     expect(passedFrameCount).toBe(1.0);
   });
 });

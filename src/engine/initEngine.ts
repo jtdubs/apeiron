@@ -19,6 +19,7 @@ export interface ApeironEngine {
     jitterX: number,
     jitterY: number,
     frameCount: number,
+    renderScale: number,
     refOrbits?: Float64Array | null,
     theme?: RenderState,
   ) => void;
@@ -82,6 +83,7 @@ export async function initEngine(
     jitterX: number,
     jitterY: number,
     frameCount: number,
+    renderScale: number,
     refOrbits?: Float64Array | null,
     theme?: RenderState,
   ) => {
@@ -102,6 +104,7 @@ export async function initEngine(
       jitterX,
       jitterY,
       frameCount,
+      renderScale,
       refOrbits,
       theme,
     );

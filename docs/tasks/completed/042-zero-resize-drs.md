@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 042: Zero-Resize Dynamic Resolution Scaling

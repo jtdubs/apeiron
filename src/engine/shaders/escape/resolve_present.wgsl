@@ -36,7 +36,7 @@ struct ResolveUniforms {
   surface_mode: f32,
   surface_param_a: f32,
   surface_param_b: f32,
-  pad: f32,
+  render_scale: f32,
 };
 
 @group(1) @binding(0) var<uniform> params: ResolveUniforms;
@@ -47,8 +47,11 @@ fn palette_func(t: f32, a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>) 
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-  // Use exact pixel coordinates to load from the G-Buffer
-  let coord = vec2<i32>(floor(in.position.xy));
+  // Remap fragment position into G-Buffer sub-rect texel space.
+  // When render_scale < 1.0 (INTERACT), this stretches the low-res
+  // quadrant to fill the full canvas. When render_scale == 1.0 (STATIC)
+  // this is a no-op (multiply by 1.0).
+  let coord = vec2<i32>(floor(in.position.xy * params.render_scale));
   let tex_color = textureLoad(g_buffer, coord, 0);
   let iter = tex_color.r;
   let de = tex_color.g;

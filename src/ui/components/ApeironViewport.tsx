@@ -24,6 +24,12 @@ export const ApeironViewport: React.FC = () => {
     let wheelTimeoutId: number | null = null;
     let cssWidth = window.innerWidth;
     let cssHeight = window.innerHeight;
+    let canvasSizeVersion = 0;
+
+    // Set canvas to full native resolution immediately on mount.
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.floor(cssWidth * dpr));
+    canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
 
     const getPointersMetrics = () => {
       if (activePointers.size === 0) return null;
@@ -167,24 +173,19 @@ export const ApeironViewport: React.FC = () => {
           const passCr = isPerturb ? state.deltaCr : parseFloat(state.anchorCr) + state.deltaCr;
           const passCi = isPerturb ? state.deltaCi : parseFloat(state.anchorCi) + state.deltaCi;
 
-          const targetDpr =
-            state.interactionState === 'STATIC' ? window.devicePixelRatio || 1 : 1.0;
-          const targetWidth = Math.max(1, Math.floor(cssWidth * targetDpr));
-          const targetHeight = Math.max(1, Math.floor(cssHeight * targetDpr));
+          // DRS: scale the render resolution without touching the canvas.
+          // Canvas stays at full devicePixelRatio. During INTERACT we render
+          // into a sub-rect and upscale via the resolve shader. No GPU surface resize.
+          const renderDpr = window.devicePixelRatio || 1;
+          const renderScale = state.interactionState === 'STATIC' ? 1.0 : 1.0 / renderDpr;
 
-          if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
-            canvas.width = targetWidth;
-            canvas.height = targetHeight;
-            engine.resize();
-          }
-
-          const baseGeometryKey = `${passZr},${passZi},${passCr},${passCi},${state.zoom},${state.sliceAngle},${state.exponent},${state.maxIter},${state.refOrbits !== null},${theme.themeVersion},${canvas.width},${canvas.height}`;
+          const baseGeometryKey = `${passZr},${passZi},${passCr},${passCi},${state.zoom},${state.sliceAngle},${state.exponent},${state.maxIter},${state.refOrbits !== null},${theme.themeVersion},${canvasSizeVersion}`;
           if (baseGeometryKey !== lastBaseGeometryKey) {
             frameCount = 1.0;
             lastBaseGeometryKey = baseGeometryKey;
           }
 
-          const renderStateKey = `${baseGeometryKey},${state.interactionState},${frameCount}`;
+          const renderStateKey = `${baseGeometryKey},${state.interactionState},${renderScale},${frameCount}`;
 
           if (
             renderStateKey !== lastRenderStateKey ||
@@ -192,18 +193,24 @@ export const ApeironViewport: React.FC = () => {
           ) {
             let jitterX = 0.0;
             let jitterY = 0.0;
-            const passFrameCount = frameCount;
 
             if (state.interactionState === 'STATIC') {
               if (frameCount > 1.0 && frameCount <= 64.0) {
                 // Sub-pixel jitter: range [-1/width, 1/width] in UV space
-                jitterX = (Math.random() - 0.5) * (2.0 / targetWidth);
-                jitterY = (Math.random() - 0.5) * (2.0 / targetHeight);
+                // Use full canvas dimensions since STATIC always renders at renderScale 1.0.
+                jitterX = (Math.random() - 0.5) * (2.0 / canvas.width);
+                jitterY = (Math.random() - 0.5) * (2.0 / canvas.height);
               }
               frameCount = Math.min(frameCount + 1.0, 65.0);
             } else {
               frameCount = 1.0;
             }
+
+            // INTERACT frames always pass frameCount=1.0 so the accumulation shader
+            // never blends the full-res STATIC prev_frame into the low-res sub-rect.
+            // (OLD code relied on the canvas resize changing baseGeometryKey to reset
+            // frameCount before capture; that side effect is gone with zero-resize DRS.)
+            const passFrameCount = state.interactionState === 'STATIC' ? frameCount - 1.0 : 1.0;
 
             engine.renderFrame(
               passZr,
@@ -218,6 +225,7 @@ export const ApeironViewport: React.FC = () => {
               jitterX,
               jitterY,
               passFrameCount,
+              renderScale,
               state.refOrbits,
               theme,
             );
@@ -385,6 +393,12 @@ export const ApeironViewport: React.FC = () => {
           const rect = canvas.getBoundingClientRect();
           cssWidth = rect.width;
           cssHeight = rect.height;
+          // Resize canvas to new native resolution and rebuild G-Buffers.
+          const newDpr = window.devicePixelRatio || 1;
+          canvas.width = Math.max(1, Math.floor(cssWidth * newDpr));
+          canvas.height = Math.max(1, Math.floor(cssHeight * newDpr));
+          engineRef.current?.resize();
+          canvasSizeVersion++;
         }
       }
     });
