@@ -1,4 +1,4 @@
-import { RenderState } from '../ui/stores/renderStore';
+import type { RenderState } from '../ui/stores/renderStore';
 
 export class AccumulationPass {
   private device: GPUDevice;
@@ -145,7 +145,6 @@ export class PresentationPass {
 export class PassManager {
   private device: GPUDevice;
   private canvas: HTMLCanvasElement;
-  private canvasFormat: GPUTextureFormat;
 
   private accumPass: AccumulationPass;
   private presentPass: PresentationPass;
@@ -169,7 +168,6 @@ export class PassManager {
   ) {
     this.device = device;
     this.canvas = canvas;
-    this.canvasFormat = canvasFormat;
 
     this.accumPass = new AccumulationPass(device, mathShaderCode);
     this.presentPass = new PresentationPass(device, resolveShaderCode, canvasFormat);

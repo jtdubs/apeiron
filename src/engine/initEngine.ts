@@ -1,4 +1,4 @@
-import { RenderState } from '../ui/stores/renderStore';
+import type { RenderState } from '../ui/stores/renderStore';
 import { PassManager } from './PassManager';
 
 export interface ApeironEngine {
@@ -86,7 +86,7 @@ export async function initEngine(
       size: inputSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
-    device.queue.writeBuffer(inputStorageBuffer, 0, input);
+    device.queue.writeBuffer(inputStorageBuffer, 0, input as unknown as BufferSource);
 
     // Separate Output Buffer
     const outputStorageBuffer = device.createBuffer({
