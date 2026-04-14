@@ -25,3 +25,16 @@ To programmatically enforce the architectural boundaries (such as the "Zero Reac
 
 - **Pre-Commit Linting:** We port the aggressive ESLint and formatting bounds from the legacy `frac/` project. Commits that violate core boundary rules (e.g. importing `useState` into a WebGPU engine file) will instantly fail the hook.
 - **Workflow:** Agents and developers MUST NOT bypass these hooks (e.g. using `git commit --no-verify`). If Husky rejects a commit, the architectural code—not the hook—must be rewritten.
+
+## 4. Release Protocol
+
+Releases are fully automated via GitHub Actions, but they require a specific Git tagging structure to trigger the Continuous Delivery pipeline.
+
+To cut a new release:
+
+1. Ensure all tests and hooks are passing and the workspace is clean.
+2. Update the `version` field in `package.json` to the next logical version (e.g., `0.0.5`).
+3. Create a chore commit: `git commit -am "chore: release version 0.0.5"`
+4. Tag the commit exactly matching the version: `git tag v0.0.5`
+5. Push the commit and the tags: `git push && git push --tags`
+6. Monitor the GitHub Actions console to ensure the release artifact builds and deploys correctly.
