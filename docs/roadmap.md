@@ -7,6 +7,7 @@
 - [x] [Task 003: Implement Rust WASM `math-core` unit testing arrays](tasks/completed/003-rust-wasm-math-core.md)
 - [x] [Task 004: Connect React Viewport to WebGPU Engine](tasks/completed/004-viewport-canvas-connection.md)
 - [x] [Task 005: Create Automated Headless Regression Runner](tasks/completed/005-headless-regression-runner.md)
+- [x] [Task 026: Frontend Worker Testing](tasks/completed/026-frontend-worker-testing.md)
 
 ## Phase 2: Tier 1 Rendering ($f32$)
 
