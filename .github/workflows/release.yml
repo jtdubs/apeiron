@@ -1,6 +1,7 @@
 name: Deploy to GitHub Pages
 
 on:
+  workflow_dispatch: {}
   push:
     tags:
       - 'v*' # Trigger deployment when a version tag is pushed
