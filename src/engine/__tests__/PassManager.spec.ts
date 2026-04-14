@@ -1,106 +1,29 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { PassManager } from '../PassManager';
+import { describe, it, expect } from 'vitest';
+import { buildCameraUniforms, buildPaletteUniforms } from '../uniforms';
+import type { RenderState } from '../../ui/stores/renderStore';
 
-describe('PassManager Orchestration', () => {
-  let mockDevice: GPUDevice;
-  let mockCanvas: HTMLCanvasElement;
-  let writeBufferMock: ReturnType<typeof vi.fn>;
-
-  beforeEach(() => {
-    vi.stubGlobal('GPUBufferUsage', {
-      UNIFORM: 64,
-      COPY_DST: 8,
-      STORAGE: 128,
-      MAP_READ: 1,
-      COPY_SRC: 4,
-    });
-    vi.stubGlobal('GPUTextureUsage', { RENDER_ATTACHMENT: 16, TEXTURE_BINDING: 4 });
-
-    writeBufferMock = vi.fn();
-    mockDevice = {
-      createShaderModule: vi.fn().mockReturnValue({}),
-      createBuffer: vi.fn().mockReturnValue(Symbol('GPUBuffer')),
-      createRenderPipeline: vi.fn().mockReturnValue({
-        getBindGroupLayout: vi.fn(),
-      }),
-      createBindGroup: vi.fn().mockReturnValue(Symbol('GPUBindGroup')),
-      createTexture: vi.fn().mockReturnValue({
-        createView: vi.fn(),
-        destroy: vi.fn(),
-      }),
-      createCommandEncoder: vi.fn().mockReturnValue({
-        beginRenderPass: vi.fn().mockReturnValue({
-          setPipeline: vi.fn(),
-          setBindGroup: vi.fn(),
-          draw: vi.fn(),
-          end: vi.fn(),
-        }),
-        finish: vi.fn(),
-      }),
-      queue: {
-        writeBuffer: writeBufferMock,
-        submit: vi.fn(),
-      },
-    } as unknown as GPUDevice;
-
-    mockCanvas = {
-      width: 800,
-      height: 600,
-    } as unknown as HTMLCanvasElement;
-  });
-
+describe('PassManager Pure Function Uniform Building', () => {
   it('correctly calculates actualRefMaxIter for the uniform buffer from rust refOrbits padding', () => {
-    const passManager = new PassManager(
-      mockDevice,
-      mockCanvas,
-      'bgra8unorm',
-      '// math shader code',
-      '// resolve shader code',
-    );
-
-    // Mock Context
-    const mockContext = {
-      getCurrentTexture: vi.fn().mockReturnValue({
-        createView: vi.fn(),
-      }),
-    };
-
-    // Construct a mock Rust orbit buffer: [maxIter * 2 locations] + [8 trailing metadata floats]
-    // Let's say maxIter = 10 explicitly here.
     const expectedMaxIter = 10;
     const rustBufferLength = expectedMaxIter * 2 + 8;
-    const refOrbits = new Float64Array(rustBufferLength);
 
-    passManager.render(
-      mockContext as unknown as GPUCanvasContext,
+    const uniforms = buildCameraUniforms(
       0,
       0,
       -1.0,
-      0.0, // zr, zi, cr, ci
-      1e-5, // scale
-      expectedMaxIter, // requested maxIter
-      0, // sliceAngle
-      2.0, // exponent
-      refOrbits,
-      undefined, // theme
+      0.0,
+      1e-5,
+      1.33,
+      expectedMaxIter,
+      0,
+      2.0,
+      true,
+      rustBufferLength,
+      undefined,
     );
 
-    // find the call to writeBuffer for the camera uniforms
-    // The camera buffer data is pushed through this.accumPass.uniformsBuffer
-    // We can iterate over the calls to `writeBuffer` to find the Float32Array length 12
-    const cameraWriteCall = writeBufferMock.mock.calls.find((call) => {
-      const data = call[2] as Float32Array;
-      // The camera uniform struct consists of 12 floats
-      return data instanceof Float32Array && data.length === 12;
-    });
-
-    expect(cameraWriteCall).toBeDefined();
-
-    if (!cameraWriteCall) throw new Error('cameraWriteCall not found');
-    const cameraData = cameraWriteCall[2] as Float32Array;
-
-    // Based on the shader struct layout in initEngine.ts / PassManager.ts,
-    // [0-3]: Coordinates
+    // Uniforms mapping:
+    // [0-3]: Coordinates (zr, zi, cr, ci)
     // [4]: Scale
     // [5]: AspectRatio
     // [6]: maxIter
@@ -110,6 +33,69 @@ describe('PassManager Orchestration', () => {
     // [10]: exponent
     // [11]: coloringMode
 
-    expect(cameraData[9]).toBe(expectedMaxIter);
+    expect(uniforms[9]).toBe(expectedMaxIter);
+    expect(uniforms[8]).toBe(1.0); // usePerturbation true by default if valid active ref orbits and no f32 mode
+  });
+
+  it('disables perturbation when precisionMode is f32', () => {
+    const theme = { precisionMode: 'f32' } as RenderState;
+    const uniforms = buildCameraUniforms(
+      0,
+      0,
+      -1.0,
+      0.0,
+      1e-5,
+      1.33,
+      100,
+      0,
+      2.0,
+      true,
+      208,
+      theme,
+    );
+    expect(uniforms[8]).toBe(0.0);
+  });
+
+  it('builds pure palette uniforms with correct padding and flags', () => {
+    const theme = {
+      themeVersion: 1,
+      paletteA: [1.0, 0.5, 0.0],
+      paletteB: [0.0, 1.0, 0.5],
+      paletteC: [0.5, 0.0, 1.0],
+      paletteD: [1.0, 1.0, 1.0],
+      paletteName: 'test',
+      lightAzimuth: 10,
+      lightElevation: 20,
+      diffuse: 1.0,
+      shininess: 32.0,
+      heightScale: 0.1,
+      ambient: 0.2,
+      precisionMode: 'perturbation',
+      coloringMode: 'stripe',
+      surfaceMode: 'soft-glow',
+      glowFalloff: 15.0,
+      glowScatter: 2.0,
+      contourFrequency: 20.0,
+      contourThickness: 0.8,
+      colorDensity: 3.0,
+      colorPhase: 1.0,
+    } as RenderState;
+
+    const maxIter = 150;
+    const uniforms = buildPaletteUniforms(theme, maxIter);
+
+    // [0-2]: paletteA, [3]: pad
+    expect(uniforms[0]).toBe(1.0);
+    expect(uniforms[3]).toBe(0.0);
+    // [16]: paletteMaxIter
+    expect(uniforms[16]).toBe(150);
+    // [23]: coloringMode (stripe = 1.0)
+    expect(uniforms[23]).toBe(1.0);
+    // [26]: surfaceMode (soft-glow = 2.0)
+    expect(uniforms[26]).toBe(2.0);
+    // [27]: surfaceParamA (glowFalloff)
+    expect(uniforms[27]).toBe(15.0);
+    // [28]: surfaceParamB (glowScatter)
+    expect(uniforms[28]).toBe(2.0);
   });
 });

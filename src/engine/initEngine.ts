@@ -12,6 +12,20 @@ export interface ApeironEngine {
     usePerturbation?: boolean,
     exponent?: number,
   ) => Promise<Float32Array>;
+  executeTestRender: (
+    width: number,
+    height: number,
+    zr: number,
+    zi: number,
+    cr: number,
+    ci: number,
+    scale: number,
+    maxIter: number,
+    sliceAngle: number,
+    exponent: number,
+    refOrbits?: Float64Array | null,
+    theme?: RenderState,
+  ) => Promise<Uint8Array>;
   renderFrame: (
     zr: number,
     zi: number,
@@ -177,10 +191,95 @@ export async function initEngine(
     return result;
   };
 
+  const executeTestRender = async (
+    width: number,
+    height: number,
+    zr: number,
+    zi: number,
+    cr: number,
+    ci: number,
+    scale: number,
+    maxIter: number,
+    sliceAngle: number,
+    exponent: number,
+    refOrbits?: Float64Array | null,
+    theme?: RenderState,
+  ): Promise<Uint8Array> => {
+    const renderFormat: GPUTextureFormat = 'rgba8unorm';
+    const pm = new PassManager(
+      device,
+      width,
+      height,
+      renderFormat,
+      mathShaderCode,
+      resolveShaderCode,
+    );
+
+    const targetTexture = device.createTexture({
+      size: [width, height, 1],
+      format: renderFormat,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+    });
+
+    pm.render(
+      targetTexture.createView(),
+      width,
+      height,
+      zr,
+      zi,
+      cr,
+      ci,
+      scale,
+      maxIter,
+      sliceAngle,
+      exponent,
+      refOrbits,
+      theme,
+    );
+
+    const bytesPerRow = Math.ceil((width * 4) / 256) * 256; // 256-byte alignment
+    const bufferSize = bytesPerRow * height;
+
+    const readBuffer = device.createBuffer({
+      size: bufferSize,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+
+    const commandEncoder = device.createCommandEncoder();
+    commandEncoder.copyTextureToBuffer(
+      { texture: targetTexture },
+      { buffer: readBuffer, bytesPerRow },
+      [width, height, 1],
+    );
+
+    device.queue.submit([commandEncoder.finish()]);
+
+    await readBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = readBuffer.getMappedRange();
+
+    const packed = new Uint8Array(width * height * 4);
+    const mappedView = new Uint8Array(arrayBuffer);
+    for (let y = 0; y < height; y++) {
+      packed.set(mappedView.subarray(y * bytesPerRow, y * bytesPerRow + width * 4), y * width * 4);
+    }
+
+    readBuffer.unmap();
+    targetTexture.destroy();
+
+    return packed;
+  };
+
   let passManager: PassManager | null = null;
 
   if (canvas) {
-    passManager = new PassManager(device, canvas, canvasFormat, mathShaderCode, resolveShaderCode);
+    passManager = new PassManager(
+      device,
+      canvas.width,
+      canvas.height,
+      canvasFormat,
+      mathShaderCode,
+      resolveShaderCode,
+    );
   }
 
   const renderFrame = (
@@ -195,9 +294,11 @@ export async function initEngine(
     refOrbits?: Float64Array | null,
     theme?: RenderState,
   ) => {
-    if (!context || !passManager) return;
+    if (!context || !passManager || !canvas) return;
     passManager.render(
-      context,
+      context.getCurrentTexture().createView(),
+      canvas.width,
+      canvas.height,
       zr,
       zi,
       cr,
@@ -219,7 +320,7 @@ export async function initEngine(
         alphaMode: 'opaque',
       });
       if (passManager) {
-        passManager.initGBuffer();
+        passManager.initGBuffer(canvas.width, canvas.height);
       }
     }
   };
@@ -229,6 +330,7 @@ export async function initEngine(
     adapter,
     context,
     executeTestCompute,
+    executeTestRender,
     renderFrame,
     resize,
   };

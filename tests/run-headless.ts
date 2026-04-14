@@ -54,7 +54,11 @@ async function main() {
       path.resolve('./src/engine/shaders/escape/math_accum.wgsl'),
       'utf8',
     );
-    const engine = await initEngine(undefined, mathAccumWgsl, '');
+    const resolveWgsl = fs.readFileSync(
+      path.resolve('./src/engine/shaders/escape/resolve_present.wgsl'),
+      'utf8',
+    );
+    const engine = await initEngine(undefined, mathAccumWgsl, resolveWgsl);
     console.log('WebGPU Context established.');
 
     // Parse the input cases for WebGPU
@@ -272,21 +276,60 @@ async function main() {
 
     // 7. Test for Magenta Glitch (NaNs) under high iteration bounds safely!
     {
-      console.log('\n🔍 Validating derivative stability under Deep Zoom iteration loading (maxIter > 128)...');
-      
+      console.log(
+        '\n🔍 Validating derivative stability under Deep Zoom iteration loading (maxIter > 128)...',
+      );
+
       const deepInput = new Float32Array([
-         0.0, 0.0, -1.748, 0.0, 1e-15, 1e-15, // Test point that slowly diverges
+        0.0,
+        0.0,
+        -1.748,
+        0.0,
+        1e-15,
+        1e-15, // Test point that slowly diverges
       ]);
       const res = await engine.executeTestCompute(deepInput, undefined, 500, false, 2.0);
       const de = res[1];
       const nx = res[2];
       const ny = res[3];
-      
+
       if (Number.isNaN(de) || !Number.isFinite(de) || Number.isNaN(nx) || !Number.isFinite(nx)) {
         console.error(`❌ FAIL: Math Pipeline output NaN/Infinity! de=${de}, nx=${nx}, ny=${ny}`);
         throw new Error('Shader NaN/Infinity Exploit Triggered');
       }
       console.log('✅ PASS: Pipeline survived high iteration compound explosion implicitly.');
+
+      console.log('🔍 Executing full render pipeline for artifact glitch detection...');
+      const renderOutput = await engine.executeTestRender(
+        2,
+        2,
+        0.0,
+        0.0,
+        -1.748,
+        0.0,
+        1e-15,
+        500,
+        0.0,
+        2.0,
+        undefined,
+        undefined,
+      );
+      let isMagenta = true;
+      for (let i = 0; i < renderOutput.length; i += 4) {
+        const r = renderOutput[i];
+        const g = renderOutput[i + 1];
+        const b = renderOutput[i + 2];
+        const a = renderOutput[i + 3];
+        if (r !== 255 || g !== 0 || b !== 255 || a !== 255) {
+          isMagenta = false;
+          break;
+        }
+      }
+      if (isMagenta) {
+        console.error('❌ FAIL: Render output resulted in a solid Magenta screen artifact!');
+        throw new Error('Full-screen Magenta Glitch Detected');
+      }
+      console.log('✅ PASS: Render output returned valid pixels without glitching.');
     }
 
     console.log('🔍 Validating Bit-Perfect Regression Match...');

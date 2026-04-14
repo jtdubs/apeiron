@@ -142,9 +142,12 @@ export class PresentationPass {
   }
 }
 
+import { buildCameraUniforms, buildPaletteUniforms } from './uniforms';
+
 export class PassManager {
   private device: GPUDevice;
-  private canvas: HTMLCanvasElement;
+  private width: number;
+  private height: number;
 
   private accumPass: AccumulationPass;
   private presentPass: PresentationPass;
@@ -162,28 +165,33 @@ export class PassManager {
 
   constructor(
     device: GPUDevice,
-    canvas: HTMLCanvasElement,
+    width: number,
+    height: number,
     canvasFormat: GPUTextureFormat,
     mathShaderCode: string,
     resolveShaderCode: string,
   ) {
     this.device = device;
-    this.canvas = canvas;
+    this.width = width;
+    this.height = height;
 
     this.accumPass = new AccumulationPass(device, mathShaderCode);
     this.presentPass = new PresentationPass(device, resolveShaderCode, canvasFormat);
     this.currentBindGroup0 = this.accumPass.getBindGroup(null);
 
-    this.initGBuffer();
+    this.initGBuffer(this.width, this.height);
   }
 
-  public initGBuffer() {
+  public initGBuffer(width: number, height: number) {
+    this.width = width;
+    this.height = height;
+
     if (this.gBufferTexture) {
       this.gBufferTexture.destroy();
     }
 
     this.gBufferTexture = this.device.createTexture({
-      size: [this.canvas.width, this.canvas.height, 1],
+      size: [this.width, this.height, 1],
       format: 'rgba32float',
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     });
@@ -193,7 +201,9 @@ export class PassManager {
   }
 
   public render(
-    context: GPUCanvasContext,
+    targetView: GPUTextureView,
+    width: number,
+    height: number,
     zr: number,
     zi: number,
     cr: number,
@@ -205,9 +215,12 @@ export class PassManager {
     refOrbits?: Float64Array | null,
     theme?: RenderState,
   ) {
+    if (width !== this.width || height !== this.height) {
+      this.initGBuffer(width, height);
+    }
     if (!this.gBufferTexture || !this.resolveBindGroup0) return;
 
-    const aspectRatio = this.canvas.width / this.canvas.height;
+    const aspectRatio = width / height;
 
     let refOrbitsSwapped = false;
     if (refOrbits !== undefined && refOrbits !== this.lastRefOrbits) {
@@ -240,24 +253,20 @@ export class PassManager {
       this.needsMathUpdate = true;
     }
 
-    let actualRefMaxIter = maxIter;
-    if (this.hasValidActiveRefOrbits && refOrbits) {
-      actualRefMaxIter = (refOrbits.length - 8) / 2;
-    }
-
-    let usePerturbationAllowed = true;
-    if (theme && theme.precisionMode === 'f32') {
-      usePerturbationAllowed = false;
-    }
-    const usePerturbation = this.hasValidActiveRefOrbits && usePerturbationAllowed ? 1.0 : 0.0;
-    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation},${actualRefMaxIter},${exponent}`;
+    const actualRefMaxIter =
+      this.hasValidActiveRefOrbits && refOrbits ? (refOrbits.length - 8) / 2 : maxIter;
     const paletteMaxIter = this.hasValidActiveRefOrbits ? actualRefMaxIter : maxIter;
+
+    const usePerturbationAllowed = !(theme && theme.precisionMode === 'f32');
+    const usePerturbation = this.hasValidActiveRefOrbits && usePerturbationAllowed ? 1.0 : 0.0;
+
+    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation},${actualRefMaxIter},${exponent}`;
 
     if (camState !== this.lastCameraState) {
       this.needsMathUpdate = true;
       this.lastCameraState = camState;
 
-      const cameraData = new Float32Array([
+      const cameraData = buildCameraUniforms(
         zr,
         zi,
         cr,
@@ -266,11 +275,11 @@ export class PassManager {
         aspectRatio,
         maxIter,
         sliceAngle,
-        usePerturbation,
-        actualRefMaxIter,
         exponent,
-        theme?.coloringMode === 'stripe' ? 1.0 : theme?.coloringMode === 'banded' ? 2.0 : 0.0,
-      ]);
+        this.hasValidActiveRefOrbits,
+        refOrbits ? refOrbits.length : undefined,
+        theme,
+      );
       this.device.queue.writeBuffer(this.accumPass.uniformsBuffer, 0, cameraData);
 
       this.device.queue.writeBuffer(
@@ -283,46 +292,8 @@ export class PassManager {
     const themeVersion = theme?.themeVersion ?? -1;
     if (themeVersion !== this.lastThemeVersion && theme) {
       this.lastThemeVersion = themeVersion;
-      let surfaceParamA = 1.0;
-      let surfaceParamB = 1.0;
-      if (theme.surfaceMode === 'soft-glow') {
-        surfaceParamA = theme.glowFalloff ?? 20.0;
-        surfaceParamB = theme.glowScatter ?? 1.0;
-      } else if (theme.surfaceMode === 'contours') {
-        surfaceParamA = theme.contourFrequency ?? 20.0;
-        surfaceParamB = theme.contourThickness ?? 0.8;
-      }
 
-      const paletteData = new Float32Array([
-        ...theme.paletteA,
-        0.0, // pad
-        ...theme.paletteB,
-        0.0,
-        ...theme.paletteC,
-        0.0,
-        ...theme.paletteD,
-        0.0,
-        paletteMaxIter, // properly populated during theme full-buffer rewrite
-        theme.lightAzimuth,
-        theme.lightElevation,
-        theme.diffuse,
-        theme.shininess,
-        theme.heightScale,
-        theme.ambient,
-        theme.coloringMode === 'stripe' ? 1.0 : theme.coloringMode === 'banded' ? 2.0 : 0.0,
-        theme.colorDensity ?? 3.0,
-        theme.colorPhase ?? 0.0,
-        theme.surfaceMode === 'off'
-          ? 0.0
-          : theme.surfaceMode === 'soft-glow'
-            ? 2.0
-            : theme.surfaceMode === 'contours'
-              ? 3.0
-              : 1.0,
-        surfaceParamA,
-        surfaceParamB,
-        0.0, // pad
-      ]);
+      const paletteData = buildPaletteUniforms(theme, paletteMaxIter);
       this.device.queue.writeBuffer(this.presentPass.paletteUniformsBuffer, 0, paletteData);
     }
 
@@ -337,8 +308,7 @@ export class PassManager {
       this.needsMathUpdate = false;
     }
 
-    const textureView = context.getCurrentTexture().createView();
-    this.presentPass.execute(commandEncoder, textureView, this.resolveBindGroup0);
+    this.presentPass.execute(commandEncoder, targetView, this.resolveBindGroup0);
 
     this.device.queue.submit([commandEncoder.finish()]);
   }
