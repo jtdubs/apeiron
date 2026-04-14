@@ -20,6 +20,7 @@ export interface ApeironEngine {
     exponent: number,
     refOrbits?: Float64Array | null,
     theme?: {
+      themeVersion?: number;
       precisionMode?: string;
       paletteA: [number, number, number];
       paletteB: [number, number, number];
@@ -205,7 +206,7 @@ export async function initEngine(
   // Track Math State correctly
   let needsMathUpdate = true;
   let lastCameraState = '';
-  let lastThemeState = '';
+  let lastThemeVersion = -1;
 
   const initGBuffer = () => {
     if (!canvas || !resolvePipeline) return;
@@ -352,6 +353,7 @@ export async function initEngine(
     exponent: number,
     refOrbits?: Float64Array | null,
     theme?: {
+      themeVersion?: number;
       precisionMode?: string;
       paletteA: [number, number, number];
       paletteB: [number, number, number];
@@ -441,30 +443,9 @@ export async function initEngine(
       device.queue.writeBuffer(paletteUniformsBuffer!, 64, new Float32Array([paletteMaxIter]));
     }
 
-    const themeString = theme
-      ? JSON.stringify([
-          theme.paletteA,
-          theme.paletteB,
-          theme.paletteC,
-          theme.paletteD,
-          theme.lightAzimuth,
-          theme.lightElevation,
-          theme.diffuse,
-          theme.shininess,
-          theme.heightScale,
-          theme.ambient,
-          theme.coloringMode,
-          theme.colorDensity,
-          theme.colorPhase,
-          theme.surfaceMode,
-          theme.glowFalloff,
-          theme.glowScatter,
-          theme.contourFrequency,
-          theme.contourThickness,
-        ])
-      : '';
-    if (themeString !== lastThemeState && theme) {
-      lastThemeState = themeString;
+    const themeVersion = theme?.themeVersion ?? -1;
+    if (themeVersion !== lastThemeVersion && theme) {
+      lastThemeVersion = themeVersion;
       const paletteData = new Float32Array([
         ...theme.paletteA,
         0.0,

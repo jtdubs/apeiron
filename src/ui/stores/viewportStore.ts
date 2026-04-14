@@ -15,21 +15,32 @@ export function calculateMaxIter(zoom: number): number {
 }
 
 export interface ViewportState {
-  zr: number;
-  zi: number;
-  cr: number;
-  ci: number;
+  anchorZr: string;
+  anchorZi: string;
+  anchorCr: string;
+  anchorCi: string;
+
+  deltaZr: number;
+  deltaZi: number;
+  deltaCr: number;
+  deltaCi: number;
+
   sliceAngle: number;
   zoom: number;
   exponent: number;
   maxIter: number;
   refOrbits: Float64Array | null;
+
   setRefOrbits: (orbits: Float64Array | null) => void;
-  setViewport: (
-    zr: number,
-    zi: number,
-    cr: number,
-    ci: number,
+  setAnchorsAndDeltas: (
+    azr: string,
+    azi: string,
+    acr: string,
+    aci: string,
+    dzr: number,
+    dzi: number,
+    dcr: number,
+    dci: number,
     zoom: number,
     sliceAngle: number,
     exponent: number,
@@ -38,10 +49,16 @@ export interface ViewportState {
 }
 
 export const viewportStore = createStore<ViewportState>((set) => ({
-  zr: 0.0,
-  zi: 0.0,
-  cr: -0.8,
-  ci: 0.156,
+  anchorZr: '0.0',
+  anchorZi: '0.0',
+  anchorCr: '-0.8',
+  anchorCi: '0.156',
+
+  deltaZr: 0.0,
+  deltaZi: 0.0,
+  deltaCr: 0.0,
+  deltaCi: 0.0,
+
   sliceAngle: 0.0,
   zoom: 1.5,
   exponent: 2.0,
@@ -50,15 +67,28 @@ export const viewportStore = createStore<ViewportState>((set) => ({
 
   setRefOrbits: (orbits) => set({ refOrbits: orbits }),
 
-  setViewport: (zr, zi, cr, ci, zoom, sliceAngle, exponent) =>
-    set({ zr, zi, cr, ci, zoom, sliceAngle, exponent, maxIter: calculateMaxIter(zoom) }),
+  setAnchorsAndDeltas: (azr, azi, acr, aci, dzr, dzi, dcr, dci, zoom, sliceAngle, exponent) =>
+    set({
+      anchorZr: azr,
+      anchorZi: azi,
+      anchorCr: acr,
+      anchorCi: aci,
+      deltaZr: dzr,
+      deltaZi: dzi,
+      deltaCr: dcr,
+      deltaCi: dci,
+      zoom,
+      sliceAngle,
+      exponent,
+      maxIter: calculateMaxIter(zoom),
+    }),
 
   updateViewport: (deltaX, deltaY, deltaZoom, deltaAngle) =>
     set((state) => {
       let newZoom = state.zoom * deltaZoom;
 
-      if (newZoom < 1e-25) {
-        newZoom = 1e-25;
+      if (newZoom < 1e-45) {
+        newZoom = 1e-45;
       }
       if (newZoom > 5.0) {
         newZoom = 5.0; // Don't zoom too far out
@@ -73,10 +103,10 @@ export const viewportStore = createStore<ViewportState>((set) => ({
       const sinTheta = Math.sin(newAngle);
 
       return {
-        zr: state.zr + deltaX * sinTheta,
-        zi: state.zi + deltaY * sinTheta,
-        cr: state.cr + deltaX * cosTheta,
-        ci: state.ci + deltaY * cosTheta,
+        deltaZr: state.deltaZr + deltaX * sinTheta,
+        deltaZi: state.deltaZi + deltaY * sinTheta,
+        deltaCr: state.deltaCr + deltaX * cosTheta,
+        deltaCi: state.deltaCi + deltaY * cosTheta,
         sliceAngle: newAngle,
         zoom: newZoom,
         maxIter: calculateMaxIter(newZoom),

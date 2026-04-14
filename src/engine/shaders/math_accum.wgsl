@@ -303,10 +303,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   let cos_theta = cos(camera.slice_angle);
   let sin_theta = sin(camera.slice_angle);
   
-  let start_z = vec2<f32>(camera.zr, camera.zi) + uv_mapped * sin_theta;
-  let start_c = vec2<f32>(camera.cr, camera.ci) + uv_mapped * cos_theta;
-  let delta_z = uv_mapped * sin_theta;
-  let delta_c = uv_mapped * cos_theta;
+  let delta_z = vec2<f32>(camera.zr, camera.zi) + uv_mapped * sin_theta;
+  let delta_c = vec2<f32>(camera.cr, camera.ci) + uv_mapped * cos_theta;
+  
+  let start_z = select(vec2<f32>(camera.zr, camera.zi) + uv_mapped * sin_theta, delta_z, camera.use_perturbation > 0.5);
+  let start_c = select(vec2<f32>(camera.cr, camera.ci) + uv_mapped * cos_theta, delta_c, camera.use_perturbation > 0.5);
   
   let ret = execute_engine_math(start_z, start_c, delta_z, delta_c, 0u);
   

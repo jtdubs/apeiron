@@ -40,6 +40,8 @@ export interface ThemeState {
   setColorDensity: (val: number) => void;
   setColorPhase: (val: number) => void;
 
+  themeVersion: number;
+
   setPalette: (
     a: [number, number, number],
     b: [number, number, number],
@@ -58,6 +60,7 @@ export interface ThemeState {
 }
 
 export const themeStore = createStore<ThemeState>((set) => ({
+  themeVersion: 0,
   // Default 'neon'
   paletteA: [0.5, 0.5, 0.5],
   paletteB: [0.5, 0.5, 0.5],
@@ -81,25 +84,42 @@ export const themeStore = createStore<ThemeState>((set) => ({
   contourThickness: 0.8,
   colorDensity: 3.0,
   colorPhase: 0.0,
-  setPrecisionMode: (mode) => set({ precisionMode: mode }),
-  setColoringMode: (mode) => set({ coloringMode: mode }),
-  setSurfaceMode: (mode) => set({ surfaceMode: mode }),
-  setGlowFalloff: (val) => set({ glowFalloff: val }),
-  setGlowScatter: (val) => set({ glowScatter: val }),
-  setContourFrequency: (val) => set({ contourFrequency: val }),
-  setContourThickness: (val) => set({ contourThickness: val }),
-  setColorDensity: (val) => set({ colorDensity: val }),
-  setColorPhase: (val) => set({ colorPhase: val }),
+  setPrecisionMode: (mode) =>
+    set((state) => ({ precisionMode: mode, themeVersion: state.themeVersion + 1 })),
+  setColoringMode: (mode) =>
+    set((state) => ({ coloringMode: mode, themeVersion: state.themeVersion + 1 })),
+  setSurfaceMode: (mode) =>
+    set((state) => ({ surfaceMode: mode, themeVersion: state.themeVersion + 1 })),
+  setGlowFalloff: (val) =>
+    set((state) => ({ glowFalloff: val, themeVersion: state.themeVersion + 1 })),
+  setGlowScatter: (val) =>
+    set((state) => ({ glowScatter: val, themeVersion: state.themeVersion + 1 })),
+  setContourFrequency: (val) =>
+    set((state) => ({ contourFrequency: val, themeVersion: state.themeVersion + 1 })),
+  setContourThickness: (val) =>
+    set((state) => ({ contourThickness: val, themeVersion: state.themeVersion + 1 })),
+  setColorDensity: (val) =>
+    set((state) => ({ colorDensity: val, themeVersion: state.themeVersion + 1 })),
+  setColorPhase: (val) =>
+    set((state) => ({ colorPhase: val, themeVersion: state.themeVersion + 1 })),
 
   setPalette: (a, b, c, d, name) =>
-    set({ paletteA: a, paletteB: b, paletteC: c, paletteD: d, ...(name && { paletteName: name }) }),
+    set((state) => ({
+      paletteA: a,
+      paletteB: b,
+      paletteC: c,
+      paletteD: d,
+      ...(name && { paletteName: name }),
+      themeVersion: state.themeVersion + 1,
+    })),
   setLighting: (azimuth, elevation, diffuse, shininess, heightScale, ambient) =>
-    set({
+    set((state) => ({
       lightAzimuth: azimuth,
       lightElevation: elevation,
       diffuse,
       shininess,
       heightScale,
       ambient,
-    }),
+      themeVersion: state.themeVersion + 1,
+    })),
 }));

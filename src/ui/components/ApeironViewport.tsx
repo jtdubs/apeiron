@@ -44,12 +44,9 @@ export const ApeironViewport: React.FC = () => {
       const { zoom } = viewportStore.getState();
 
       if (isMiddleDragging) {
-        // Rotate 4D Slice based on horizontal mouse movement
-        // We'll double the sensitivity: half screen width gives a 90 degree rotation
         const angleDelta = (dx / rect.width) * Math.PI;
         viewportStore.getState().updateViewport(0, 0, 1.0, angleDelta);
       } else {
-        // Calculate math delta for regular panning
         const mathDx = -2.0 * (dx / rect.width) * zoom * (rect.width / rect.height);
         const mathDy = 2.0 * (dy / rect.height) * zoom;
         viewportStore.getState().updateViewport(mathDx, mathDy, 1.0, 0.0);
@@ -92,10 +89,28 @@ export const ApeironViewport: React.FC = () => {
 
         const loop = () => {
           if (!isMounted) return;
-          const { zr, zi, cr, ci, zoom, maxIter, sliceAngle, refOrbits, exponent } =
-            viewportStore.getState();
+          const state = viewportStore.getState();
           const theme = themeStore.getState();
-          engine.renderFrame(zr, zi, cr, ci, zoom, maxIter, sliceAngle, exponent, refOrbits, theme);
+
+          const isPerturb = state.refOrbits !== null && theme.precisionMode !== 'f32';
+
+          const passZr = isPerturb ? state.deltaZr : parseFloat(state.anchorZr) + state.deltaZr;
+          const passZi = isPerturb ? state.deltaZi : parseFloat(state.anchorZi) + state.deltaZi;
+          const passCr = isPerturb ? state.deltaCr : parseFloat(state.anchorCr) + state.deltaCr;
+          const passCi = isPerturb ? state.deltaCi : parseFloat(state.anchorCi) + state.deltaCi;
+
+          engine.renderFrame(
+            passZr,
+            passZi,
+            passCr,
+            passCi,
+            state.zoom,
+            state.maxIter,
+            state.sliceAngle,
+            state.exponent,
+            state.refOrbits,
+            theme,
+          );
           requestRef.current = requestAnimationFrame(loop);
         };
         requestRef.current = requestAnimationFrame(loop);
@@ -132,20 +147,25 @@ export const ApeironViewport: React.FC = () => {
 
       // We only compute new orbits if we are deep zooming
       if (state.zoom < 1e-4) {
-        // If position or zoom changed, debounce and ask for a new anchor array
         if (
-          state.cr !== prevState.cr ||
-          state.ci !== prevState.ci ||
+          state.deltaCr !== prevState.deltaCr ||
+          state.deltaCi !== prevState.deltaCi ||
           state.zoom !== prevState.zoom
         ) {
           if (timeoutId) clearTimeout(timeoutId);
           timeoutId = window.setTimeout(() => {
+            // Recenter: JS gives the exact absolute float until Rust BigFloat addition is fully implemented
+            const absZr = (parseFloat(state.anchorZr) + state.deltaZr).toString();
+            const absZi = (parseFloat(state.anchorZi) + state.deltaZi).toString();
+            const absCr = (parseFloat(state.anchorCr) + state.deltaCr).toString();
+            const absCi = (parseFloat(state.anchorCi) + state.deltaCi).toString();
+
             const casesJson = JSON.stringify([
               {
-                zr: state.zr.toString(),
-                zi: state.zi.toString(),
-                cr: state.cr.toString(),
-                ci: state.ci.toString(),
+                zr: absZr,
+                zi: absZi,
+                cr: absCr,
+                ci: absCi,
                 exponent: state.exponent,
               },
             ]);
@@ -155,6 +175,23 @@ export const ApeironViewport: React.FC = () => {
               casesJson,
               maxIterations: state.maxIter,
             });
+
+            // Accept the new center
+            viewportStore
+              .getState()
+              .setAnchorsAndDeltas(
+                absZr,
+                absZi,
+                absCr,
+                absCi,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                state.zoom,
+                state.sliceAngle,
+                state.exponent,
+              );
           }, 150); // 150ms debounce
         }
       } else {

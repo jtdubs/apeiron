@@ -11,22 +11,55 @@ export const ApeironHUD: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
 
   const setSliceAngle = (angle: number) => {
-    state.setViewport(state.zr, state.zi, state.cr, state.ci, state.zoom, angle, state.exponent);
+    state.setAnchorsAndDeltas(
+      state.anchorZr,
+      state.anchorZi,
+      state.anchorCr,
+      state.anchorCi,
+      state.deltaZr,
+      state.deltaZi,
+      state.deltaCr,
+      state.deltaCi,
+      state.zoom,
+      angle,
+      state.exponent,
+    );
   };
 
   const setAnchors = (zr: number, zi: number, cr: number, ci: number, zoom: number) => {
-    state.setViewport(zr, zi, cr, ci, zoom, state.sliceAngle, state.exponent);
+    state.setAnchorsAndDeltas(
+      zr.toString(),
+      zi.toString(),
+      cr.toString(),
+      ci.toString(),
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      zoom,
+      state.sliceAngle,
+      state.exponent,
+    );
   };
+
+  const getAbs = () => [
+    parseFloat(state.anchorZr) + state.deltaZr,
+    parseFloat(state.anchorZi) + state.deltaZi,
+    parseFloat(state.anchorCr) + state.deltaCr,
+    parseFloat(state.anchorCi) + state.deltaCi,
+  ];
 
   const renderCoordinate = (x: number, y: number, prefix: string, isC: boolean) => {
     const onChangeRe = (val: number) => {
-      if (isC) setAnchors(state.zr, state.zi, val, state.ci, state.zoom);
-      else setAnchors(val, state.zi, state.cr, state.ci, state.zoom);
+      const [absZr, absZi, absCr, absCi] = getAbs();
+      if (isC) setAnchors(absZr, absZi, val, absCi, state.zoom);
+      else setAnchors(val, absZi, absCr, absCi, state.zoom);
     };
 
     const onChangeIm = (val: number) => {
-      if (isC) setAnchors(state.zr, state.zi, state.cr, val, state.zoom);
-      else setAnchors(state.zr, val, state.cr, state.ci, state.zoom);
+      const [absZr, absZi, absCr, absCi] = getAbs();
+      if (isC) setAnchors(absZr, absZi, absCr, val, state.zoom);
+      else setAnchors(absZr, val, absCr, absCi, state.zoom);
     };
 
     return (
@@ -61,7 +94,19 @@ export const ApeironHUD: React.FC = () => {
             <div className="hud-lens-labels">
               <button
                 onClick={() => {
-                  state.setViewport(0.0, 0.0, -0.8, 0.156, 1.5, 0, state.exponent);
+                  state.setAnchorsAndDeltas(
+                    '0.0',
+                    '0.0',
+                    '-0.8',
+                    '0.156',
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.5,
+                    0,
+                    state.exponent,
+                  );
                 }}
                 style={{
                   background: 'none',
@@ -80,7 +125,19 @@ export const ApeironHUD: React.FC = () => {
               </button>
               <button
                 onClick={() => {
-                  state.setViewport(0.0, 0.0, -0.8, 0.156, 1.5, Math.PI / 2, state.exponent);
+                  state.setAnchorsAndDeltas(
+                    '0.0',
+                    '0.0',
+                    '-0.8',
+                    '0.156',
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.5,
+                    Math.PI / 2,
+                    state.exponent,
+                  );
                 }}
                 style={{
                   background: 'none',
@@ -189,11 +246,15 @@ export const ApeironHUD: React.FC = () => {
                   value={state.exponent}
                   onChange={(val) => {
                     const clamped = Math.max(1.0, Math.min(6.0, val));
-                    state.setViewport(
-                      state.zr,
-                      state.zi,
-                      state.cr,
-                      state.ci,
+                    state.setAnchorsAndDeltas(
+                      state.anchorZr,
+                      state.anchorZi,
+                      state.anchorCr,
+                      state.anchorCi,
+                      state.deltaZr,
+                      state.deltaZi,
+                      state.deltaCr,
+                      state.deltaCi,
                       state.zoom,
                       state.sliceAngle,
                       clamped,
@@ -208,13 +269,26 @@ export const ApeironHUD: React.FC = () => {
           </div>
 
           <div className="hud-coordinates">
-            {renderCoordinate(state.cr, state.ci, 'Focus C:', true)}
-            {renderCoordinate(state.zr, state.zi, 'Focus Z:', false)}
+            {renderCoordinate(
+              parseFloat(state.anchorCr) + state.deltaCr,
+              parseFloat(state.anchorCi) + state.deltaCi,
+              'Focus C:',
+              true,
+            )}
+            {renderCoordinate(
+              parseFloat(state.anchorZr) + state.deltaZr,
+              parseFloat(state.anchorZi) + state.deltaZi,
+              'Focus Z:',
+              false,
+            )}
             <span style={{ display: 'flex', alignItems: 'center' }}>
               <span style={{ color: '#888', marginRight: '8px', width: '60px' }}>Zoom:</span>
               <ScrubbableNumber
                 value={state.zoom}
-                onChange={(val) => setAnchors(state.zr, state.zi, state.cr, state.ci, val)}
+                onChange={(val) => {
+                  const [absZr, absZi, absCr, absCi] = getAbs();
+                  setAnchors(absZr, absZi, absCr, absCi, val);
+                }}
                 step={0.01}
                 isLogScale={true}
                 format={(v) => `${v.toExponential(2)}`}
