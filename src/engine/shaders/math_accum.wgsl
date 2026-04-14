@@ -36,7 +36,8 @@ fn get_escape_data(iter: f32, zx: f32, zy: f32, der_x: f32, der_y: f32, offset: 
   var nx = 0.0;
   var ny = 0.0;
   if (der_mag > 0.0) {
-      de = 0.5 * log(mag) * mag / der_mag;
+      // Normalize mathematical distance into scale-invariant screen-space distance
+      de = (0.5 * log(mag) * mag / der_mag) / camera.scale;
       let nx_norm = (zx * der_x + zy * der_y) / (der_mag * der_mag);
       let ny_norm = (zy * der_x - zx * der_y) / (der_mag * der_mag);
       let len_n = sqrt(nx_norm * nx_norm + ny_norm * ny_norm);
