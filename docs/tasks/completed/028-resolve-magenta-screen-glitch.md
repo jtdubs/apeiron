@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 028: Resolve Magenta Screen Glitch at Deep Zoom
@@ -28,7 +28,7 @@ Investigate and fix a rendering issue where zooming past 1e-4 results in a solid
 
 ## Verification Steps
 
-- [ ] Write data/headless tests asserting `NaN/Infinity` avoidance at extremes.
-- [ ] Render frame successfully passes newly generated assertions.
-- [ ] No regressions in bit-perfect outputs.
-- [ ] Documentation Sync: update any math docs if the WGSL model was significantly altered.
+- [x] Write data/headless tests asserting `NaN/Infinity` avoidance at extremes.
+- [x] Render frame successfully passes newly generated assertions.
+- [x] No regressions in bit-perfect outputs.
+- [x] Documentation Sync: update any math docs if the WGSL model was significantly altered.

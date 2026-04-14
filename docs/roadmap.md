@@ -32,8 +32,9 @@
 - [x] [Task 015: WebGPU Perturbation Shader Pipeline](tasks/completed/015-webgpu-perturbation.md)
 - [x] [Task 016: React Perturbation Wiring](tasks/completed/016-react-perturbation-wiring.md)
 - [x] [Task 020: Perturbation Delta Offset Testing](tasks/completed/020-perturbation-delta-testing.md)
-- [x] [Task 021: Resolving Bivariate Glitch Bands](tasks/completed/021-resolving-bivariate-glitch-bands.md)
+- [x] [Task 021: Resolving Bivariate Glitch Glitch Bands](tasks/completed/021-resolving-bivariate-glitch-bands.md)
 - [x] [Task 027: Resolve Deep Zoom (1e-4) Loss of Detail & Black Voids](tasks/completed/027-resolve-deep-zoom-glitch.md)
+- [x] [Task 028: Resolve Magenta Screen Glitch at Deep Zoom](tasks/completed/028-resolve-magenta-screen-glitch.md)
 
 ## Phase 6: Distance Estimation & Aesthetics (G-Buffer Resolve)
 

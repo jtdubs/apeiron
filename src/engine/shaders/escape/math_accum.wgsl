@@ -120,6 +120,13 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
     }
     prev_z_mag = cur_z_mag;
     
+    let new_der_max = max(abs(new_der_x), abs(new_der_y));
+    if (new_der_max > 1e18) {
+       let scale = 1e18 / new_der_max;
+       new_der_x *= scale;
+       new_der_y *= scale;
+    }
+    
     x = new_x;
     y = new_y;
     der_x = new_der_x;
@@ -229,6 +236,12 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
       new_der_x = dx_z * der_x - dy_z * der_y + 1.0;
       new_der_y = dx_z * der_y + dy_z * der_x;
     }
+    let new_der_max = max(abs(new_der_x), abs(new_der_y));
+    if (new_der_max > 1e18) {
+       let scale = 1e18 / new_der_max;
+       new_der_x *= scale;
+       new_der_y *= scale;
+    }
     der_x = new_der_x;
     der_y = new_der_y;
 
@@ -290,14 +303,11 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let ref_offset = idx * floats_per_case;
 
   let ret = execute_engine_math(input_z, input_c, delta_z, delta_c, ref_offset);
-  let iter = ret.x;
   
-  data_out[idx * 2] = iter;
-  if (iter < camera.max_iter) {
-    data_out[idx * 2 + 1] = 1.0;
-  } else {
-    data_out[idx * 2 + 1] = 0.0;
-  }
+  data_out[idx * 4u] = ret.x;
+  data_out[idx * 4u + 1u] = ret.y;
+  data_out[idx * 4u + 2u] = ret.z;
+  data_out[idx * 4u + 3u] = ret.w;
 }
 
 @vertex

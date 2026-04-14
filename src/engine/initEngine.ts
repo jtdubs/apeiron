@@ -79,7 +79,7 @@ export async function initEngine(
     // Output is interleaved bounds: [iter, escaped]
     const inputSize = input.byteLength;
     const computeUnits = input.length / 6;
-    const outputSize = computeUnits * 2 * 4; // 2 floats output per compute unit, * 4 bytes
+    const outputSize = computeUnits * 4 * 4; // 4 floats output per compute unit, * 4 bytes
 
     // Separate Input Buffer
     const inputStorageBuffer = device.createBuffer({
@@ -132,7 +132,13 @@ export async function initEngine(
         size: refOrbits.byteLength,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       });
-      device.queue.writeBuffer(refOrbitsBuffer, 0, refOrbits.buffer, refOrbits.byteOffset, refOrbits.byteLength);
+      device.queue.writeBuffer(
+        refOrbitsBuffer,
+        0,
+        refOrbits.buffer,
+        refOrbits.byteOffset,
+        refOrbits.byteLength,
+      );
       entries.push({ binding: 3, resource: { buffer: refOrbitsBuffer } });
     } else {
       refOrbitsBuffer = device.createBuffer({

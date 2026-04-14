@@ -217,7 +217,13 @@ export class PassManager {
           size: refOrbits.byteLength,
           usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
-        this.device.queue.writeBuffer(this.activeRefOrbitsBuffer, 0, refOrbits.buffer, refOrbits.byteOffset, refOrbits.byteLength);
+        this.device.queue.writeBuffer(
+          this.activeRefOrbitsBuffer,
+          0,
+          refOrbits.buffer,
+          refOrbits.byteOffset,
+          refOrbits.byteLength,
+        );
         this.hasValidActiveRefOrbits = true;
         refOrbitsSwapped = true;
       } else if (this.hasValidActiveRefOrbits) {
@@ -236,7 +242,7 @@ export class PassManager {
 
     let actualRefMaxIter = maxIter;
     if (this.hasValidActiveRefOrbits && refOrbits) {
-      actualRefMaxIter = (refOrbits.length - 4) / 2;
+      actualRefMaxIter = (refOrbits.length - 8) / 2;
     }
 
     let usePerturbationAllowed = true;
