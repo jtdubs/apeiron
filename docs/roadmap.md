@@ -80,3 +80,7 @@
 
 - [ ] [Task 040: Headless Interpolator Engine (Math & Playback)](tasks/040-headless-interpolator.md)
 - [ ] [Task 041: The Sequence Studio HUD (UI)](tasks/041-sequence-studio.md)
+
+## Phase 14: Mobile Performance
+
+- [ ] [Task 042: Zero-Resize Dynamic Resolution Scaling](tasks/042-zero-resize-drs.md)
