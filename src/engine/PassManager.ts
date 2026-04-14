@@ -158,6 +158,7 @@ export class PassManager {
   private lastCameraState = '';
   private lastThemeVersion = -1;
   private hasValidActiveRefOrbits = false;
+  private lastRefOrbits: Float64Array | null | undefined = undefined;
 
   constructor(
     device: GPUDevice,
@@ -209,7 +210,7 @@ export class PassManager {
     const aspectRatio = this.canvas.width / this.canvas.height;
 
     let refOrbitsSwapped = false;
-    if (refOrbits !== undefined) {
+    if (refOrbits !== undefined && refOrbits !== this.lastRefOrbits) {
       if (refOrbits) {
         if (this.activeRefOrbitsBuffer) this.activeRefOrbitsBuffer.destroy();
         const refF32 = new Float32Array(refOrbits);
@@ -226,6 +227,7 @@ export class PassManager {
         this.hasValidActiveRefOrbits = false;
         refOrbitsSwapped = true;
       }
+      this.lastRefOrbits = refOrbits;
     }
 
     if (refOrbitsSwapped) {
