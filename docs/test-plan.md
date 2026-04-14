@@ -56,7 +56,7 @@ Across all application layers, any identified bug or rendering glitch must be re
 
 1. **Document:** Ensure the bug is detailed comprehensively in a `docs/tasks/` file.
 2. **Research:** Review the implementation and relevant design documentation (e.g., `math-backend-design.md`, `rendering-engine-design.md`) to isolate the theoretical root causes (state machines, WebGPU float tolerances, worker starvation, etc.).
-3. **Reproduce via Test:** Create a deterministic test case that specifically detects the bug and fails under the current implementation. **Crucially, do not modify application source code during this step.** Whether it requires a new ground-truth entry in `tests/cases.json`, a new array validation in `run-headless.ts`, or a UI state mock in Vitest, the test must capture the faulty state without altering application mechanics.
+3. **Reproduce via Test:** Create a deterministic test case that specifically detects the bug and fails under the current implementation. **Crucially, do not modify application source code during this step.** Whether it requires a new ground-truth entry in `tests/cases.json`, a new array validation in `engine.deno.ts`, or a UI state mock in Vitest, the test must capture the faulty state without altering application mechanics.
 4. **Fix and Validate:** Once a test definitively fails because of the documented bug, implement the patch in the application code. Iterate on the source code until the isolated test case succeeds, validating the resolution.
 
 For visual or mathematical glitches specifically, trace this path:

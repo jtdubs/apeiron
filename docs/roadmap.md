@@ -63,3 +63,20 @@
 
 - [x] [Task 031: Progressive Rendering State Machine](tasks/completed/031-progressive-rendering.md)
 - [x] [Task 032: Performance Optimizations (Panning Latency)](tasks/completed/032-performance-optimizations.md)
+
+## Phase 11: Advanced Engine Math
+
+- [ ] [Task 034: Limit Cycles & Interior Bounds](tasks/034-limit-cycles.md)
+- [ ] [Task 035: Series Approximation (SA)](tasks/035-series-approximation.md)
+- [ ] [Task 036: Bilinear Approximation (BLA)](tasks/036-bilinear-approximation.md)
+
+## Phase 12: Expanded Rendering Archtypes
+
+- [ ] [Task 037: Orbit Traps Geometry Core (Headless)](tasks/037-orbit-traps.md)
+- [ ] [Task 038: Orbit Traps UI Sandbox (Frontend)](tasks/038-orbit-traps-ui.md)
+- [ ] [Task 039: The Stochastic Scatter Engine (Buddhabrot)](tasks/039-stochastic-engine.md)
+
+## Phase 13: Cinematic Animation
+
+- [ ] [Task 040: Headless Interpolator Engine (Math & Playback)](tasks/040-headless-interpolator.md)
+- [ ] [Task 041: The Sequence Studio HUD (UI)](tasks/041-sequence-studio.md)
