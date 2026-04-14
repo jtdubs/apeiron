@@ -177,8 +177,8 @@ async function main() {
     console.log(
       'Executing WebGPU Compute pass (Perturbation & F32 Base Math) grouped by exponent...',
     );
-    const perturbGpuResult = new Float32Array(clusterCases.length * 2);
-    const f32GpuResult = new Float32Array(clusterCases.length * 2);
+    const perturbGpuResult = new Float32Array(clusterCases.length * 4);
+    const f32GpuResult = new Float32Array(clusterCases.length * 4);
 
     let currentExp = clusterCases[0].exponent;
     let expStartIdx = 0;
@@ -203,8 +203,8 @@ async function main() {
           currentExp,
         );
 
-        perturbGpuResult.set(pRes, expStartIdx * 2);
-        f32GpuResult.set(fRes, expStartIdx * 2);
+        perturbGpuResult.set(pRes, expStartIdx * 4);
+        f32GpuResult.set(fRes, expStartIdx * 4);
 
         if (i < clusterCases.length) {
           currentExp = clusterCases[i].exponent;
@@ -229,10 +229,23 @@ async function main() {
       console.log(
         `Point ${i}: expectedIter=${expectedIter}, cycle=${cycle_found}, der=${der_r}, ${der_i}`,
       );
-      const perturbIter = perturbGpuResult[i * 2];
-      const f32Iter = f32GpuResult[i * 2];
+      const perturbIter = perturbGpuResult[i * 4];
+      const pDe = perturbGpuResult[i * 4 + 1];
+      const pNx = perturbGpuResult[i * 4 + 2];
+      const pNy = perturbGpuResult[i * 4 + 3];
+
+      const f32Iter = f32GpuResult[i * 4];
 
       const tolerance = 1.0;
+
+      if (Number.isNaN(pDe) || !Number.isFinite(pDe)) {
+        console.error(`❌ Mismatch at point ${i}: DE is NaN or Infinity: ${pDe}`);
+        passed = false;
+      }
+      if (Number.isNaN(pNx) || !Number.isFinite(pNy)) {
+        console.error(`❌ Mismatch at point ${i}: Normals are NaN or Infinity: ${pNx}, ${pNy}`);
+        passed = false;
+      }
 
       // Perturbation MUST match ALL zoom depths
       if (Math.abs(expectedIter - Math.floor(perturbIter)) > tolerance) {
@@ -252,15 +265,31 @@ async function main() {
         }
       }
     }
-
     if (!passed) {
-      console.error('❌ FAIL: Arrays diverge beyond acceptable float limits.');
-      process.exit(1);
+      throw new Error('Arrays diverge beyond acceptable float limits.');
     }
-
     console.log('✅ PASS: Both pipelines accurately matched mathematical boundaries.');
 
-    // 7. Flavor B: Bit-Perfect Regression Tester
+    // 7. Test for Magenta Glitch (NaNs) under high iteration bounds safely!
+    {
+      console.log('\n🔍 Validating derivative stability under Deep Zoom iteration loading (maxIter > 128)...');
+      
+      const deepInput = new Float32Array([
+         0.0, 0.0, -1.748, 0.0, 1e-15, 1e-15, // Test point that slowly diverges
+      ]);
+      const res = await engine.executeTestCompute(deepInput, undefined, 500, false, 2.0);
+      const de = res[1];
+      const nx = res[2];
+      const ny = res[3];
+      
+      if (Number.isNaN(de) || !Number.isFinite(de) || Number.isNaN(nx) || !Number.isFinite(nx)) {
+        console.error(`❌ FAIL: Math Pipeline output NaN/Infinity! de=${de}, nx=${nx}, ny=${ny}`);
+        throw new Error('Shader NaN/Infinity Exploit Triggered');
+      }
+      console.log('✅ PASS: Pipeline survived high iteration compound explosion implicitly.');
+    }
+
+    console.log('🔍 Validating Bit-Perfect Regression Match...');
     const cachePathPerturb = path.resolve('./tests/artifacts/cached_gpu_result_perturb.json');
     const cachePathF32 = path.resolve('./tests/artifacts/cached_gpu_result_f32.json');
     if (!fs.existsSync(path.resolve('./tests/artifacts'))) {
