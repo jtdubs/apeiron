@@ -152,6 +152,8 @@ export const ApeironViewport: React.FC = () => {
         if (!isMounted) return;
         engineRef.current = engine;
         let lastRenderStateKey = '';
+        let lastBaseGeometryKey = '';
+        let frameCount = 1.0;
 
         const loop = () => {
           if (!isMounted) return;
@@ -165,7 +167,8 @@ export const ApeironViewport: React.FC = () => {
           const passCr = isPerturb ? state.deltaCr : parseFloat(state.anchorCr) + state.deltaCr;
           const passCi = isPerturb ? state.deltaCi : parseFloat(state.anchorCi) + state.deltaCi;
 
-          const targetDpr = state.interactionState === 'STATIC' ? (window.devicePixelRatio || 1) : 1.0;
+          const targetDpr =
+            state.interactionState === 'STATIC' ? window.devicePixelRatio || 1 : 1.0;
           const targetWidth = Math.max(1, Math.floor(cssWidth * targetDpr));
           const targetHeight = Math.max(1, Math.floor(cssHeight * targetDpr));
 
@@ -175,9 +178,33 @@ export const ApeironViewport: React.FC = () => {
             engine.resize();
           }
 
-          const renderStateKey = `${passZr},${passZi},${passCr},${passCi},${state.zoom},${state.sliceAngle},${state.exponent},${state.maxIter},${state.refOrbits !== null},${theme.themeVersion},${canvas.width},${canvas.height}`;
+          const baseGeometryKey = `${passZr},${passZi},${passCr},${passCi},${state.zoom},${state.sliceAngle},${state.exponent},${state.maxIter},${state.refOrbits !== null},${theme.themeVersion},${canvas.width},${canvas.height}`;
+          if (baseGeometryKey !== lastBaseGeometryKey) {
+            frameCount = 1.0;
+            lastBaseGeometryKey = baseGeometryKey;
+          }
 
-          if (renderStateKey !== lastRenderStateKey) {
+          const renderStateKey = `${baseGeometryKey},${state.interactionState},${frameCount}`;
+
+          if (
+            renderStateKey !== lastRenderStateKey ||
+            (state.interactionState === 'STATIC' && frameCount <= 64.0)
+          ) {
+            let jitterX = 0.0;
+            let jitterY = 0.0;
+            const passFrameCount = frameCount;
+
+            if (state.interactionState === 'STATIC') {
+              if (frameCount > 1.0 && frameCount <= 64.0) {
+                // Sub-pixel jitter: range [-1/width, 1/width] in UV space
+                jitterX = (Math.random() - 0.5) * (2.0 / targetWidth);
+                jitterY = (Math.random() - 0.5) * (2.0 / targetHeight);
+              }
+              frameCount = Math.min(frameCount + 1.0, 65.0);
+            } else {
+              frameCount = 1.0;
+            }
+
             engine.renderFrame(
               passZr,
               passZi,
@@ -187,6 +214,10 @@ export const ApeironViewport: React.FC = () => {
               state.maxIter,
               state.sliceAngle,
               state.exponent,
+              state.interactionState,
+              jitterX,
+              jitterY,
+              passFrameCount,
               state.refOrbits,
               theme,
             );

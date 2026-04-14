@@ -11,6 +11,10 @@ struct CameraParams {
   ref_max_iter: f32,
   exponent: f32,
   coloring_mode: f32,
+  jitter_x: f32,
+  jitter_y: f32,
+  frame_count: f32,
+  pad: f32,
 };
 
 @group(0) @binding(0) var<uniform> camera: CameraParams;
@@ -143,6 +147,7 @@ fn calculate_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, max_i
 @group(0) @binding(1) var<storage, read> data_in: array<f32>;
 @group(0) @binding(2) var<storage, read_write> data_out: array<f32>;
 @group(0) @binding(3) var<storage, read> ref_orbits: array<vec2<u32>>;
+@group(0) @binding(4) var prev_frame: texture_2d<f32>;
 
 fn unpack_f64_to_f32(raw: vec2<u32>) -> f32 {
     let low = raw.x;
@@ -324,7 +329,7 @@ fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-  let uv_mapped = vec2<f32>(in.uv.x * camera.scale * camera.aspect, in.uv.y * camera.scale);
+  let uv_mapped = vec2<f32>((in.uv.x + camera.jitter_x) * camera.scale * camera.aspect, (in.uv.y + camera.jitter_y) * camera.scale);
   
   let cos_theta = cos(camera.slice_angle);
   let sin_theta = sin(camera.slice_angle);
@@ -343,5 +348,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   
   let ret = execute_engine_math(start_z, start_c, delta_z, delta_c, 0u);
   
-  return ret;
+  let prev = textureLoad(prev_frame, vec2<i32>(in.position.xy), 0);
+  return mix(prev, ret, 1.0 / camera.frame_count);
 }

@@ -332,6 +332,113 @@ async function main() {
       console.log('✅ PASS: Render output returned valid pixels without glitching.');
     }
 
+    console.log(
+      '\n🔍 Validating Progressive Rendering Temporal Accumulation (Ping-Pong Buffer)...',
+    );
+    {
+      const width = 2;
+      const height = 2;
+      const j1 = { jitterX: 0.1, jitterY: -0.1, frameCount: 1.0 };
+      const j2 = { jitterX: -0.2, jitterY: 0.3, frameCount: 2.0 };
+
+      const frameA = await engine.executeTestAccumulation(
+        width,
+        height,
+        0.0,
+        0.0,
+        -1.748,
+        0.0,
+        1.0,
+        100,
+        0.0,
+        2.0,
+        [j1],
+      );
+      const frameB = await engine.executeTestAccumulation(
+        width,
+        height,
+        0.0,
+        0.0,
+        -1.748,
+        0.0,
+        1.0,
+        100,
+        0.0,
+        2.0,
+        [{ ...j2, frameCount: 1.0 }],
+      );
+      const accumAB = await engine.executeTestAccumulation(
+        width,
+        height,
+        0.0,
+        0.0,
+        -1.748,
+        0.0,
+        1.0,
+        100,
+        0.0,
+        2.0,
+        [j1, j2],
+      );
+
+      let accumPassed = true;
+      for (let i = 0; i < frameA.length; i++) {
+        const expectedMathMean = (frameA[i] + frameB[i]) / 2.0;
+        const diff = Math.abs(accumAB[i] - expectedMathMean);
+        if (diff > 1e-4) {
+          console.error(
+            `❌ FAIL: Temporal Accumulation mismatched at float array index ${i}. Expected: ${expectedMathMean}, Got: ${accumAB[i]}`,
+          );
+          accumPassed = false;
+        }
+      }
+      if (!accumPassed)
+        throw new Error('Temporal Accumulation failed exact mathematical mean evaluation.');
+      console.log(
+        '✅ PASS: Temporal Accumulation buffer mathematically equals the arithmetic mean of independent sub-pixel passes.',
+      );
+    }
+
+    console.log('\n🔍 Validating Inner-Fractal Black Hole Accumulation Stability...');
+    {
+      const width = 1;
+      const height = 1;
+      const frames = [];
+      for (let i = 1; i <= 64; i++) {
+        frames.push({ jitterX: 0.1, jitterY: -0.1, frameCount: i });
+      }
+
+      // (0, 0) is well within the Mandelbrot set and does not escape.
+      const blackHoleAccum = await engine.executeTestRenderSequence(
+        width,
+        height,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        100,
+        0.0,
+        2.0,
+        frames,
+      );
+
+      const r = blackHoleAccum[0];
+      const g = blackHoleAccum[1];
+      const b = blackHoleAccum[2];
+      const a = blackHoleAccum[3];
+
+      if (r !== 0 || g !== 0 || b !== 0 || a !== 255) {
+        console.error(
+          `❌ FAIL: Inner fractal point drifted into colored gradients during accumulation: rgba(${r}, ${g}, ${b}, ${a})`,
+        );
+        throw new Error('Inner Fractal black hole accumulation failed');
+      }
+      console.log(
+        '✅ PASS: Non-escaping fractal bodies remain strictly black during accumulative sub-pixel jitters.',
+      );
+    }
+
     console.log('🔍 Validating Bit-Perfect Regression Match...');
     const cachePathPerturb = path.resolve('./tests/artifacts/cached_gpu_result_perturb.json');
     const cachePathF32 = path.resolve('./tests/artifacts/cached_gpu_result_f32.json');

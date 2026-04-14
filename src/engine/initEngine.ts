@@ -26,6 +26,36 @@ export interface ApeironEngine {
     refOrbits?: Float64Array | null,
     theme?: RenderState,
   ) => Promise<Uint8Array>;
+  executeTestRenderSequence: (
+    width: number,
+    height: number,
+    zr: number,
+    zi: number,
+    cr: number,
+    ci: number,
+    scale: number,
+    maxIter: number,
+    sliceAngle: number,
+    exponent: number,
+    frames: { jitterX: number; jitterY: number; frameCount: number }[],
+    refOrbits?: Float64Array | null,
+    theme?: RenderState,
+  ) => Promise<Uint8Array>;
+  executeTestAccumulation: (
+    width: number,
+    height: number,
+    zr: number,
+    zi: number,
+    cr: number,
+    ci: number,
+    scale: number,
+    maxIter: number,
+    sliceAngle: number,
+    exponent: number,
+    frames: { jitterX: number; jitterY: number; frameCount: number }[],
+    refOrbits?: Float64Array | null,
+    theme?: RenderState,
+  ) => Promise<Float32Array>;
   renderFrame: (
     zr: number,
     zi: number,
@@ -35,6 +65,10 @@ export interface ApeironEngine {
     maxIter: number,
     sliceAngle: number,
     exponent: number,
+    interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST',
+    jitterX: number,
+    jitterY: number,
+    frameCount: number,
     refOrbits?: Float64Array | null,
     theme?: RenderState,
   ) => void;
@@ -114,10 +148,10 @@ export async function initEngine(
     });
 
     const cameraTestBuffer = device.createBuffer({
-      size: 48, // 12 floats!
+      size: 64, // 16 floats!
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-    // [zr, zi, cr, ci, scale, aspect, maxIter, sliceAngle, use_perturbation, ref_max_iter, exponent, pad]
+    // [zr, zi, cr, ci, scale, aspect, maxIter, sliceAngle, use_perturbation, ref_max_iter, exponent, pad, jitterX, jitterY, frameCount, pad]
     const cameraData = new Float32Array([
       0.0,
       0.0,
@@ -131,6 +165,10 @@ export async function initEngine(
       maxIter,
       exponent,
       0.0, // coloringMode in test
+      0.0, // jitterX
+      0.0, // jitterY
+      1.0, // frameCount
+      0.0, // pad
     ]);
     device.queue.writeBuffer(cameraTestBuffer, 0, cameraData);
 
@@ -233,6 +271,10 @@ export async function initEngine(
       maxIter,
       sliceAngle,
       exponent,
+      'INTERACT_SAFE',
+      0.0,
+      0.0,
+      1.0,
       refOrbits,
       theme,
     );
@@ -269,6 +311,185 @@ export async function initEngine(
     return packed;
   };
 
+  const executeTestRenderSequence = async (
+    width: number,
+    height: number,
+    zr: number,
+    zi: number,
+    cr: number,
+    ci: number,
+    scale: number,
+    maxIter: number,
+    sliceAngle: number,
+    exponent: number,
+    frames: { jitterX: number; jitterY: number; frameCount: number }[],
+    refOrbits?: Float64Array | null,
+    theme?: RenderState,
+  ): Promise<Uint8Array> => {
+    const renderFormat: GPUTextureFormat = 'rgba8unorm';
+    const pm = new PassManager(
+      device,
+      width,
+      height,
+      renderFormat,
+      mathShaderCode,
+      resolveShaderCode,
+    );
+
+    const targetTexture = device.createTexture({
+      size: [width, height, 1],
+      format: renderFormat,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+    });
+    const targetView = targetTexture.createView();
+
+    for (const frame of frames) {
+      pm.render(
+        targetView,
+        width,
+        height,
+        zr,
+        zi,
+        cr,
+        ci,
+        scale,
+        maxIter,
+        sliceAngle,
+        exponent,
+        'STATIC',
+        frame.jitterX,
+        frame.jitterY,
+        frame.frameCount,
+        refOrbits,
+        theme,
+      );
+    }
+
+    const bytesPerRow = Math.ceil((width * 4) / 256) * 256;
+    const bufferSize = bytesPerRow * height;
+    const readBuffer = device.createBuffer({
+      size: bufferSize,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+
+    const commandEncoder = device.createCommandEncoder();
+    commandEncoder.copyTextureToBuffer(
+      { texture: targetTexture },
+      { buffer: readBuffer, bytesPerRow },
+      [width, height, 1],
+    );
+    device.queue.submit([commandEncoder.finish()]);
+
+    await readBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = readBuffer.getMappedRange();
+
+    const packed = new Uint8Array(width * height * 4);
+    const mappedView = new Uint8Array(arrayBuffer);
+    for (let y = 0; y < height; y++) {
+      packed.set(mappedView.subarray(y * bytesPerRow, y * bytesPerRow + width * 4), y * width * 4);
+    }
+
+    readBuffer.unmap();
+    targetTexture.destroy();
+
+    return packed;
+  };
+
+  const executeTestAccumulation = async (
+    width: number,
+    height: number,
+    zr: number,
+    zi: number,
+    cr: number,
+    ci: number,
+    scale: number,
+    maxIter: number,
+    sliceAngle: number,
+    exponent: number,
+    frames: { jitterX: number; jitterY: number; frameCount: number }[],
+    refOrbits?: Float64Array | null,
+    theme?: RenderState,
+  ): Promise<Float32Array> => {
+    const renderFormat: GPUTextureFormat = 'rgba8unorm';
+    const pm = new PassManager(
+      device,
+      width,
+      height,
+      renderFormat,
+      mathShaderCode,
+      resolveShaderCode,
+    );
+
+    const targetTexture = device.createTexture({
+      size: [width, height, 1],
+      format: renderFormat,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+    const targetView = targetTexture.createView();
+
+    for (const frame of frames) {
+      pm.render(
+        targetView,
+        width,
+        height,
+        zr,
+        zi,
+        cr,
+        ci,
+        scale,
+        maxIter,
+        sliceAngle,
+        exponent,
+        'STATIC',
+        frame.jitterX,
+        frame.jitterY,
+        frame.frameCount,
+        refOrbits,
+        theme,
+      );
+    }
+
+    device.queue.submit([]);
+
+    const gBuffer = pm.getActiveGBuffer();
+    if (!gBuffer) throw new Error('No active G-Buffer');
+
+    const bytesPerRow = Math.ceil((width * 16) / 256) * 256; // 16 bytes per pixel for rgba32float
+    const bufferSize = bytesPerRow * height;
+
+    const readBuffer = device.createBuffer({
+      size: bufferSize,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+
+    const commandEncoder = device.createCommandEncoder();
+    commandEncoder.copyTextureToBuffer({ texture: gBuffer }, { buffer: readBuffer, bytesPerRow }, [
+      width,
+      height,
+      1,
+    ]);
+
+    device.queue.submit([commandEncoder.finish()]);
+
+    await readBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = readBuffer.getMappedRange();
+
+    const packed = new Float32Array(width * height * 4);
+    const mappedView = new Float32Array(arrayBuffer);
+    const floatsPerRow = bytesPerRow / 4;
+    for (let y = 0; y < height; y++) {
+      packed.set(
+        mappedView.subarray(y * floatsPerRow, y * floatsPerRow + width * 4),
+        y * width * 4,
+      );
+    }
+
+    readBuffer.unmap();
+    targetTexture.destroy();
+
+    return packed;
+  };
+
   let passManager: PassManager | null = null;
 
   if (canvas) {
@@ -291,6 +512,10 @@ export async function initEngine(
     maxIter: number,
     sliceAngle: number,
     exponent: number,
+    interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST',
+    jitterX: number,
+    jitterY: number,
+    frameCount: number,
     refOrbits?: Float64Array | null,
     theme?: RenderState,
   ) => {
@@ -307,6 +532,10 @@ export async function initEngine(
       maxIter,
       sliceAngle,
       exponent,
+      interactionState,
+      jitterX,
+      jitterY,
+      frameCount,
       refOrbits,
       theme,
     );
@@ -331,6 +560,8 @@ export async function initEngine(
     context,
     executeTestCompute,
     executeTestRender,
+    executeTestRenderSequence,
+    executeTestAccumulation,
     renderFrame,
     resize,
   };

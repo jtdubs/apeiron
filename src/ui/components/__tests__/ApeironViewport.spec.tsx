@@ -224,4 +224,54 @@ describe('ApeironViewport Orchestration', () => {
     // Cr anchor is -0.8, delta is 0.
     expect(args[2]).toBeCloseTo(-0.8);
   });
+
+  it('resets frameCount to 1.0 strictly without skipping a frame when geometry changes', async () => {
+    act(() => {
+      viewportStore.setState({ zoom: 1.0, interactionState: 'STATIC', anchorCr: '-0.8' });
+    });
+
+    render(<ApeironViewport />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Advance 1 frame
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
+
+    // Initial render should be frame 1.0
+    expect(renderFrameMock).toHaveBeenCalled();
+    let args = renderFrameMock.mock.calls[0];
+    let passedFrameCount = args[11]; // index 11 is frameCount
+    expect(passedFrameCount).toBe(1.0);
+
+    renderFrameMock.mockClear();
+
+    // Advance to next frame, should be accumulated as 2.0
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
+    args = renderFrameMock.mock.calls[0];
+    passedFrameCount = args[11];
+    expect(passedFrameCount).toBe(2.0);
+
+    renderFrameMock.mockClear();
+
+    // Now change geometry abruptly while STATIC
+    act(() => {
+      viewportStore.setState({ anchorCr: '-0.5' });
+    });
+
+    // Advance 1 frame
+    act(() => {
+      vi.advanceTimersByTime(16);
+    });
+
+    // It should have reset strictly back to 1.0 for the first frame of new geometry!
+    args = renderFrameMock.mock.calls[0];
+    passedFrameCount = args[11];
+    expect(passedFrameCount).toBe(1.0);
+  });
 });

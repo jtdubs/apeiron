@@ -11,7 +11,7 @@ export class AccumulationPass {
     const mathModule = device.createShaderModule({ code: mathShaderCode });
 
     this.uniformsBuffer = device.createBuffer({
-      size: 48, // 12 floats
+      size: 64, // 16 floats
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -38,7 +38,10 @@ export class AccumulationPass {
     });
   }
 
-  public getBindGroup(activeRefOrbitsBuffer: GPUBuffer | null): GPUBindGroup {
+  public getBindGroup(
+    activeRefOrbitsBuffer: GPUBuffer | null,
+    prevFrameView: GPUTextureView,
+  ): GPUBindGroup {
     return this.device.createBindGroup({
       layout: this.mathPipeline.getBindGroupLayout(0),
       entries: [
@@ -49,6 +52,7 @@ export class AccumulationPass {
             buffer: activeRefOrbitsBuffer ? activeRefOrbitsBuffer : this.dummyRefOrbitsBuffer,
           },
         },
+        { binding: 4, resource: prevFrameView },
       ],
     });
   }
@@ -152,9 +156,11 @@ export class PassManager {
   private accumPass: AccumulationPass;
   private presentPass: PresentationPass;
 
-  private gBufferTexture: GPUTexture | null = null;
+  private gBufferTextureA: GPUTexture | null = null;
+  private gBufferTextureB: GPUTexture | null = null;
+  private pingPongTargetIsB = false;
+
   private resolveBindGroup0: GPUBindGroup | null = null;
-  private currentBindGroup0: GPUBindGroup | null = null;
   private activeRefOrbitsBuffer: GPUBuffer | null = null;
 
   private needsMathUpdate = true;
@@ -177,7 +183,6 @@ export class PassManager {
 
     this.accumPass = new AccumulationPass(device, mathShaderCode);
     this.presentPass = new PresentationPass(device, resolveShaderCode, canvasFormat);
-    this.currentBindGroup0 = this.accumPass.getBindGroup(null);
 
     this.initGBuffer(this.width, this.height);
   }
@@ -186,18 +191,24 @@ export class PassManager {
     this.width = width;
     this.height = height;
 
-    if (this.gBufferTexture) {
-      this.gBufferTexture.destroy();
-    }
+    if (this.gBufferTextureA) this.gBufferTextureA.destroy();
+    if (this.gBufferTextureB) this.gBufferTextureB.destroy();
 
-    this.gBufferTexture = this.device.createTexture({
+    const desc: GPUTextureDescriptor = {
       size: [this.width, this.height, 1],
       format: 'rgba32float',
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
-    });
+    };
 
-    this.resolveBindGroup0 = this.presentPass.getBindGroup0(this.gBufferTexture.createView());
+    this.gBufferTextureA = this.device.createTexture(desc);
+    this.gBufferTextureB = this.device.createTexture(desc);
+    this.pingPongTargetIsB = false;
+
     this.needsMathUpdate = true;
+  }
+
+  public getActiveGBuffer(): GPUTexture | null {
+    return this.pingPongTargetIsB ? this.gBufferTextureB : this.gBufferTextureA;
   }
 
   public render(
@@ -212,13 +223,17 @@ export class PassManager {
     maxIter: number,
     sliceAngle: number,
     exponent: number,
+    interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST' = 'INTERACT_SAFE',
+    jitterX: number = 0.0,
+    jitterY: number = 0.0,
+    frameCount: number = 1.0,
     refOrbits?: Float64Array | null,
     theme?: RenderState,
   ) {
     if (width !== this.width || height !== this.height) {
       this.initGBuffer(width, height);
     }
-    if (!this.gBufferTexture || !this.resolveBindGroup0) return;
+    if (!this.gBufferTextureA || !this.gBufferTextureB) return;
 
     const aspectRatio = width / height;
 
@@ -249,7 +264,6 @@ export class PassManager {
     }
 
     if (refOrbitsSwapped) {
-      this.currentBindGroup0 = this.accumPass.getBindGroup(this.activeRefOrbitsBuffer);
       this.needsMathUpdate = true;
     }
 
@@ -260,7 +274,7 @@ export class PassManager {
     const usePerturbationAllowed = !(theme && theme.precisionMode === 'f32');
     const usePerturbation = this.hasValidActiveRefOrbits && usePerturbationAllowed ? 1.0 : 0.0;
 
-    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation},${actualRefMaxIter},${exponent}`;
+    const camState = `${zr},${zi},${cr},${ci},${scale},${aspectRatio},${maxIter},${sliceAngle},${usePerturbation},${actualRefMaxIter},${exponent},${jitterX},${jitterY},${frameCount}`;
 
     if (camState !== this.lastCameraState) {
       this.needsMathUpdate = true;
@@ -276,6 +290,9 @@ export class PassManager {
         maxIter,
         sliceAngle,
         exponent,
+        jitterX,
+        jitterY,
+        frameCount,
         this.hasValidActiveRefOrbits,
         refOrbits ? refOrbits.length : undefined,
         theme,
@@ -299,15 +316,22 @@ export class PassManager {
 
     const commandEncoder = this.device.createCommandEncoder();
 
-    if (this.needsMathUpdate && this.currentBindGroup0) {
-      this.accumPass.execute(
-        commandEncoder,
-        this.gBufferTexture.createView(),
-        this.currentBindGroup0,
+    if (this.needsMathUpdate || interactionState === 'STATIC') {
+      this.pingPongTargetIsB = !this.pingPongTargetIsB;
+      const writeTex = this.pingPongTargetIsB ? this.gBufferTextureB : this.gBufferTextureA;
+      const readTex = this.pingPongTargetIsB ? this.gBufferTextureA : this.gBufferTextureB;
+
+      const currentBindGroup = this.accumPass.getBindGroup(
+        this.activeRefOrbitsBuffer,
+        readTex.createView(),
       );
+
+      this.accumPass.execute(commandEncoder, writeTex.createView(), currentBindGroup);
       this.needsMathUpdate = false;
     }
 
+    const latestTex = this.pingPongTargetIsB ? this.gBufferTextureB : this.gBufferTextureA;
+    this.resolveBindGroup0 = this.presentPass.getBindGroup0(latestTex.createView());
     this.presentPass.execute(commandEncoder, targetView, this.resolveBindGroup0);
 
     this.device.queue.submit([commandEncoder.finish()]);

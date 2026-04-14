@@ -99,6 +99,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
       final_col = base_color;
     }
     
+    // Smoothly fade out the absolute boundary to Black to prevent sub-pixel accumulation artifacts
+    let edge_fade = clamp(params.max_iter - iter, 0.0, 1.0);
+    final_col *= edge_fade;
+    
     return vec4<f32>(clamp(final_col, vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
   }
 }
