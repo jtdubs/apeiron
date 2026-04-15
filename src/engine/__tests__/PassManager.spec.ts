@@ -94,7 +94,7 @@ describe('PassManager Pure Function Uniform Building', () => {
     } as RenderState;
 
     const maxIter = 150;
-    const uniforms = buildPaletteUniforms(theme, maxIter);
+    const uniforms = buildPaletteUniforms(theme, maxIter, maxIter);
 
     // [0-2]: paletteA, [3]: pad
     expect(uniforms[0]).toBe(1.0);

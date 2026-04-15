@@ -52,11 +52,13 @@ export function buildCameraUniforms(
 export function buildPaletteUniforms(
   theme: RenderState | undefined,
   paletteMaxIter: number,
+  trueMaxIter: number,
 ): Float32Array {
   if (!theme) {
     // Return a default palette fallback if no theme provided
     const fallback = new Float32Array(32);
     fallback[12] = paletteMaxIter;
+    fallback[31] = trueMaxIter;
     return fallback;
   }
 
@@ -98,6 +100,6 @@ export function buildPaletteUniforms(
           : 1.0,
     surfaceParamA,
     surfaceParamB,
-    0.0, // pad
+    trueMaxIter,
   ]);
 }

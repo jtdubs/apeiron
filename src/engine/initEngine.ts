@@ -8,6 +8,7 @@ export interface ApeironEngine {
 
   renderFrame: (desc: RenderFrameDescriptor) => void;
   resize: () => void;
+  getMathPassMs: () => number;
 }
 
 export async function initEngine(
@@ -24,7 +25,14 @@ export async function initEngine(
     throw new Error('Failed to acquire WebGPU adapter. Hardware may not support WebGPU.');
   }
 
-  const device = await adapter.requestDevice();
+  const requiredFeatures: GPUFeatureName[] = [];
+  if (adapter.features.has('timestamp-query')) {
+    requiredFeatures.push('timestamp-query');
+  }
+
+  const device = await adapter.requestDevice({
+    requiredFeatures,
+  });
 
   let context: GPUCanvasContext | null = null;
   const canvasFormat: GPUTextureFormat = navigator.gpu.getPreferredCanvasFormat();
@@ -72,6 +80,10 @@ export async function initEngine(
     }
   };
 
+  const getMathPassMs = () => {
+    return passManager ? passManager.lastMathPassMs : -1;
+  };
+
   return {
     device,
     adapter,
@@ -79,5 +91,6 @@ export async function initEngine(
 
     renderFrame,
     resize,
+    getMathPassMs,
   };
 }

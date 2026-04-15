@@ -66,6 +66,8 @@ export class AccumulationPass {
     bindGroup: GPUBindGroup,
     renderWidth: number,
     renderHeight: number,
+    queryActive?: boolean,
+    querySet?: GPUQuerySet | null,
   ) {
     const mathPass = commandEncoder.beginRenderPass({
       colorAttachments: [
@@ -76,7 +78,16 @@ export class AccumulationPass {
           storeOp: 'store',
         },
       ],
-    });
+      ...(queryActive && querySet
+        ? {
+            timestampWrites: {
+              querySet: querySet,
+              beginningOfPassWriteIndex: 0,
+              endOfPassWriteIndex: 1,
+            },
+          }
+        : {}),
+    } as GPURenderPassDescriptor);
     mathPass.setPipeline(this.mathPipeline);
     mathPass.setBindGroup(0, bindGroup);
     // Constrain rasterization to the DRS sub-rect. The resolve pass upscales
@@ -198,6 +209,16 @@ export class PassManager {
   // Incremented externally via invalidate() when a genuine re-render is needed.
   private lastThemeVersion = -1;
 
+  private querySet: GPUQuerySet | null = null;
+  private resolveBuffer: GPUBuffer | null = null;
+  private stagingBuffer: GPUBuffer | null = null;
+  private isQueryReady = true;
+  private _lastMathPassMs = -1;
+
+  public get lastMathPassMs(): number {
+    return this._lastMathPassMs;
+  }
+
   constructor(
     device: GPUDevice,
     width: number,
@@ -212,6 +233,25 @@ export class PassManager {
 
     this.accumPass = new AccumulationPass(device, mathShaderCode);
     this.presentPass = new PresentationPass(device, resolveShaderCode, canvasFormat);
+
+    if (device.features.has('timestamp-query')) {
+      const isDeno = typeof (globalThis as any).Deno !== 'undefined';
+      if (!isDeno) {
+        try {
+          this.querySet = device.createQuerySet({ type: 'timestamp', count: 2 });
+          this.resolveBuffer = device.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
+          });
+          this.stagingBuffer = device.createBuffer({
+            size: 16,
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+          });
+        } catch (err) {
+          console.warn('Failed to initialize timestamp query: ', err);
+        }
+      }
+    }
 
     this.initGBuffer(this.width, this.height);
   }
@@ -319,7 +359,7 @@ export class PassManager {
     const themeVersion = desc.theme?.themeVersion ?? -1;
     if (themeVersion !== this.lastThemeVersion) {
       this.lastThemeVersion = themeVersion;
-      const paletteData = buildPaletteUniforms(desc.theme, paletteMaxIter);
+      const paletteData = buildPaletteUniforms(desc.theme, paletteMaxIter, desc.trueMaxIter);
       this.device.queue.writeBuffer(this.presentPass.paletteUniformsBuffer, 0, paletteData);
     }
     // Keep paletteMaxIter in sync even when theme version hasn't changed
@@ -328,6 +368,11 @@ export class PassManager {
       this.presentPass.paletteUniformsBuffer,
       64,
       new Float32Array([paletteMaxIter]),
+    );
+    this.device.queue.writeBuffer(
+      this.presentPass.paletteUniformsBuffer,
+      124,
+      new Float32Array([desc.trueMaxIter]),
     );
 
     // Write render_scale to its dedicated uniform buffer (group 0, binding 1 of the resolve pass).
@@ -340,6 +385,9 @@ export class PassManager {
 
     // ── GPU command submission ───────────────────────────────────────────────
     const commandEncoder = this.device.createCommandEncoder();
+
+    // Deno WebGPU stub or some browsers might report the feature but lack the function
+    const queryActive = this.querySet !== null && this.isQueryReady;
 
     // Always run the accumulation pass — the RAF loop decides whether to
     // call render() at all; the engine never skips the math pass internally.
@@ -357,7 +405,15 @@ export class PassManager {
       accumBindGroup,
       renderWidth,
       renderHeight,
+      queryActive,
+      this.querySet,
     );
+
+    if (queryActive) {
+      commandEncoder.resolveQuerySet(this.querySet!, 0, 2, this.resolveBuffer!, 0);
+      commandEncoder.copyBufferToBuffer(this.resolveBuffer!, 0, this.stagingBuffer!, 0, 16);
+      this.isQueryReady = false;
+    }
 
     // Resolve pass: bind group 0 uses the dedicated renderScaleBuffer at binding 1
     // so the resolve shader reads render_scale at offset 0 of that buffer.
@@ -366,5 +422,27 @@ export class PassManager {
     this.presentPass.execute(commandEncoder, targetView, resolveBindGroup0);
 
     this.device.queue.submit([commandEncoder.finish()]);
+
+    if (queryActive) {
+      this.device.queue
+        .onSubmittedWorkDone()
+        .then(() => {
+          this.stagingBuffer!.mapAsync(GPUMapMode.READ)
+            .then(() => {
+              const arrayBuffer = this.stagingBuffer!.getMappedRange();
+              const view = new BigInt64Array(arrayBuffer);
+              const time = Number(view[1] - view[0]);
+              this._lastMathPassMs = time / 1000000.0;
+              this.stagingBuffer!.unmap();
+              this.isQueryReady = true;
+            })
+            .catch(() => {
+              this.isQueryReady = true;
+            });
+        })
+        .catch(() => {
+          this.isQueryReady = true;
+        });
+    }
   }
 }

@@ -88,6 +88,6 @@
 
 ## Phase 15: Interior-Coverage Lag Elimination
 
-- [ ] [Task 044: Frame-Time Telemetry & Interactive Quality Budget](tasks/044-frame-time-telemetry.md)
+- [x] [Task 044: Frame-Time Telemetry & Interactive Quality Budget](tasks/completed/044-frame-time-telemetry.md)
 - [ ] [Task 045: Adaptive Dynamic Resolution Scaling (ADRS)](tasks/045-adaptive-drs.md)
 - [ ] [Task 046: Shader Interior Early-Out (Period Detection)](tasks/046-shader-interior-early-out.md)

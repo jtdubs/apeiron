@@ -80,6 +80,8 @@ export interface RenderState {
   setColorPhase: (val: number) => void;
 
   themeVersion: number;
+  showPerfHUD: boolean;
+  setShowPerfHUD: (val: boolean) => void;
 
   setPalette: (
     a: [number, number, number],
@@ -100,6 +102,8 @@ export interface RenderState {
 
 export const renderStore = createStore<RenderState>((set) => ({
   themeVersion: 0,
+  showPerfHUD: false,
+  setShowPerfHUD: (val) => set({ showPerfHUD: val }),
   // Default 'neon'
   paletteA: [0.5, 0.5, 0.5],
   paletteB: [0.5, 0.5, 0.5],

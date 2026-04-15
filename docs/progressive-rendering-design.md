@@ -53,7 +53,25 @@ To solve this, the orchestrator acts as a **Latest-Only Dispatch Buffer**:
 
 This logic guarantees the Rust calculations are never separated from the UI state by more than a single calculation cycle, maintaining UI fluidity infinitely regardless of how wildly or continuously the user scrubs the map.
 
-## 4. Impact on Architectural Boundaries
+## 4. Interactive Quality Budget & Telemetry
+
+To eliminate lag during deep, interior-heavy fractal exploration, the system enforces a strict quality budget and relies on GPU telemetry for tuning.
+
+### Zoom-Proportional `maxIter` Fraction
+
+During `INTERACT_SAFE` and `INTERACT_FAST`, the maximum iteration budget is dynamically reduced by a proportional fraction (e.g., ~33%). This curtails the computational load for unescapable interior pixels that would otherwise saturate the GPU.
+
+- **Why it Works:** The Dynamic Resolution Scaling (DRS) pass already softens the output during interaction, making thousands of iterations perceptually wasted.
+- **The Safety Floor:** To prevent the fractal silhouette from losing structural detail at extreme magnifications, the reduced `effectiveMaxIter` is hard-floored against the baseline iterations of an unzoomed (1.0x) view.
+
+### GPU Frame-Time Telemetry
+
+`PassManager` integrates asynchronous WebGPU `TimestampQuery` infrastructure surrounding the mathematical accumulation pass.
+
+- Bounding the math execution with GPU timers provides a rolling, non-blocking measure of precise kernel execution times.
+- These metric points are surfaced to the React UI via a `showPerfHUD` toggle, ensuring that optimization tuning is driven by objective telemetry rather than subjective perception.
+
+## 5. Impact on Architectural Boundaries
 
 Executing this requires clear, isolated boundaries across our three top-level components:
 

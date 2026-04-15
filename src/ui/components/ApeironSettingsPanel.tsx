@@ -287,6 +287,20 @@ export const ApeironSettingsPanel: React.FC = () => {
           </>
         )}
       </div>
+
+      <div className="hud-settings-section">
+        <div className="hud-settings-label">Debug</div>
+        <div className="hud-settings-flex-row">
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={state.showPerfHUD}
+              onChange={(e) => state.setShowPerfHUD(e.target.checked)}
+            />
+            <span>Show GPU Frame Time</span>
+          </label>
+        </div>
+      </div>
     </div>
   );
 };

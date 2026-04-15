@@ -5,11 +5,12 @@ import type { RenderFrameDescriptor } from '../../engine/RenderFrameDescriptor';
 
 import mathAccumWgsl from '../../engine/shaders/escape/math_accum.wgsl?raw';
 import resolvePresentWgsl from '../../engine/shaders/escape/resolve_present.wgsl?raw';
-import { viewportStore } from '../stores/viewportStore';
+import { viewportStore, calculateMaxIter } from '../stores/viewportStore';
 import { renderStore } from '../stores/renderStore';
 
 export const ApeironViewport: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hudRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ApeironEngine | null>(null);
   const requestRef = useRef<number | null>(null);
 
@@ -170,6 +171,9 @@ export const ApeironViewport: React.FC = () => {
         let lastDesc: RenderFrameDescriptor | null = null;
         let lastCanvasSizeVersion = -1;
 
+        const INTERACT_ITER_FRACTION = 0.33;
+        const INTERACT_ITER_FLOOR = calculateMaxIter(1.0);
+
         const loop = () => {
           if (!isMounted) return;
           const state = viewportStore.getState();
@@ -182,13 +186,12 @@ export const ApeironViewport: React.FC = () => {
           const cr = isPerturb ? state.deltaCr : parseFloat(state.anchorCr) + state.deltaCr;
           const ci = isPerturb ? state.deltaCi : parseFloat(state.anchorCi) + state.deltaCi;
 
-          // DRS: render_scale < 1.0 during INTERACT to avoid GPU surface resizes.
+          // Snapshot of interaction state for deterministic early-return & cache invalidation
+          const isInteractingSnapshot = state.interactionState !== 'STATIC';
           const renderDpr = window.devicePixelRatio || 1;
-          const isInteracting = state.interactionState !== 'STATIC';
-          const renderScale = isInteracting ? 1.0 / renderDpr : 1.0;
+          const snapshotRenderScale = isInteractingSnapshot ? 1.0 / renderDpr : 1.0;
 
           // Detect geometry changes (anything that requires a fresh accumulation).
-          // Instead of string keys, compare the fields that actually matter.
           const geometryChanged =
             !lastDesc ||
             lastDesc.zr !== zr ||
@@ -198,35 +201,41 @@ export const ApeironViewport: React.FC = () => {
             lastDesc.zoom !== state.zoom ||
             lastDesc.sliceAngle !== state.sliceAngle ||
             lastDesc.exponent !== state.exponent ||
-            lastDesc.maxIter !== state.maxIter ||
+            lastDesc.maxIter !== state.maxIter || // We store state.maxIter in lastDesc.maxIter for accurate caching
             lastDesc.refOrbits !== state.refOrbits ||
             lastDesc.theme.themeVersion !== theme.themeVersion ||
-            lastDesc.renderScale !== renderScale ||
+            lastDesc.renderScale !== snapshotRenderScale ||
             lastCanvasSizeVersion !== canvasSizeVersion;
 
-          if (geometryChanged || isInteracting) {
+          if (geometryChanged || isInteractingSnapshot) {
             accumulationCount = 0;
           }
 
           // Skip the GPU submission if static and fully accumulated.
           const MAX_ACCUM_FRAMES = 64;
-          if (!isInteracting && accumulationCount >= MAX_ACCUM_FRAMES) {
+          if (!isInteractingSnapshot && accumulationCount >= MAX_ACCUM_FRAMES) {
             requestRef.current = requestAnimationFrame(loop);
             return;
           }
 
           accumulationCount++;
 
-          // blendWeight == 0.0  → replace prev buffer (first frame / all INTERACT frames)
-          // blendWeight == 1/N  → temporal blend for the Nth STATIC accumulated frame
+          // ── READ INTERACTION STATE RIGHT BEFORE RENDER ──
+          // Eliminates the 1-tick window between RAF start and GPU submission.
+          const currentInteractionState = viewportStore.getState().interactionState;
+          const isInteracting = currentInteractionState !== 'STATIC';
+          const renderScale = isInteracting ? 1.0 / renderDpr : 1.0;
+
+          const effectiveMaxIter = isInteracting
+            ? Math.max(INTERACT_ITER_FLOOR, Math.floor(state.maxIter * INTERACT_ITER_FRACTION))
+            : state.maxIter;
+
           const blendWeight =
             isInteracting || accumulationCount === 1 ? 0.0 : 1.0 / accumulationCount;
 
-          // Sub-pixel jitter for STATIC accumulation frames beyond the first.
           let jitterX = 0.0;
           let jitterY = 0.0;
           if (!isInteracting && accumulationCount > 1) {
-            // range [-1/width, 1/width] in UV space; full canvas size (STATIC always full-res)
             jitterX = (Math.random() - 0.5) * (2.0 / canvas.width);
             jitterY = (Math.random() - 0.5) * (2.0 / canvas.height);
           }
@@ -237,7 +246,8 @@ export const ApeironViewport: React.FC = () => {
             cr,
             ci,
             zoom: state.zoom,
-            maxIter: state.maxIter,
+            maxIter: effectiveMaxIter,
+            trueMaxIter: state.maxIter,
             sliceAngle: state.sliceAngle,
             exponent: state.exponent,
             refOrbits: state.refOrbits,
@@ -249,7 +259,23 @@ export const ApeironViewport: React.FC = () => {
           };
 
           engine.renderFrame(desc);
-          lastDesc = desc;
+
+          if (hudRef.current) {
+            if (theme.showPerfHUD) {
+              hudRef.current.style.display = 'block';
+              const ms = engine.getMathPassMs();
+              if (ms !== -1) {
+                hudRef.current.innerText = `GPU Math: ${ms.toFixed(2)} ms`;
+              } else {
+                hudRef.current.innerText = `GPU Math: Unsupported/Resolving`;
+              }
+            } else {
+              hudRef.current.style.display = 'none';
+            }
+          }
+
+          // Store true maxIter in cache for geometry validation, not effectiveMaxIter
+          lastDesc = { ...desc, maxIter: state.maxIter, renderScale: snapshotRenderScale };
           lastCanvasSizeVersion = canvasSizeVersion;
 
           requestRef.current = requestAnimationFrame(loop);
@@ -446,14 +472,31 @@ export const ApeironViewport: React.FC = () => {
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        width: '100vw',
-        height: '100vh',
-        display: 'block',
-        touchAction: 'none',
-      }}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        style={{
+          width: '100vw',
+          height: '100vh',
+          display: 'block',
+          touchAction: 'none',
+        }}
+      />
+      <div
+        ref={hudRef}
+        style={{
+          position: 'absolute',
+          bottom: 10,
+          left: 10,
+          background: 'rgba(0,0,0,0.5)',
+          color: '#0f0',
+          padding: '4px 8px',
+          fontFamily: 'monospace',
+          display: 'none',
+          pointerEvents: 'none',
+          zIndex: 9999,
+        }}
+      />
+    </>
   );
 };

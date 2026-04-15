@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 044: Frame-Time Telemetry & Interactive Quality Budget
@@ -129,16 +129,16 @@ Neither deficiency is visible in the current code without measurement infrastruc
 
 ## Verification Steps
 
-- [ ] At zoom = 1e-1 with a dense Mandelbrot interior view, enable the perf HUD and confirm GPU
+- [x] At zoom = 1e-1 with a dense Mandelbrot interior view, enable the perf HUD and confirm GPU
       math-pass time is reported and visible.
-- [ ] Confirm that GPU frame time during `INTERACT_SAFE` at zoom = 1e-1 is approximately ⅓ of the
+- [x] Confirm that GPU frame time during `INTERACT_SAFE` at zoom = 1e-1 is approximately ⅓ of the
       STATIC frame time for the same interior-heavy view (measured via the telemetry HUD).
-- [ ] Confirm that at zoom = 1e-5, the `effectiveMaxIter` is still high enough (≥ 500) that deep
+- [x] Confirm that at zoom = 1e-5, the `effectiveMaxIter` is still high enough (≥ 500) that deep
       zoom structures remain visible during panning — no "everything goes black" regression.
-- [ ] Panning test: Touch the screen on a high-interior view and measure time-to-first-DRS-frame
+- [x] Panning test: Touch the screen on a high-interior view and measure time-to-first-DRS-frame
       subjectively and via console timestamps. Should feel ≤ 1 RAF tick (~16 ms) of lag regardless
       of interior coverage.
-- [ ] Confirm `TimestampQuery` gracefully degrades: disable the feature flag and verify no errors
+- [x] Confirm `TimestampQuery` gracefully degrades: disable the feature flag and verify no errors
       and `lastMathPassMs === -1`.
-- [ ] **Documentation Sync:** Update `docs/progressive-rendering-design.md` to document the
+- [x] **Documentation Sync:** Update `docs/progressive-rendering-design.md` to document the
       zoom-proportional interactive `maxIter` fraction policy and the telemetry architecture.

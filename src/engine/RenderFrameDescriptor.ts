@@ -16,7 +16,8 @@ export interface RenderFrameDescriptor {
   cr: number;
   ci: number;
   zoom: number;
-  maxIter: number;
+  maxIter: number; // The interactive/effective max iteration cap
+  trueMaxIter: number; // The target static max iteration cap (used for consistent palette mapping)
   sliceAngle: number;
   exponent: number;
   refOrbits: Float64Array | null;
