@@ -24,7 +24,7 @@ export function buildCameraUniforms(
 ): Float32Array {
   let actualRefMaxIter = maxIter;
   if (hasValidActiveRefOrbits && refOrbitsLength !== undefined) {
-    actualRefMaxIter = (refOrbitsLength - 8) / 2;
+    actualRefMaxIter = (refOrbitsLength - 8) / 8;
   }
 
   let usePerturbationAllowed = true;

@@ -253,8 +253,8 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
      der_y = checkpoint[pixel_idx].der_y;
      tia_sum = checkpoint[pixel_idx].tia_sum;
      
-     let initial_x_resume = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter)*2u]) + dz.x;
-     let initial_y_resume = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter)*2u + 1u]) + dz.y;
+     let initial_x_resume = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter)*8u]) + dz.x;
+     let initial_y_resume = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter)*8u + 1u]) + dz.y;
      prev_z_mag = length(vec2<f32>(initial_x_resume, initial_y_resume));
   } else {
      let initial_x = unpack_f64_to_f32(ref_orbits[ref_offset]) + dz.x;
@@ -271,8 +271,8 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
   let target_iter = min(max_iterations, iter + camera.yield_iter_limit);
 
   while (iter < target_iter) {
-    let zx = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter) * 2u]);
-    let zy = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter) * 2u + 1u]);
+    let zx = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter) * 8u]);
+    let zy = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter) * 8u + 1u]);
     
     var dz_next: vec2<f32>;
     let d = camera.exponent;
@@ -337,8 +337,8 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
 
     dz = dz_next;
     
-    let next_zx = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter + 1.0) * 2u]);
-    let next_zy = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter + 1.0) * 2u + 1u]);
+    let next_zx = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter + 1.0) * 8u]);
+    let next_zy = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter + 1.0) * 8u + 1u]);
     let cur_x = next_zx + dz.x;
     let cur_y = next_zy + dz.y;
     
@@ -378,9 +378,9 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
 
 fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u32, pixel_idx: u32) -> vec4<f32> {
   if (camera.use_perturbation > 0.5) {
-     let floats_per_case = u32(camera.ref_max_iter) * 2u + 8u;
-     let cycle = unpack_f64_to_f32(ref_orbits[ref_offset + u32(camera.ref_max_iter) * 2u]);
-     let ref_escaped_iter = unpack_f64_to_f32(ref_orbits[ref_offset + u32(camera.ref_max_iter) * 2u + 3u]);
+     let floats_per_case = u32(camera.ref_max_iter) * 8u + 8u;
+     let cycle = unpack_f64_to_f32(ref_orbits[ref_offset + u32(camera.ref_max_iter) * 8u]);
+     let ref_escaped_iter = unpack_f64_to_f32(ref_orbits[ref_offset + u32(camera.ref_max_iter) * 8u + 3u]);
      
      if (camera.is_resume > 0.5 && checkpoint[pixel_idx].iter > 0.0 && checkpoint[pixel_idx].iter >= ref_escaped_iter && ref_escaped_iter < camera.max_iter) {
          return continue_mandelbrot_iterations(vec2<f32>(0.0,0.0), start_c, 0.0, camera.max_iter, 1.0, 0.0, 0.0, pixel_idx);
@@ -401,7 +401,7 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let delta_c = vec2<f32>(data_in[idx * 6u + 4u], data_in[idx * 6u + 5u]);
   let delta_z = vec2<f32>(0.0, 0.0);
   
-  let floats_per_case = u32(camera.ref_max_iter) * 2u + 8u;
+  let floats_per_case = u32(camera.ref_max_iter) * 8u + 8u;
   let ref_offset = idx * floats_per_case;
 
   let ret = execute_engine_math(input_z, input_c, delta_z, delta_c, ref_offset, idx);
@@ -444,7 +444,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   let delta_z = vec2<f32>(camera.zr, camera.zi) + uv_mapped * sin_theta;
   let delta_c = vec2<f32>(camera.cr, camera.ci) + uv_mapped * cos_theta;
   
-  let ref_end = u32(camera.ref_max_iter) * 2u;
+  let ref_end = u32(camera.ref_max_iter) * 8u;
   let abs_zr = unpack_f64_to_f32(ref_orbits[ref_end + 4u]);
   let abs_zi = unpack_f64_to_f32(ref_orbits[ref_end + 5u]);
   let abs_cr = unpack_f64_to_f32(ref_orbits[ref_end + 6u]);

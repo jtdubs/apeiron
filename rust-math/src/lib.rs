@@ -18,9 +18,9 @@ pub struct Point {
 pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Float64Array {
     let points: Vec<Point> = serde_json::from_str(points_json).unwrap_or_else(|_| vec![]);
     
-    // Each point yields: (max_iterations) * 2 floats for the orbit
+    // Each point yields: (max_iterations) * 8 floats for the orbit (x, y, ar, ai, br, bi, cr, ci)
     // PLUS 8 metadata floats: [cycle_found, der_r, der_i, iter/escape, abs_zr, abs_zi, abs_cr, abs_ci]
-    let mut results = Vec::with_capacity(points.len() * ((max_iterations as usize * 2) + 8));
+    let mut results = Vec::with_capacity(points.len() * ((max_iterations as usize * 8) + 8));
 
     for p in points {
         let mut x = BigDecimal::from_str(&p.zr).unwrap_or(BigDecimal::zero());
@@ -32,8 +32,12 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
         let mut check_x = x.clone();
         let mut check_y = y.clone();
         let mut check_iter = 1;
-        let mut der_r = BigDecimal::one();
-        let mut der_i = BigDecimal::zero();
+        let mut ar = BigDecimal::one();
+        let mut ai = BigDecimal::zero();
+        let mut br = BigDecimal::zero();
+        let mut bi = BigDecimal::zero();
+        let mut cr = BigDecimal::zero();
+        let mut ci = BigDecimal::zero();
 
         let mut iter = 0;
         let limit = BigDecimal::from(4);
@@ -42,11 +46,17 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
         let mut escaped = false;
         let mut cycle_found = false;
 
-        let mut orbit = Vec::with_capacity((max_iterations * 2) as usize);
+        let mut orbit = Vec::with_capacity((max_iterations * 8) as usize);
 
         while iter < max_iterations {
             orbit.push(x.to_f64().unwrap_or(0.0));
             orbit.push(y.to_f64().unwrap_or(0.0));
+            orbit.push(ar.to_f64().unwrap_or(0.0));
+            orbit.push(ai.to_f64().unwrap_or(0.0));
+            orbit.push(br.to_f64().unwrap_or(0.0));
+            orbit.push(bi.to_f64().unwrap_or(0.0));
+            orbit.push(cr.to_f64().unwrap_or(0.0));
+            orbit.push(ci.to_f64().unwrap_or(0.0));
 
             let x2 = &x * &x;
             let y2 = &y * &y;
@@ -57,10 +67,34 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
             }
 
             if d == 2.0 {
-                let temp_der_r = (&two * (&x * &der_r - &y * &der_i) + BigDecimal::one()).with_prec(100); 
-                let temp_der_i = (&two * (&x * &der_i + &y * &der_r)).with_prec(100);
-                der_r = temp_der_r;
-                der_i = temp_der_i;
+                // Compute A^2
+                let a2_r = (&ar * &ar - &ai * &ai).with_prec(100);
+                let a2_i = (&two * &ar * &ai).with_prec(100);
+
+                // Compute 2AB
+                let ab_r = (&ar * &br - &ai * &bi).with_prec(100);
+                let ab_i = (&ar * &bi + &ai * &br).with_prec(100);
+                let two_ab_r = (&two * &ab_r).with_prec(100);
+                let two_ab_i = (&two * &ab_i).with_prec(100);
+
+                // A_new = 2 * Z * A + 1
+                let temp_ar = (&two * (&x * &ar - &y * &ai) + BigDecimal::one()).with_prec(100);
+                let temp_ai = (&two * (&x * &ai + &y * &ar)).with_prec(100);
+
+                // B_new = 2 * Z * B + A^2
+                let temp_br = (&two * (&x * &br - &y * &bi) + &a2_r).with_prec(100);
+                let temp_bi = (&two * (&x * &bi + &y * &br) + &a2_i).with_prec(100);
+
+                // C_new = 2 * Z * C + 2AB
+                let temp_cr = (&two * (&x * &cr - &y * &ci) + &two_ab_r).with_prec(100);
+                let temp_ci = (&two * (&x * &ci + &y * &cr) + &two_ab_i).with_prec(100);
+
+                ar = temp_ar;
+                ai = temp_ai;
+                br = temp_br;
+                bi = temp_bi;
+                cr = temp_cr;
+                ci = temp_ci;
 
                 let new_x = (&x2 - &y2 + &x0).with_prec(100);
                 y = (&two * &x * &y + &y0).with_prec(100);
@@ -80,8 +114,12 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
                 x = (temp_x + &x0).with_prec(100);
                 y = (temp_y + &y0).with_prec(100);
                 
-                der_r = BigDecimal::one();
-                der_i = BigDecimal::zero();
+                ar = BigDecimal::one();
+                ai = BigDecimal::zero();
+                br = BigDecimal::zero();
+                bi = BigDecimal::zero();
+                cr = BigDecimal::zero();
+                ci = BigDecimal::zero();
             } else {
                 let x_f = x.to_f64().unwrap_or(0.0);
                 let y_f = y.to_f64().unwrap_or(0.0);
@@ -99,8 +137,12 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
                     break;
                 }
                 
-                der_r = BigDecimal::one();
-                der_i = BigDecimal::zero();
+                ar = BigDecimal::one();
+                ai = BigDecimal::zero();
+                br = BigDecimal::zero();
+                bi = BigDecimal::zero();
+                cr = BigDecimal::zero();
+                ci = BigDecimal::zero();
             }
 
             if x == check_x && y == check_y {
@@ -112,8 +154,12 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
                 check_x = x.clone();
                 check_y = y.clone();
                 check_iter *= 2;
-                der_r = BigDecimal::one();
-                der_i = BigDecimal::zero();
+                ar = BigDecimal::one();
+                ai = BigDecimal::zero();
+                br = BigDecimal::zero();
+                bi = BigDecimal::zero();
+                cr = BigDecimal::zero();
+                ci = BigDecimal::zero();
             }
 
             iter += 1;
@@ -123,16 +169,22 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
             results.push(*v);
         }
 
-        let pushed_pairs = orbit.len() / 2;
-        let remaining = max_iterations as usize - pushed_pairs;
+        let pushed_values = orbit.len() / 8;
+        let remaining = max_iterations as usize - pushed_values;
         for _ in 0..remaining {
             results.push(x.to_f64().unwrap_or(0.0));
             results.push(y.to_f64().unwrap_or(0.0));
+            results.push(ar.to_f64().unwrap_or(0.0));
+            results.push(ai.to_f64().unwrap_or(0.0));
+            results.push(br.to_f64().unwrap_or(0.0));
+            results.push(bi.to_f64().unwrap_or(0.0));
+            results.push(cr.to_f64().unwrap_or(0.0));
+            results.push(ci.to_f64().unwrap_or(0.0));
         }
 
         results.push(if cycle_found { 1.0 } else { 0.0 });
-        results.push(der_r.to_f64().unwrap_or(0.0));
-        results.push(der_i.to_f64().unwrap_or(0.0));
+        results.push(ar.to_f64().unwrap_or(0.0));
+        results.push(ai.to_f64().unwrap_or(0.0));
         results.push(if escaped { iter as f64 } else { max_iterations as f64 });
         
         // Append absolute tracking metadata to be retrieved cleanly by WebGPU without JS Float parsing

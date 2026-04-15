@@ -277,7 +277,6 @@ describe('ApeironViewport Orchestration', () => {
     expect(desc.cr).toBeCloseTo(-0.8);
   });
 
-<<<<<<< HEAD
   it('enforces Latest-Only Buffer to prevent worker queue overlap and flickering', async () => {
     // Start zoomed in to trigger perturbation
     act(() => {

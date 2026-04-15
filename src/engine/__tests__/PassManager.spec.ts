@@ -5,7 +5,7 @@ import type { RenderState } from '../../ui/stores/renderStore';
 describe('PassManager Pure Function Uniform Building', () => {
   it('correctly calculates actualRefMaxIter for the uniform buffer from rust refOrbits padding', () => {
     const expectedMaxIter = 10;
-    const rustBufferLength = expectedMaxIter * 2 + 8;
+    const rustBufferLength = expectedMaxIter * 8 + 8;
 
     const uniforms = buildCameraUniforms(
       0,
@@ -65,7 +65,7 @@ describe('PassManager Pure Function Uniform Building', () => {
       0.0,
       0.0, // blendWeight
       true,
-      208,
+      808,
       1.0, // renderScale
       100, // yieldIterLimit
       0, // isResume
