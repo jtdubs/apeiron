@@ -342,7 +342,7 @@ export class PassManager {
     // we skip the camState string-diff and always upload the current values.
     const actualRefMaxIter =
       this.hasValidActiveRefOrbits && desc.refOrbits
-        ? (desc.refOrbits.length - 8) / 8
+        ? (desc.refOrbits.length - 8) / 136
         : desc.maxIter;
     const paletteMaxIter = this.hasValidActiveRefOrbits ? actualRefMaxIter : desc.maxIter;
 

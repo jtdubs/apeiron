@@ -24,7 +24,10 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     }
     await wasmInit;
 
+    const t0 = performance.now();
     const resultData = compute_mandelbrot(casesJson, maxIterations);
+    const t1 = performance.now();
+    console.log(`[math-core] BLA Tree & Orbit Array compiled in ${(t1 - t0).toFixed(2)}ms`);
 
     // Explicitly copy the WASM-memory backed array into a native, standalone JS ArrayBuffer.
     // If we don't copy it, structured cloning will fail with a DataCloneError, or transferring it

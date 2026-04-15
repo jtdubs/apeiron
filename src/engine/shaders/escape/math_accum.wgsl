@@ -318,6 +318,93 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
   let target_iter = min(max_iterations, iter + camera.yield_iter_limit);
 
   while (iter < target_iter) {
+    if (camera.exponent == 2.0) {
+        var advanced_by_bla = false;
+        let bla_offset = ref_offset + u32(camera.ref_max_iter) * 8u + 8u;
+        let dz_len_sq = dz.x * dz.x + dz.y * dz.y;
+        let dc_len_sq = delta_c.x * delta_c.x + delta_c.y * delta_c.y;
+        
+        if (dz_len_sq < 1e-6 && dc_len_sq < 1e-6) {
+            for(var l_: i32 = 15; l_ >= 0; l_ -= 1) {
+               let l = u32(l_);
+           let b_len = f32(1u << l);
+           
+           if ((iter + b_len) <= target_iter && (iter + b_len) <= camera.ref_max_iter && (iter + b_len) < ref_escaped_iter) {
+              let node_idx = bla_offset + (u32(iter) * 16u + l) * 8u;
+              let target_err = unpack_f64_to_f32(ref_orbits[node_idx + 4u]);
+              
+              if (target_err < 1e20) {
+                  let max_delta_sq = max(dz_len_sq, delta_c.x * delta_c.x + delta_c.y * delta_c.y);
+                  let err_factor = target_err * max_delta_sq;
+                  if (err_factor < 1e-9) {
+                     let ar = unpack_f64_to_f32(ref_orbits[node_idx]);
+                     let ai = unpack_f64_to_f32(ref_orbits[node_idx + 1u]);
+                     let br = unpack_f64_to_f32(ref_orbits[node_idx + 2u]);
+                     let bi = unpack_f64_to_f32(ref_orbits[node_idx + 3u]);
+                     
+                     let a_dz_x = ar * dz.x - ai * dz.y;
+                     let a_dz_y = ar * dz.y + ai * dz.x;
+                     let b_dc_x = br * delta_c.x - bi * delta_c.y;
+                     let b_dc_y = br * delta_c.y + bi * delta_c.x;
+                     dz = vec2<f32>(a_dz_x + b_dc_x, a_dz_y + b_dc_y);
+                     
+                     let new_der_x = ar * der_x - ai * der_y;
+                     let new_der_y = ar * der_y + ai * der_x;
+                     // re-normalize derivative limits smoothly to prevent overflow
+                     let der_max = max(abs(new_der_x), abs(new_der_y));
+                     if (der_max > 1e18) {
+                        let scale = 1e18 / der_max;
+                        der_x = new_der_x * scale;
+                        der_y = new_der_y * scale;
+                     } else {
+                        der_x = new_der_x;
+                        der_y = new_der_y;
+                     }
+                     
+                     iter += b_len;
+                     advanced_by_bla = true;
+                     
+                     let final_z_x = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter) * 8u]) + dz.x;
+                     let final_z_y = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter) * 8u + 1u]) + dz.y;
+                     prev_z_mag = length(vec2<f32>(final_z_x, final_z_y));
+                     
+                     break;
+                  }
+              }
+           }
+        }
+        }
+        
+        if (advanced_by_bla) {
+            let cur_mag = dz.x * dz.x + dz.y * dz.y;
+            if (cur_mag > 1000000.0) {
+              let ret = vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
+              checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
+              return ret;
+            }
+            let ref_final_x = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter) * 8u]);
+            let ref_final_y = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter) * 8u + 1u]);
+            let final_x = ref_final_x + dz.x;
+            let final_y = ref_final_y + dz.y;
+            let point_mag = final_x * final_x + final_y * final_y;
+            
+            if (point_mag > 4.0) {
+              let ret = get_escape_data(iter, final_x, final_y, der_x, der_y, 0.0, tia_sum);
+              checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
+              return ret;
+            }
+            
+            // if we escaped iteration completely safely via BLA jumps
+            if (iter >= ref_escaped_iter && ref_escaped_iter < max_iterations) {
+               let cur_x_c = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter) * 8u]) + dz.x;
+               let cur_y_c = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter) * 8u + 1u]) + dz.y;
+               return continue_mandelbrot_iterations(vec2<f32>(cur_x_c, cur_y_c), start_c, iter, max_iterations, der_x, der_y, tia_sum, pixel_idx);
+            }
+            
+            continue;
+        }
+    }
+
     let zx = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter) * 8u]);
     let zy = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter) * 8u + 1u]);
     
@@ -425,7 +512,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
 
 fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u32, pixel_idx: u32) -> vec4<f32> {
   if (camera.use_perturbation > 0.5) {
-     let floats_per_case = u32(camera.ref_max_iter) * 8u + 8u;
+     let floats_per_case = u32(camera.ref_max_iter) * 136u + 8u;
      let cycle = unpack_f64_to_f32(ref_orbits[ref_offset + u32(camera.ref_max_iter) * 8u]);
      let ref_escaped_iter = unpack_f64_to_f32(ref_orbits[ref_offset + u32(camera.ref_max_iter) * 8u + 3u]);
      
@@ -448,7 +535,7 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let delta_c = vec2<f32>(data_in[idx * 6u + 4u], data_in[idx * 6u + 5u]);
   let delta_z = vec2<f32>(0.0, 0.0);
   
-  let floats_per_case = u32(camera.ref_max_iter) * 8u + 8u;
+  let floats_per_case = u32(camera.ref_max_iter) * 136u + 8u;
   let ref_offset = idx * floats_per_case;
 
   let ret = execute_engine_math(input_z, input_c, delta_z, delta_c, ref_offset, idx);

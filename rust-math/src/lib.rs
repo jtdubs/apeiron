@@ -207,6 +207,81 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
         results.push(p.zi.parse::<f64>().unwrap_or(0.0));
         results.push(p.cr.parse::<f64>().unwrap_or(0.0));
         results.push(p.ci.parse::<f64>().unwrap_or(0.0));
+        // --- BLA Block Grid Compilation ---
+        // We compile a dense uniform matrix of dimensions [max_iterations, MAX_LEVELS]
+        // where level L implies a block size of 2^L.
+        let max_levels = 16; 
+        
+        // First, extract the x, y array from the computed orbit
+        let mut blx = vec![0.0f64; max_iterations as usize];
+        let mut bly = vec![0.0f64; max_iterations as usize];
+        let pushed_values = orbit.len() / 8;
+        for i in 0..pushed_values {
+            blx[i] = orbit[i * 8];
+            bly[i] = orbit[i * 8 + 1];
+        }
+
+        // DP table for blocks: level -> iter -> block
+        // Block is (ar, ai, br, bi, err)
+        let mut bla_grid = vec![vec![(0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64); max_iterations as usize]; max_levels];
+
+        // Level 0 (size 1)
+        for i in 0..(max_iterations as usize) {
+            bla_grid[0][i] = (2.0 * blx[i], 2.0 * bly[i], 1.0, 0.0, 1.0);
+        }
+
+        // Higher levels L
+        for l in 1..max_levels {
+            let step = 1 << (l - 1); // step size of previous level
+            let _total_len = 1 << l;
+            for i in 0..(max_iterations as usize) {
+                if i + step < (max_iterations as usize) {
+                    let b1 = bla_grid[l - 1][i];
+                    let b2 = bla_grid[l - 1][i + step]; // sibling node
+
+                    let ar = b2.0 * b1.0 - b2.1 * b1.1;
+                    let ai = b2.0 * b1.1 + b2.1 * b1.0;
+
+                    let br = b2.0 * b1.2 - b2.1 * b1.3 + b2.2;
+                    let bi = b2.0 * b1.3 + b2.1 * b1.2 + b2.3;
+
+                    let a2_mag = (b2.0 * b2.0 + b2.1 * b2.1).sqrt();
+                    let a1_mag = (b1.0 * b1.0 + b1.1 * b1.1).sqrt();
+                    
+                    // proxy error scalar explosion limit
+                    let err = a2_mag * b1.4 + b2.4 + (a1_mag + b1.4) * (a1_mag + b1.4);
+                    
+                    let b2_mag_sq = br * br + bi * bi;
+                    if a2_mag > 1e20 || b2_mag_sq > 1e40 || err > 1e25 {
+                        bla_grid[l][i] = (0.0, 0.0, 0.0, 0.0, f64::INFINITY);
+                    } else {
+                        bla_grid[l][i] = (ar, ai, br, bi, err);
+                    }
+                } else {
+                    // Out of bounds, flag invalid with err = INFINITY
+                    bla_grid[l][i] = (0.0, 0.0, 0.0, 0.0, f64::INFINITY);
+                }
+            }
+        }
+
+        // Serialize uniform grid: for each iteration, append 16 levels of 8 floats (ar, ai, br, bi, err, pad, pad, pad)
+        // 16 * 8 = 128 floats per iteration. Wait, let's keep it tight: 6 floats (ar, ai, br, bi, err, pad)
+        // actually 8 floats is ideal for WebGPU vec2<f32> array mapping (16 bytes aligned) -> 6 is not power of 2 sized natively.
+        // Let's use 8 floats per level: ar, ai, br, bi, err, len, pad1, pad2
+        for i in 0..(max_iterations as usize) {
+            for l in 0..max_levels {
+                let node = bla_grid[l][i];
+                let cur_len = (1 << l) as f64;
+                results.push(node.0);
+                results.push(node.1);
+                results.push(node.2);
+                results.push(node.3);
+                results.push(node.4);
+                results.push(cur_len);
+                results.push(0.0); // pad
+                results.push(0.0); // pad
+            }
+        }
     }
 
     js_sys::Float64Array::from(&results[..])

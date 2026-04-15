@@ -1,3 +1,0 @@
-Next steps:
-- Debug the high zoom issue
-- Stuttery on mobile, i swear frac was smoother

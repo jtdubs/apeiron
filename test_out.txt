@@ -1,0 +1,35 @@
+
+> apeiron@0.0.6 test:engine
+> $HOME/.deno/bin/deno test --unstable-webgpu --allow-read --allow-env --allow-write --no-check tests/engine.deno.ts
+
+[0m[38;5;245mrunning 8 tests from ./tests/engine.deno.ts[0m
+Fuzzy Match Tolerance Checker (against Ground Truth) ...
+[0m[38;5;245m------- output -------[0m
+[math-core] BLA Tree & Orbit Array compiled in 39.94ms
+[math-core] BLA Tree & Orbit Array compiled in 172.65ms
+❌ Mismatch at point 62: Expected ~100, got Perturbation WebGPU -1.4301860332489014
+[0m[38;5;245m----- output end -----[0m
+Fuzzy Match Tolerance Checker (against Ground Truth) ... [0m[31mFAILED[0m [0m[38;5;245m(463ms)[0m
+Validating derivative stability under Deep Zoom (No Magenta Glitch) (maxIter > 128) ... [0m[32mok[0m [0m[38;5;245m(36ms)[0m
+Validating Progressive Rendering Temporal Accumulation (Ping-Pong Buffer) ... [0m[32mok[0m [0m[38;5;245m(52ms)[0m
+Validating Inner-Fractal Black Hole Accumulation Stability ... [0m[32mok[0m [0m[38;5;245m(39ms)[0m
+Validating f32 Analytic and Brent Interior Early-Outs ... [0m[32mok[0m [0m[38;5;245m(19ms)[0m
+Validating Series Approximation Skip Iteration Algebraic Jump ... [0m[32mok[0m [0m[38;5;245m(35ms)[0m
+Validating Iteration Yield Fallback to Interior ... [0m[32mok[0m [0m[38;5;245m(18ms)[0m
+Validating Bit-Perfect Regression Match ... [0m[32mok[0m [0m[38;5;245m(0ms)[0m
+
+[0m[1m[37m[41m ERRORS [0m
+
+Fuzzy Match Tolerance Checker (against Ground Truth) [0m[38;5;245m=> ./tests/engine.deno.ts:212:6[0m
+[0m[1m[31merror[0m: Error: Arrays diverge beyond acceptable float limits.
+    throw new Error('Arrays diverge beyond acceptable float limits.');
+[0m[31m          ^[0m
+    at [0m[2m[38;5;245mfile:///home/jtdubs/dev/apeiron/[0m[0m[36mtests/engine.deno.ts[0m:[0m[33m267[0m:[0m[33m11[0m
+
+[0m[1m[37m[41m FAILURES [0m
+
+Fuzzy Match Tolerance Checker (against Ground Truth) [0m[38;5;245m=> ./tests/engine.deno.ts:212:6[0m
+
+[0m[31mFAILED[0m | 7 passed | 1 failed [0m[38;5;245m(676ms)[0m
+
+[0m[1m[31merror[0m: Test failed

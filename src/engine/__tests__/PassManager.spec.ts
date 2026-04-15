@@ -6,7 +6,7 @@ import type { RenderState } from '../../ui/stores/renderStore';
 describe('PassManager Pure Function Uniform Building', () => {
   it('correctly calculates actualRefMaxIter for the uniform buffer from rust refOrbits padding', () => {
     const expectedMaxIter = 10;
-    const rustBufferLength = expectedMaxIter * 8 + 8;
+    const rustBufferLength = expectedMaxIter * 136 + 8;
 
     const uniforms = buildCameraUniforms(
       0,
@@ -137,14 +137,14 @@ describe('PassManager Pure Function Uniform Building', () => {
 
     it('correctly calculates the mathematical skip limit against simulated trajectory bounds', () => {
       const iterCount = 100;
-      const floatsPerCase = 8;
+      const floatsPerCase = 136;
       const refOrbits = new Float64Array(iterCount * floatsPerCase + 8);
 
       for (let i = 0; i < iterCount; i++) {
-        refOrbits[i * floatsPerCase + 2] = 1.0;
-        refOrbits[i * floatsPerCase + 3] = 0.0;
-        refOrbits[i * floatsPerCase + 6] = i >= 19 ? 1e9 : 0.0;
-        refOrbits[i * floatsPerCase + 7] = 0.0;
+        refOrbits[i * 8 + 2] = 1.0;
+        refOrbits[i * 8 + 3] = 0.0;
+        refOrbits[i * 8 + 6] = i >= 19 ? 1e15 : 0.0;
+        refOrbits[i * 8 + 7] = 0.0;
       }
 
       const skip = calculateSkipIter(refOrbits, 1e-5, 0, 0, 1000, 1000, 0, 'perturbation');

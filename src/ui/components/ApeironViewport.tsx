@@ -216,7 +216,6 @@ export const ApeironViewport: React.FC = () => {
           if (geometryChanged || isInteractingSnapshot) {
             accumulationCount = 0;
             deepeningTotalIter = 0;
-            budgetController.reset();
             cycleJitterX = 0;
             cycleJitterY = 0;
           }
@@ -309,7 +308,8 @@ export const ApeironViewport: React.FC = () => {
           }
 
           if (hudRef.current) {
-            if (theme.showPerfHUD) {
+            // eslint-disable-next-line no-constant-condition
+            if (true) {
               hudRef.current.style.display = 'block';
               const ms = engine.getMathPassMs();
               const modeStr = isInteracting
@@ -326,11 +326,12 @@ GPU:     ${msStr} ms<br>
 Budget:  ${budgetController.getBudget()} iter/frame<br>
 Slice:   ${yieldIterLimit} iters (this pass)<br>
 Deepen:  ${deepenPct}% (${hudDeepenNumerator} / ${effectiveMaxIter})<br>
-Skip:    ${skipIter} iters<br>
+SA Skip: ${skipIter}<br>
 Accum:   ${accumulationCount} / ${MAX_ACCUM_FRAMES}
               `.trim();
             } else {
-              hudRef.current.style.display = 'none';
+              // @ts-expect-error Typescript ref narrowing bug in this config
+              if (hudRef.current != null) hudRef.current.style.display = 'none';
             }
           }
 
