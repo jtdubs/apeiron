@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { viewportStore } from '../../ui/stores/viewportStore';
 import { renderStore, THEMES } from '../../ui/stores/renderStore';
 import { serializeState, deserializeState } from '../urlSync';
@@ -86,10 +86,18 @@ describe('urlSync', () => {
   });
 
   it('gracefully handles garbage or missing base64 hashes', () => {
+    // deserializeState logs the parse failure via console.error — that is the
+    // intended behaviour.  Spy here so it doesn't pollute test stderr output.
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
     const success = deserializeState('#NOT_A_VALID_BASE64!!!!');
     expect(success).toBe(false);
 
-    // It should not have crashed nor mutated state
+    // The error must have been reported internally
+    expect(errorSpy).toHaveBeenCalledOnce();
+    errorSpy.mockRestore();
+
+    // State must be untouched
     expect(viewportStore.getState().zoom).toBe(1.5);
   });
 });

@@ -21,6 +21,18 @@ vi.mock('../../../engine/initEngine', () => ({
   initEngine: initEngineMock,
 }));
 
+// Mock the global Worker constructor so the Rust WASM worker never actually
+// loads rust_math.js in JSDOM. Without this mock the worker's async import
+// fires AFTER the test environment is torn down, producing an
+// EnvironmentTeardownError unhandled error in the Vitest pool.
+class MockWorker {
+  onmessage: ((e: MessageEvent) => void) | null = null;
+  onerror: ((e: ErrorEvent) => void) | null = null;
+  postMessage = vi.fn();
+  terminate = vi.fn();
+}
+vi.stubGlobal('Worker', MockWorker);
+
 describe('ApeironViewport Orchestration', () => {
   let workerPostMessage: ReturnType<typeof vi.fn>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -328,14 +340,14 @@ describe('ApeironViewport Orchestration', () => {
       vi.advanceTimersByTime(16);
     });
 
-    // Initial render should have blendWeight = 0.0 (first frame, accumulationCount=1)
+    // First frame: accumulationCount=0 → blendWeight=0.0 always (replace prev buffer).
     expect(renderFrameMock).toHaveBeenCalled();
     let desc: RenderFrameDescriptor = renderFrameMock.mock.calls[0][0];
     expect(desc.blendWeight).toBe(0.0);
 
     renderFrameMock.mockClear();
 
-    // Advance to next frame — should be accumulating (blendWeight = 1/2)
+    // Second frame: accumulationCount=1 → blendWeight = 1/2.
     act(() => {
       vi.advanceTimersByTime(16);
     });
@@ -354,7 +366,7 @@ describe('ApeironViewport Orchestration', () => {
       vi.advanceTimersByTime(16);
     });
 
-    // blendWeight must be 0.0 again — geometry change resets accumulationCount
+    // blendWeight must be 0.0 again — geometry change resets accumulationCount to 0
     desc = renderFrameMock.mock.calls[0][0];
     expect(desc.blendWeight).toBe(0.0);
   });
