@@ -32,7 +32,13 @@ To avoid an explosion of complexity across disparate math modes, the Engine main
 1. **Escape-Time Engine:** Used for standard boundary thresholds, Distance Estimation, and Orbit Traps. Operates heavily on ray-marched, per-pixel fragment logic.
 2. **Stochastic Engine (Buddhabrot):** Used for density accumulation mapping. Instead of per-pixel marching, it runs particle scatter compute shaders to fill iteration histogram buckets simultaneously, mapping densities to the final canvas.
 
-### 1.5 Spatial History Cache (Mipmapping)
+### 1.5 Interior Early-Out Defenses
+
+To prevent rendering bottlenecks caused by dense fractal interior locations that never escape their iteration loop, the f32 GPU mathematical loops use twin termination heuristics:
+- **Analytic Checks (O(1)):** For unmodified views of the c-plane Mandelbrot set ($d=2$, $Z_0=(0,0)$), points are instantly evaluated against bounding formulas of the main cardioid and period-2 continuous bulb.
+- **Cycle Detection (Brent's Algorithm):** Because arbitrary 4D rotations (slice angles) and exotic polynomial powers inherently alter mathematical boundaries, static analytic checks are systematically disabled in these modes. We use Brent's Cycle Algorithm inline ($O(1)$ spacial cost, $\epsilon < 10^{-20}$ bound threshold) to detect repeating loops and arbitrarily trap cyclic limits regardless of slicing domains. (*Note: The equivalent mechanism for the perturbation deep-zoom path lives in the reference cycle detectors outlined in the backend specifications.*)
+
+### 1.6 Spatial History Cache (Mipmapping)
 
 To prevent the engine from rendering a "Black Void" when the user rapidly pans or zooms out of mathematical bounds, the engine maintains a hidden **History Cache** of WebGPU textures:
 

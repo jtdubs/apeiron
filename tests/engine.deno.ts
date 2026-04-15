@@ -420,6 +420,42 @@ Deno.test('Validating Inner-Fractal Black Hole Accumulation Stability', async ()
   }
 });
 
+Deno.test('Validating f32 Analytic and Brent Interior Early-Outs', async () => {
+  const state = await initSharedState();
+  if (!state) return;
+
+  const { harness } = state;
+  // Test points:
+  // 1. (0, 0) -> Main Cardioid
+  // 2. (-1, 0) -> Period-2 Bulb
+  // 3. (0.5, 0) -> Exterior (should escape quickly)
+  // 4. (-1.75, 0.0) -> Interior but NOT in main cardioid or period-2 bulb (tests Brent's cycle detection)
+  
+  const inputs = new Float32Array([
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0,           // 0: Main Cardioid
+    0.0, 0.0, -1.0, 0.0, 0.0, 0.0,          // 1: Period-2 Bulb
+    0.0, 0.0, 0.5, 0.0, 0.0, 0.0,           // 2: Exterior
+    0.0, 0.0, -1.75, 0.0, 0.0, 0.0,         // 3: Interior (Brent) - Period 3
+    // Also test shifted z0 to ensure analytic is bypassed securely
+    0.001, 0.0, 0.0, 0.0, 0.0, 0.0          // 4: z0 != 0, c = 0 (Should bypass analytic, but Brent detects it)
+  ]);
+  
+  const maxIter = 1000;
+  const res = await harness.executeTestCompute(inputs, undefined, maxIter, false, 2.0);
+  
+  const iter0 = res[0];  // (0,0)
+  const iter1 = res[4];  // (-1,0)
+  const iter2 = res[8];  // (0.5,0)
+  const iter3 = res[12]; // (-1.75, 0.0)
+  const iter4 = res[16]; // z0 != 0
+
+  if (iter0 !== maxIter) throw new Error(`Analytic main cardioid failed. Expected ${maxIter}, got ${iter0}`);
+  if (iter1 !== maxIter) throw new Error(`Analytic period-2 bulb failed. Expected ${maxIter}, got ${iter1}`);
+  if (iter2 >= maxIter || iter2 <= 0) throw new Error(`Exterior point failed. Got iter: ${iter2}`);
+  if (iter3 !== maxIter) throw new Error(`Brent cycle detection failed for (-1.75, 0.0). Expected ${maxIter}, got ${iter3}`);
+  if (iter4 !== maxIter) throw new Error(`Brent cycle detection failed for z0 != 0. Expected ${maxIter}, got ${iter4}`);
+});
+
 Deno.test('Validating Bit-Perfect Regression Match', async () => {
   const state = await initSharedState();
   if (!state) return;

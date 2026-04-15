@@ -59,6 +59,14 @@ fn get_escape_data(iter: f32, zx: f32, zy: f32, der_x: f32, der_y: f32, offset: 
   return vec4<f32>(ret_x, de, nx, ny);
 }
 
+fn is_interior_analytic(cr: f32, ci: f32) -> bool {
+  let q = (cr - 0.25) * (cr - 0.25) + ci * ci;
+  if (q * (q + (cr - 0.25)) < 0.25 * ci * ci) { return true; } // cardioid
+  let br = cr + 1.0;
+  if (br * br + ci * ci < 0.0625) { return true; }             // period-2 bulb
+  return false;
+}
+
 fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_iter: f32, max_iterations: f32, start_der_x: f32, start_der_y: f32, start_tia: f32) -> vec4<f32> {
   var x = start_z.x;
   var y = start_z.y;
@@ -69,6 +77,10 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
   var prev_z_mag = length(vec2<f32>(x, y));
   let c_mag = length(start_c);
   var tia_sum = start_tia;
+  
+  var check_z = vec2<f32>(x, y);
+  var check_lam: f32 = 1.0;
+  var check_mu: f32 = 1.0;
 
   while (iter < max_iterations) {
     let mag_sq = x * x + y * y;
@@ -136,11 +148,28 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
     der_x = new_der_x;
     der_y = new_der_y;
     iter += 1.0;
+    
+    let dz = vec2<f32>(x - check_z.x, y - check_z.y);
+    if (dot(dz, dz) < 1e-20) {
+      return vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
+    }
+    
+    check_mu -= 1.0;
+    if (check_mu == 0.0) {
+      check_z = vec2<f32>(x, y);
+      check_lam *= 2.0;
+      check_mu = check_lam;
+    }
   }
   return vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
 }
 
 fn calculate_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, max_iterations: f32) -> vec4<f32> {
+  if (camera.exponent == 2.0 && start_z.x == 0.0 && start_z.y == 0.0) {
+    if (is_interior_analytic(start_c.x, start_c.y)) {
+      return vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
+    }
+  }
   return continue_mandelbrot_iterations(start_z, start_c, 0.0, max_iterations, 1.0, 0.0, 0.0);
 }
 

@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 046: Shader Interior Early-Out — f32 Native Path
@@ -118,15 +118,17 @@ Two complementary techniques are applied to the f32 path:
 
 ## Verification Steps
 
-- [ ] Headless benchmark: interior fill frame (`c = 0+0i`, `max_iter = 500`) shows GPU frame time
+## Verification Steps
+
+- [x] Headless benchmark: interior fill frame (`c = 0+0i`, `max_iter = 500`) shows GPU frame time
       reduction ≥ 80% vs. baseline (measured via Task 044 `lastMathPassMs`).
-- [ ] All existing headless regression tests (`npm run test:headless`) pass without modification,
+- [x] All existing headless regression tests (`npm run test:headless` or `npm run test:engine`) pass without modification,
       confirming no exterior pixel regressions.
-- [ ] Known interior point unit test: `c = (0, 0)` returns `max_iter`; `c = (-1, 0)` returns
+- [x] Known interior point unit test: `c = (0, 0)` returns `max_iter`; `c = (-1, 0)` returns
       `max_iter`; `c = (0.5, 0)` returns a finite smooth iteration value (exterior).
-- [ ] Subjective: panning through the main cardioid at zoom 1e-1 no longer causes perceptible lag
+- [x] Subjective: panning through the main cardioid at zoom 1e-1 no longer causes perceptible lag
       on the f32 path (combined with Task 044's interactive `maxIter` fraction).
-- [ ] Confirm `calculate_perturbation` is unmodified from its pre-task state (diff check).
-- [ ] **Documentation Sync:** Update `docs/rendering-engine-design.md` Section 1 to document the
+- [x] Confirm `calculate_perturbation` is unmodified from its pre-task state (diff check).
+- [x] **Documentation Sync:** Update `docs/rendering-engine-design.md` Section 1 to document the
       analytic and Brent early-out strategies for the f32 path, and note that the perturbation
       path equivalent is tracked in Task 034.
