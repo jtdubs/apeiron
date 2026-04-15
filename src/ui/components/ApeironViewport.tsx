@@ -7,6 +7,7 @@ import mathAccumWgsl from '../../engine/shaders/escape/math_accum.wgsl?raw';
 import resolvePresentWgsl from '../../engine/shaders/escape/resolve_present.wgsl?raw';
 import { viewportStore, calculateMaxIter } from '../stores/viewportStore';
 import { renderStore } from '../stores/renderStore';
+import { IterationBudgetController } from '../../engine/IterationBudgetController';
 
 export const ApeironViewport: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -168,6 +169,10 @@ export const ApeironViewport: React.FC = () => {
         //   count >= 1 → Nth frame,  blendWeight = 1/count (temporal blend)
         // The engine receives blendWeight directly — no frameCount arithmetic.
         let accumulationCount = 0;
+        let deepeningTotalIter = 0;
+        const budgetController = new IterationBudgetController(14);
+        let cycleJitterX = 0;
+        let cycleJitterY = 0;
         let lastDesc: RenderFrameDescriptor | null = null;
         let lastCanvasSizeVersion = -1;
 
@@ -209,19 +214,18 @@ export const ApeironViewport: React.FC = () => {
 
           if (geometryChanged || isInteractingSnapshot) {
             accumulationCount = 0;
+            deepeningTotalIter = 0;
+            budgetController.reset();
+            cycleJitterX = 0;
+            cycleJitterY = 0;
           }
 
-          // Skip the GPU submission if static and fully accumulated.
           const MAX_ACCUM_FRAMES = 64;
           if (!isInteractingSnapshot && accumulationCount >= MAX_ACCUM_FRAMES) {
             requestRef.current = requestAnimationFrame(loop);
             return;
           }
 
-          accumulationCount++;
-
-          // ── READ INTERACTION STATE RIGHT BEFORE RENDER ──
-          // Eliminates the 1-tick window between RAF start and GPU submission.
           const currentInteractionState = viewportStore.getState().interactionState;
           const isInteracting = currentInteractionState !== 'STATIC';
           const renderScale = isInteracting ? 1.0 / renderDpr : 1.0;
@@ -230,14 +234,27 @@ export const ApeironViewport: React.FC = () => {
             ? Math.max(INTERACT_ITER_FLOOR, Math.floor(state.maxIter * INTERACT_ITER_FRACTION))
             : state.maxIter;
 
-          const blendWeight =
-            isInteracting || accumulationCount === 1 ? 0.0 : 1.0 / accumulationCount;
+          const isFirstSlice = deepeningTotalIter === 0;
+          const mathPassMs = engine.getMathPassMs();
+          const rawBudget = budgetController.update(
+            mathPassMs !== -1 ? mathPassMs : 14,
+            isFirstSlice,
+          );
+          const yieldIterLimit = Math.min(effectiveMaxIter - deepeningTotalIter, rawBudget);
 
-          let jitterX = 0.0;
-          let jitterY = 0.0;
-          if (!isInteracting && accumulationCount > 1) {
-            jitterX = (Math.random() - 0.5) * (2.0 / canvas.width);
-            jitterY = (Math.random() - 0.5) * (2.0 / canvas.height);
+          const advancePingPong = isFirstSlice;
+          const clearCheckpoint = isFirstSlice && accumulationCount > 0;
+          const isDeepeningComplete = deepeningTotalIter + yieldIterLimit >= effectiveMaxIter;
+          const isFinalSlice = isDeepeningComplete;
+
+          const blendWeight =
+            accumulationCount > 0 ? 1.0 / (accumulationCount + 1) : 0.0;
+
+          const isResume = accumulationCount > 0 || deepeningTotalIter > 0 ? 1.0 : 0.0;
+
+          if (advancePingPong && !isInteracting && accumulationCount > 0) {
+            cycleJitterX = (Math.random() - 0.5) * (2.0 / canvas.width);
+            cycleJitterY = (Math.random() - 0.5) * (2.0 / canvas.height);
           }
 
           const desc: RenderFrameDescriptor = {
@@ -253,22 +270,46 @@ export const ApeironViewport: React.FC = () => {
             refOrbits: state.refOrbits,
             renderScale,
             blendWeight,
-            jitterX,
-            jitterY,
+            jitterX: cycleJitterX,
+            jitterY: cycleJitterY,
+            yieldIterLimit,
+            isResume,
+            isFinalSlice,
+            advancePingPong,
+            clearCheckpoint,
             theme,
           };
 
           engine.renderFrame(desc);
 
+          const hudDeepenNumerator = deepeningTotalIter + yieldIterLimit;
+
+          deepeningTotalIter += yieldIterLimit;
+          if (isDeepeningComplete) {
+            deepeningTotalIter = 0;
+            accumulationCount++;
+          }
+
           if (hudRef.current) {
             if (theme.showPerfHUD) {
               hudRef.current.style.display = 'block';
               const ms = engine.getMathPassMs();
-              if (ms !== -1) {
-                hudRef.current.innerText = `GPU Math: ${ms.toFixed(2)} ms`;
-              } else {
-                hudRef.current.innerText = `GPU Math: Unsupported/Resolving`;
-              }
+              const modeStr = isInteracting
+                ? 'INTERACT'
+                : isFinalSlice
+                  ? 'ACCUMULATING'
+                  : 'DEEPENING';
+              const msStr = ms !== -1 ? ms.toFixed(2) : '---';
+              const deepenPct = Math.round((hudDeepenNumerator / effectiveMaxIter) * 100);
+
+              hudRef.current.innerHTML = `
+Mode:    ${modeStr}<br>
+GPU:     ${msStr} ms<br>
+Budget:  ${budgetController.getBudget()} iter/frame<br>
+Slice:   ${yieldIterLimit} iters (this pass)<br>
+Deepen:  ${deepenPct}% (${hudDeepenNumerator} / ${effectiveMaxIter})<br>
+Accum:   ${accumulationCount} / ${MAX_ACCUM_FRAMES}
+              `.trim();
             } else {
               hudRef.current.style.display = 'none';
             }

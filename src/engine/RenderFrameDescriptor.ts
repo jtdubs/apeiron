@@ -26,14 +26,23 @@ export interface RenderFrameDescriptor {
   /** 1.0 = full native resolution (STATIC). <1.0 = DRS sub-rect (INTERACT). */
   renderScale: number;
 
-  // ── Temporal accumulation ────────────────────────────────────────────
+  // ── Temporal accumulation & Checkpointing ────────────────────────────
+  /** Max iterations to compute this frame slice (clamped by IterationBudgetController) */
+  yieldIterLimit: number;
+  /** 1.0 = load struct from checkpoint; 0.0 = clear & start fresh. (Always 1.0 after cycle 1 starts) */
+  isResume: number;
+  /** If true, this is the final slice of the current cycle. Apply temporal blend. */
+  isFinalSlice: boolean;
+  /** If true, flip the ping-pong buffer before running the math pass (only once per cycle). */
+  advancePingPong: boolean;
+  /** If true, clear the checkpoint buffer before running the math pass (only once per cycle start). */
+  clearCheckpoint: boolean;
+
   /**
    * Blend weight for ping-pong temporal accumulation in the shader:
-   *   - 0.0  → replace prev buffer entirely (first frame, or any INTERACT frame)
-   *   - 1/N  → blend: mix(prev, current, 1/N) for the Nth accumulated frame
-   *
-   * The RAF loop computes this from its own accumulationCount.
-   * The engine passes it directly to the WGSL mix() call via the uniform.
+   *   - 0.0  → replace prev buffer entirely (first cycle, or any INTERACT frame)
+   *   - 1/N  → blend: mix(prev, current, 1/N) for the Nth accumulated cycle
+   * Only applied when `isFinalSlice` is true.
    */
   blendWeight: number;
 

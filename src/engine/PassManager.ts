@@ -14,7 +14,7 @@ export class AccumulationPass {
     const mathModule = device.createShaderModule({ code: mathShaderCode });
 
     this.uniformsBuffer = device.createBuffer({
-      size: 64, // 16 floats × 4 bytes (CameraParams)
+      size: 80, // 20 floats × 4 bytes (CameraParams)
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -44,6 +44,7 @@ export class AccumulationPass {
   public getBindGroup(
     activeRefOrbitsBuffer: GPUBuffer | null,
     prevFrameView: GPUTextureView,
+    checkpointBuffer: GPUBuffer,
   ): GPUBindGroup {
     return this.device.createBindGroup({
       layout: this.mathPipeline.getBindGroupLayout(0),
@@ -56,6 +57,7 @@ export class AccumulationPass {
           },
         },
         { binding: 4, resource: prevFrameView },
+        { binding: 5, resource: { buffer: checkpointBuffer } },
       ],
     });
   }
@@ -199,6 +201,7 @@ export class PassManager {
 
   private gBufferTextureA: GPUTexture | null = null;
   private gBufferTextureB: GPUTexture | null = null;
+  private checkpointBuffer: GPUBuffer | null = null;
   private pingPongTargetIsB = false;
 
   private activeRefOrbitsBuffer: GPUBuffer | null = null;
@@ -235,6 +238,7 @@ export class PassManager {
     this.presentPass = new PresentationPass(device, resolveShaderCode, canvasFormat);
 
     if (device.features.has('timestamp-query')) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const isDeno = typeof (globalThis as any).Deno !== 'undefined';
       if (!isDeno) {
         try {
@@ -271,6 +275,13 @@ export class PassManager {
 
     this.gBufferTextureA = this.device.createTexture(desc);
     this.gBufferTextureB = this.device.createTexture(desc);
+
+    if (this.checkpointBuffer) this.checkpointBuffer.destroy();
+    this.checkpointBuffer = this.device.createBuffer({
+      size: this.width * this.height * 32, // 32 bytes per pixel
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
     this.pingPongTargetIsB = false;
   }
 
@@ -351,6 +362,10 @@ export class PassManager {
       this.hasValidActiveRefOrbits,
       desc.refOrbits ? desc.refOrbits.length : undefined,
       desc.renderScale,
+      desc.yieldIterLimit,
+      desc.isResume,
+      desc.isFinalSlice,
+      width,
       desc.theme,
     );
     this.device.queue.writeBuffer(this.accumPass.uniformsBuffer, 0, cameraData);
@@ -386,18 +401,23 @@ export class PassManager {
     // ── GPU command submission ───────────────────────────────────────────────
     const commandEncoder = this.device.createCommandEncoder();
 
+    if (desc.clearCheckpoint && this.checkpointBuffer) {
+      commandEncoder.clearBuffer(this.checkpointBuffer);
+    }
+
     // Deno WebGPU stub or some browsers might report the feature but lack the function
     const queryActive = this.querySet !== null && this.isQueryReady;
 
-    // Always run the accumulation pass — the RAF loop decides whether to
-    // call render() at all; the engine never skips the math pass internally.
-    this.pingPongTargetIsB = !this.pingPongTargetIsB;
+    if (desc.advancePingPong) {
+      this.pingPongTargetIsB = !this.pingPongTargetIsB;
+    }
     const writeTex = this.pingPongTargetIsB ? this.gBufferTextureB : this.gBufferTextureA;
     const readTex = this.pingPongTargetIsB ? this.gBufferTextureA : this.gBufferTextureB;
 
     const accumBindGroup = this.accumPass.getBindGroup(
       this.activeRefOrbitsBuffer,
       readTex!.createView(),
+      this.checkpointBuffer!,
     );
     this.accumPass.execute(
       commandEncoder,

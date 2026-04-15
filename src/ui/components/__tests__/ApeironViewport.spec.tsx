@@ -13,6 +13,7 @@ const { renderFrameMock, initEngineMock } = vi.hoisted(() => {
     initEngineMock: vi.fn().mockResolvedValue({
       renderFrame: renderFrameMock,
       resize: vi.fn(),
+      getMathPassMs: vi.fn().mockReturnValue(14),
     }),
   };
 });

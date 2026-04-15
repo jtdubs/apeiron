@@ -46,7 +46,7 @@ export class WebGPUTestHarness {
     });
 
     const cameraTestBuffer = this.device.createBuffer({
-      size: 64,
+      size: 80,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -67,6 +67,10 @@ export class WebGPUTestHarness {
       0.0, // jitterY
       0.0, // blendWeight (first frame = 0.0, replaces prev buffer)
       1.0, // renderScale
+      maxIter, // yieldIterLimit
+      0.0, // isResume
+      1.0, // isFinalSlice
+      1.0, // canvasWidth
     ]);
     this.device.queue.writeBuffer(cameraTestBuffer, 0, cameraData);
 
@@ -75,6 +79,12 @@ export class WebGPUTestHarness {
       { binding: 1, resource: { buffer: inputStorageBuffer } },
       { binding: 2, resource: { buffer: outputStorageBuffer } },
     ];
+
+    const checkpointBuffer = this.device.createBuffer({
+      size: computeUnits * 32, // CheckpointState is 32 bytes
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
 
     let refOrbitsBuffer: GPUBuffer | null = null;
     if (refOrbits) {
@@ -123,6 +133,7 @@ export class WebGPUTestHarness {
     stagingBuffer.destroy();
     cameraTestBuffer.destroy();
     if (refOrbitsBuffer) refOrbitsBuffer.destroy();
+    checkpointBuffer.destroy();
 
     return result;
   }
@@ -189,6 +200,7 @@ export class TestRenderSession {
       ci,
       zoom,
       maxIter,
+      trueMaxIter: maxIter,
       sliceAngle,
       exponent,
       refOrbits: refOrbits ?? null,
@@ -196,6 +208,11 @@ export class TestRenderSession {
       blendWeight,
       jitterX,
       jitterY,
+      yieldIterLimit: maxIter,
+      isResume: 0.0,
+      isFinalSlice: true,
+      advancePingPong: true,
+      clearCheckpoint: true,
       theme: theme ?? ({} as RenderState),
     };
     this.pm.render(this.targetView, this.width, this.height, desc);

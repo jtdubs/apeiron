@@ -16,6 +16,10 @@ export function buildCameraUniforms(
   hasValidActiveRefOrbits: boolean,
   refOrbitsLength: number | undefined,
   renderScale: number,
+  yieldIterLimit: number,
+  isResume: number,
+  isFinalSlice: boolean,
+  canvasWidth: number,
   theme?: RenderState,
 ): Float32Array {
   let actualRefMaxIter = maxIter;
@@ -46,6 +50,10 @@ export function buildCameraUniforms(
     jitterY,
     blendWeight,
     renderScale,
+    yieldIterLimit,
+    isResume,
+    isFinalSlice ? 1.0 : 0.0,
+    canvasWidth,
   ]);
 }
 

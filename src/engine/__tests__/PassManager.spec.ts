@@ -23,6 +23,10 @@ describe('PassManager Pure Function Uniform Building', () => {
       true,
       rustBufferLength,
       1.0, // renderScale
+      100, // yieldIterLimit
+      0, // isResume
+      true, // isFinalSlice
+      1024, // canvasWidth
       undefined,
     );
 
@@ -63,6 +67,10 @@ describe('PassManager Pure Function Uniform Building', () => {
       true,
       208,
       1.0, // renderScale
+      100, // yieldIterLimit
+      0, // isResume
+      true, // isFinalSlice
+      1024, // canvasWidth
       theme,
     );
     expect(uniforms[8]).toBe(0.0);
