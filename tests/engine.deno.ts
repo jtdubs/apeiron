@@ -487,6 +487,95 @@ Deno.test('Validating f32 Analytic and Brent Interior Early-Outs', async () => {
     throw new Error(`Brent cycle detection failed for z0 != 0. Expected ${maxIter}, got ${iter4}`);
 });
 
+Deno.test('Validating Series Approximation Skip Iteration Algebraic Jump', async () => {
+  const state = await initSharedState();
+  if (!state) return;
+
+  const { harness, alignedRefOrbits } = state;
+  // Choose an exterior deep point that takes > 50 iterations to escape.
+  // c = -1.748 + 1e-15i, dz = 1e-15, exponent = 2.0
+  const inputs = new Float32Array([0.0, 0.0, -1.748, 0.0, 1e-15, 1e-15]);
+
+  // First, we run Standard Perturbation (no skipping) - the control group
+  const standardRes = await harness.executeTestCompute(
+    inputs,
+    alignedRefOrbits.subarray(0, 100 * 8 + 8), // Provide valid ref orbits from point 0
+    100, // maxIter
+    true, // usePerturbation
+    2.0, // exponent
+    0.0, // skipIter
+  );
+
+  // Next we arbitrarily skip 20 iterations.
+  // It shouldn't change the escape path results noticeably.
+  const skipRes = await harness.executeTestCompute(
+    inputs,
+    alignedRefOrbits.subarray(0, 100 * 8 + 8),
+    100,
+    true,
+    2.0,
+    20.0, // skipIter
+  );
+
+  const standardIter = standardRes[0];
+  const skipIterRes = skipRes[0];
+  const deDiff = Math.abs(standardRes[1] - skipRes[1]);
+
+  if (Math.abs(standardIter - skipIterRes) > 1.0) {
+    throw new Error(
+      `Series Skip mismatch! Standard Perturbation Iterations: ${standardIter}, Skipped Iterations: ${skipIterRes}`,
+    );
+  }
+
+  if (deDiff > 1e-2 && deDiff !== 0) {
+    throw new Error(`Series Skip Distance estimation drastically diverged! Diff: ${deDiff}`);
+  }
+});
+
+Deno.test('Validating Iteration Yield Fallback to Interior', async () => {
+  const state = await initSharedState();
+  if (!state) return;
+
+  const { harness } = state;
+  const width = 1;
+  const height = 1;
+
+  // We choose an exterior point that takes EXACTLY ~53 iterations to escape according to ground truth.
+  // We cap the yield limit at 20. The math MUST yield and safely map to the interior color (maxIter 100),
+  // rather than rendering an arbitrary base-zero gradient flash.
+  const session = harness.createSession(width, height);
+  session.renderFrame(
+    0.0,
+    0.0,
+    -1.748,
+    0.0,
+    1.0, // zoom
+    100, // maxIter
+    0.0, // angle
+    2.0, // exp
+    0.0, // blendWeight
+    0.0, // jitterX
+    0.0, // jitterY
+    undefined, // refOrbits
+    undefined, // theme
+    20, // yieldIterLimit!
+  );
+
+  const yieldData = await session.readResolved();
+  session.destroy();
+
+  const r = yieldData[0];
+  const g = yieldData[1];
+  const b = yieldData[2];
+  const a = yieldData[3];
+
+  if (r !== 0 || g !== 0 || b !== 0 || a !== 255) {
+    throw new Error(
+      `Yield Fallback glitch detected! Expected solid black interior mapping, got rgba(${r}, ${g}, ${b}, ${a}). This usually means unfinished pixels are rendering as false exterior escapes (e.g. magenta).`,
+    );
+  }
+});
+
 Deno.test('Validating Bit-Perfect Regression Match', async () => {
   const state = await initSharedState();
   if (!state) return;

@@ -32,12 +32,18 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
         let mut check_x = x.clone();
         let mut check_y = y.clone();
         let mut check_iter = 1;
+        
+        // Absolute Taylor Series Derivatives (Never reset)
         let mut ar = BigDecimal::one();
         let mut ai = BigDecimal::zero();
         let mut br = BigDecimal::zero();
         let mut bi = BigDecimal::zero();
         let mut cr = BigDecimal::zero();
         let mut ci = BigDecimal::zero();
+
+        // Limit Cycle Derivative (Reset at check points)
+        let mut cycle_der_r = BigDecimal::one();
+        let mut cycle_der_i = BigDecimal::zero();
 
         let mut iter = 0;
         let limit = BigDecimal::from(4);
@@ -96,6 +102,12 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
                 cr = temp_cr;
                 ci = temp_ci;
 
+                // Update limit cycle derivative (A_cycle)
+                let temp_cycle_r = (&two * (&x * &cycle_der_r - &y * &cycle_der_i) + BigDecimal::one()).with_prec(100);
+                let temp_cycle_i = (&two * (&x * &cycle_der_i + &y * &cycle_der_r)).with_prec(100);
+                cycle_der_r = temp_cycle_r;
+                cycle_der_i = temp_cycle_i;
+
                 let new_x = (&x2 - &y2 + &x0).with_prec(100);
                 y = (&two * &x * &y + &y0).with_prec(100);
                 x = new_x;
@@ -120,6 +132,9 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
                 bi = BigDecimal::zero();
                 cr = BigDecimal::zero();
                 ci = BigDecimal::zero();
+
+                cycle_der_r = BigDecimal::one();
+                cycle_der_i = BigDecimal::zero();
             } else {
                 let x_f = x.to_f64().unwrap_or(0.0);
                 let y_f = y.to_f64().unwrap_or(0.0);
@@ -143,6 +158,9 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
                 bi = BigDecimal::zero();
                 cr = BigDecimal::zero();
                 ci = BigDecimal::zero();
+
+                cycle_der_r = BigDecimal::one();
+                cycle_der_i = BigDecimal::zero();
             }
 
             if x == check_x && y == check_y {
@@ -154,12 +172,9 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
                 check_x = x.clone();
                 check_y = y.clone();
                 check_iter *= 2;
-                ar = BigDecimal::one();
-                ai = BigDecimal::zero();
-                br = BigDecimal::zero();
-                bi = BigDecimal::zero();
-                cr = BigDecimal::zero();
-                ci = BigDecimal::zero();
+                
+                cycle_der_r = BigDecimal::one();
+                cycle_der_i = BigDecimal::zero();
             }
 
             iter += 1;
@@ -183,8 +198,8 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
         }
 
         results.push(if cycle_found { 1.0 } else { 0.0 });
-        results.push(ar.to_f64().unwrap_or(0.0));
-        results.push(ai.to_f64().unwrap_or(0.0));
+        results.push(cycle_der_r.to_f64().unwrap_or(0.0));
+        results.push(cycle_der_i.to_f64().unwrap_or(0.0));
         results.push(if escaped { iter as f64 } else { max_iterations as f64 });
         
         // Append absolute tracking metadata to be retrieved cleanly by WebGPU without JS Float parsing

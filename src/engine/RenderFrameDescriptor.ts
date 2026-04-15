@@ -21,6 +21,7 @@ export interface RenderFrameDescriptor {
   sliceAngle: number;
   exponent: number;
   refOrbits: Float64Array | null;
+  skipIter: number;
 
   // ── Dynamic Resolution Scaling ───────────────────────────────────────
   /** 1.0 = full native resolution (STATIC). <1.0 = DRS sub-rect (INTERACT). */

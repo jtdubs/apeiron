@@ -14,7 +14,7 @@ export class AccumulationPass {
     const mathModule = device.createShaderModule({ code: mathShaderCode });
 
     this.uniformsBuffer = device.createBuffer({
-      size: 80, // 20 floats × 4 bytes (CameraParams)
+      size: 96, // 24 floats × 4 bytes (CameraParams)
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -366,6 +366,7 @@ export class PassManager {
       desc.isResume,
       desc.isFinalSlice,
       width,
+      desc.skipIter,
       desc.theme,
     );
     this.device.queue.writeBuffer(this.accumPass.uniformsBuffer, 0, cameraData);

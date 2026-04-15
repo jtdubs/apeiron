@@ -20,6 +20,7 @@ export function buildCameraUniforms(
   isResume: number,
   isFinalSlice: boolean,
   canvasWidth: number,
+  skipIter: number,
   theme?: RenderState,
 ): Float32Array {
   let actualRefMaxIter = maxIter;
@@ -54,6 +55,10 @@ export function buildCameraUniforms(
     isResume,
     isFinalSlice ? 1.0 : 0.0,
     canvasWidth,
+    skipIter,
+    0.0, // pad
+    0.0, // pad
+    0.0, // pad
   ]);
 }
 

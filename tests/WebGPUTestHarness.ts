@@ -15,6 +15,7 @@ export class WebGPUTestHarness {
     maxIter: number = 100,
     usePerturbation: boolean = true,
     exponent: number = 2.0,
+    skipIter: number = 0.0,
   ): Promise<Float32Array> {
     const computeModule = this.device.createShaderModule({ code: this.mathShaderCode });
     const computePipeline = this.device.createComputePipeline({
@@ -46,7 +47,7 @@ export class WebGPUTestHarness {
     });
 
     const cameraTestBuffer = this.device.createBuffer({
-      size: 80,
+      size: 96,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -71,6 +72,10 @@ export class WebGPUTestHarness {
       0.0, // isResume
       1.0, // isFinalSlice
       1.0, // canvasWidth
+      skipIter, // skipIter
+      0.0,
+      0.0,
+      0.0,
     ]);
     this.device.queue.writeBuffer(cameraTestBuffer, 0, cameraData);
 
@@ -192,6 +197,7 @@ export class TestRenderSession {
     jitterY: number = 0.0,
     refOrbits?: Float64Array | null,
     theme?: RenderState,
+    yieldIterLimit?: number,
   ) {
     const desc: RenderFrameDescriptor = {
       zr,
@@ -208,7 +214,7 @@ export class TestRenderSession {
       blendWeight,
       jitterX,
       jitterY,
-      yieldIterLimit: maxIter,
+      yieldIterLimit: yieldIterLimit ?? maxIter,
       isResume: 0.0,
       isFinalSlice: true,
       advancePingPong: true,

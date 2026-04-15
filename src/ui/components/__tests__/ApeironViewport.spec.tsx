@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, act, fireEvent } from '@testing-library/react';
+import { render, act, fireEvent, cleanup } from '@testing-library/react';
 import { ApeironViewport } from '../ApeironViewport';
 import { viewportStore } from '../../stores/viewportStore';
 import { renderStore } from '../../stores/renderStore';
@@ -78,6 +78,7 @@ describe('ApeironViewport Orchestration', () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.useRealTimers();
     vi.clearAllMocks();
   });

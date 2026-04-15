@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildCameraUniforms, buildPaletteUniforms } from '../uniforms';
+import { calculateSkipIter } from '../seriesApproximation';
 import type { RenderState } from '../../ui/stores/renderStore';
 
 describe('PassManager Pure Function Uniform Building', () => {
@@ -27,6 +28,7 @@ describe('PassManager Pure Function Uniform Building', () => {
       0, // isResume
       true, // isFinalSlice
       1024, // canvasWidth
+      0, // skipIter
       undefined,
     );
 
@@ -71,6 +73,7 @@ describe('PassManager Pure Function Uniform Building', () => {
       0, // isResume
       true, // isFinalSlice
       1024, // canvasWidth
+      0, // skipIter
       theme,
     );
     expect(uniforms[8]).toBe(0.0);
@@ -117,5 +120,35 @@ describe('PassManager Pure Function Uniform Building', () => {
     expect(uniforms[27]).toBe(15.0);
     // [28]: surfaceParamB (glowScatter)
     expect(uniforms[28]).toBe(2.0);
+  });
+
+  describe('Series Approximation Math Tracker', () => {
+    it('returns 0 when precisionMode is f32', () => {
+      const refOrbits = new Float64Array(808);
+      expect(calculateSkipIter(refOrbits, 1e-5, 0, 0, 1024, 768, 0, 'f32')).toBe(0);
+    });
+
+    it('returns 0 when sliceAngle implies Julia/cross-plane panning', () => {
+      const refOrbits = new Float64Array(808);
+      expect(calculateSkipIter(refOrbits, 1e-5, 0, 0, 1024, 768, Math.PI / 4, 'perturbation')).toBe(
+        0,
+      );
+    });
+
+    it('correctly calculates the mathematical skip limit against simulated trajectory bounds', () => {
+      const iterCount = 100;
+      const floatsPerCase = 8;
+      const refOrbits = new Float64Array(iterCount * floatsPerCase + 8);
+
+      for (let i = 0; i < iterCount; i++) {
+        refOrbits[i * floatsPerCase + 2] = 1.0;
+        refOrbits[i * floatsPerCase + 3] = 0.0;
+        refOrbits[i * floatsPerCase + 6] = i >= 19 ? 1e9 : 0.0;
+        refOrbits[i * floatsPerCase + 7] = 0.0;
+      }
+
+      const skip = calculateSkipIter(refOrbits, 1e-5, 0, 0, 1000, 1000, 0, 'perturbation');
+      expect(skip).toBe(18);
+    });
   });
 });

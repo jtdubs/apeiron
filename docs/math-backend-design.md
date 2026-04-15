@@ -40,9 +40,11 @@ Our engine operates exclusively by defining the mathematical viewport as a 2D pl
 
 All precision routines, `math-core` arbitrary precision orbit arrays, and hardware test fixtures MUST natively accept and compute against this `[zr, zi, cr, ci]` origin format instead of relying on hardcoded dual dimensions.
 
-## 5. Advanced Math Future-Proofing
+## 5. Advanced Math Features: Series Approximation (SA)
 
-The math core should be architectured to eventually support **Bilinear Approximation (BLA)** and **Series Approximation (SA)**, effectively computing mathematical polynomials to skip millions of unnecessary iterations on complex deep zooms.
+The math core implements **Series Approximation** by tracking higher-order spatial derivatives ($A$, $B$, $C$ coefficients of the Taylor expansion) alongside the primary reference orbit. In deep zoom scenarios, these structural polynomials allow the engine to confidently skip thousands or millions of iterations by analytically jumping $Z$ coordinates over long mathematically smooth paths via algebraic approximation, mapping extreme depths instantaneously without brute-force GPU calculation.
+
+Critically, the core Taylor series derivatives ($A_n$, $B_n$, $C_n$) are absolute derivatives computed linearly from $Z_0$, completely decoupled from isolated limit cycle derivatives used to map inner period topology, preventing chaotic interpolation jumps during iteration skipping.
 
 ## 6. Interior Shading & Limit Cycles (Deep Zoom)
 

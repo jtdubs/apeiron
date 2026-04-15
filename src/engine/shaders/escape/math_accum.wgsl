@@ -19,6 +19,10 @@ struct CameraParams {
   is_resume: f32,
   is_final_slice: f32,
   canvas_width: f32,
+  skip_iter: f32,
+  pad1: f32,
+  pad2: f32,
+  pad3: f32,
 };
 
 struct CheckpointState {
@@ -256,6 +260,49 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
      let initial_x_resume = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter)*8u]) + dz.x;
      let initial_y_resume = unpack_f64_to_f32(ref_orbits[ref_offset + u32(iter)*8u + 1u]) + dz.y;
      prev_z_mag = length(vec2<f32>(initial_x_resume, initial_y_resume));
+  } else if (camera.skip_iter > 0.0) {
+      iter = camera.skip_iter;
+      let skip = u32(iter);
+      
+      let ar = unpack_f64_to_f32(ref_orbits[ref_offset + skip * 8u + 2u]);
+      let ai = unpack_f64_to_f32(ref_orbits[ref_offset + skip * 8u + 3u]);
+      let br = unpack_f64_to_f32(ref_orbits[ref_offset + skip * 8u + 4u]);
+      let bi = unpack_f64_to_f32(ref_orbits[ref_offset + skip * 8u + 5u]);
+      let cr = unpack_f64_to_f32(ref_orbits[ref_offset + skip * 8u + 6u]);
+      let ci = unpack_f64_to_f32(ref_orbits[ref_offset + skip * 8u + 7u]);
+      
+      let dcx = delta_c.x;
+      let dcy = delta_c.y;
+      
+      let a_dc_x = ar * dcx - ai * dcy;
+      let a_dc_y = ar * dcy + ai * dcx;
+      
+      let dc2_x = dcx * dcx - dcy * dcy;
+      let dc2_y = 2.0 * dcx * dcy;
+      
+      let b_dc2_x = br * dc2_x - bi * dc2_y;
+      let b_dc2_y = br * dc2_y + bi * dc2_x;
+      
+      let dc3_x = dc2_x * dcx - dc2_y * dcy;
+      let dc3_y = dc2_x * dcy + dc2_y * dcx;
+      
+      let c_dc3_x = cr * dc3_x - ci * dc3_y;
+      let c_dc3_y = cr * dc3_y + ci * dc3_x;
+      
+      dz = vec2<f32>(a_dc_x + b_dc2_x + c_dc3_x, a_dc_y + b_dc2_y + c_dc3_y);
+      
+      der_x = ar;
+      der_y = ai;
+      
+      let initial_x = unpack_f64_to_f32(ref_orbits[ref_offset + skip*8u]) + dz.x;
+      let initial_y = unpack_f64_to_f32(ref_orbits[ref_offset + skip*8u + 1u]) + dz.y;
+      prev_z_mag = length(vec2<f32>(initial_x, initial_y));
+      
+      if (initial_x * initial_x + initial_y * initial_y > 4.0) {
+         let ret = get_escape_data(iter, initial_x, initial_y, der_x, der_y, 1.0, tia_sum);
+         checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
+         return ret;
+      }
   } else {
      let initial_x = unpack_f64_to_f32(ref_orbits[ref_offset]) + dz.x;
      let initial_y = unpack_f64_to_f32(ref_orbits[ref_offset + 1u]) + dz.y;
@@ -459,7 +506,8 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
       if (camera.blend_weight > 0.0) {
           return textureLoad(readTex, coord, 0);
       } else {
-          return vec4<f32>(0.0);
+          // Unresolved yield pixels should default to interior black, not palette baseline!
+          return vec4<f32>(camera.max_iter, 0.0, 0.0, 0.0);
       }
   }
   

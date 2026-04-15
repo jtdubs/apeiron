@@ -8,6 +8,7 @@ import resolvePresentWgsl from '../../engine/shaders/escape/resolve_present.wgsl
 import { viewportStore, calculateMaxIter } from '../stores/viewportStore';
 import { renderStore } from '../stores/renderStore';
 import { IterationBudgetController } from '../../engine/IterationBudgetController';
+import { calculateSkipIter } from '../../engine/seriesApproximation';
 
 export const ApeironViewport: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -230,8 +231,25 @@ export const ApeironViewport: React.FC = () => {
           const isInteracting = currentInteractionState !== 'STATIC';
           const renderScale = isInteracting ? 1.0 / renderDpr : 1.0;
 
+          const skipIter = canvas
+            ? calculateSkipIter(
+                state.refOrbits,
+                state.zoom,
+                state.deltaCr,
+                state.deltaCi,
+                canvas.width,
+                canvas.height,
+                state.sliceAngle,
+                theme.precisionMode,
+              )
+            : 0;
+
           const effectiveMaxIter = isInteracting
-            ? Math.max(INTERACT_ITER_FLOOR, Math.floor(state.maxIter * INTERACT_ITER_FRACTION))
+            ? Math.min(
+                state.maxIter,
+                Math.max(INTERACT_ITER_FLOOR, Math.floor(state.maxIter * INTERACT_ITER_FRACTION)) +
+                  skipIter,
+              )
             : state.maxIter;
 
           const isFirstSlice = deepeningTotalIter === 0;
@@ -247,8 +265,7 @@ export const ApeironViewport: React.FC = () => {
           const isDeepeningComplete = deepeningTotalIter + yieldIterLimit >= effectiveMaxIter;
           const isFinalSlice = isDeepeningComplete;
 
-          const blendWeight =
-            accumulationCount > 0 ? 1.0 / (accumulationCount + 1) : 0.0;
+          const blendWeight = accumulationCount > 0 ? 1.0 / (accumulationCount + 1) : 0.0;
 
           const isResume = accumulationCount > 0 || deepeningTotalIter > 0 ? 1.0 : 0.0;
 
@@ -268,6 +285,7 @@ export const ApeironViewport: React.FC = () => {
             sliceAngle: state.sliceAngle,
             exponent: state.exponent,
             refOrbits: state.refOrbits,
+            skipIter,
             renderScale,
             blendWeight,
             jitterX: cycleJitterX,
@@ -308,6 +326,7 @@ GPU:     ${msStr} ms<br>
 Budget:  ${budgetController.getBudget()} iter/frame<br>
 Slice:   ${yieldIterLimit} iters (this pass)<br>
 Deepen:  ${deepenPct}% (${hudDeepenNumerator} / ${effectiveMaxIter})<br>
+Skip:    ${skipIter} iters<br>
 Accum:   ${accumulationCount} / ${MAX_ACCUM_FRAMES}
               `.trim();
             } else {
