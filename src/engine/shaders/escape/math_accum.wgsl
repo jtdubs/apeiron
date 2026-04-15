@@ -68,7 +68,7 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
 
   while (iter < max_iterations) {
     let mag_sq = x * x + y * y;
-    if (mag_sq > 4.0) {
+    if (!(mag_sq <= 4.0)) {
       return get_escape_data(iter, x, y, der_x, der_y, 1.0, tia_sum);
     }
     
@@ -176,7 +176,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
   let c_mag = length(start_c);
   var tia_sum = 0.0;
   
-  if (initial_x * initial_x + initial_y * initial_y > 4.0) {
+  if (!(initial_x * initial_x + initial_y * initial_y <= 4.0)) {
     return get_escape_data(iter, initial_x, initial_y, der_x, der_y, 1.0, tia_sum);
   }
 
@@ -262,11 +262,8 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     
     let cur_mag = cur_x * cur_x + cur_y * cur_y;
     
-    if (cur_mag > 1000000.0) {
-      return vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
-    }
-    
-    if (cur_mag > 4.0) {
+    // Prevent GPU NaN bombs by ensuring bailout catches Invalid calculations
+    if (!(cur_mag <= 4.0)) {
       return get_escape_data(iter, cur_x, cur_y, der_x, der_y, 2.0, tia_sum);
     }
     

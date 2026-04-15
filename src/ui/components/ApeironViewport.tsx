@@ -181,9 +181,90 @@ export const ApeironViewport: React.FC = () => {
       },
     );
 
+    interface WorkerJob {
+      id: number;
+      absZr: string;
+      absZi: string;
+      absCr: string;
+      absCi: string;
+      exponent: number;
+      maxIter: number;
+    }
+    let isWorkerBusy = false;
+    let pendingWorkerJob: WorkerJob | null = null;
+    let currentWorkerJob: WorkerJob | null = null;
+
+    const dispatchPendingWork = () => {
+      if (pendingWorkerJob) {
+        currentWorkerJob = pendingWorkerJob;
+        pendingWorkerJob = null;
+        isWorkerBusy = true;
+
+        const casesJson = JSON.stringify([
+          {
+            zr: currentWorkerJob.absZr,
+            zi: currentWorkerJob.absZi,
+            cr: currentWorkerJob.absCr,
+            ci: currentWorkerJob.absCi,
+            exponent: currentWorkerJob.exponent,
+          },
+        ]);
+        worker.postMessage({
+          id: currentWorkerJob.id,
+          type: 'COMPUTE',
+          casesJson,
+          maxIterations: currentWorkerJob.maxIter,
+        });
+      } else {
+        isWorkerBusy = false;
+        currentWorkerJob = null;
+      }
+    };
+
     worker.onmessage = (e: MessageEvent) => {
       if (e.data.type === 'COMPUTE_RESULT' && e.data.result) {
-        viewportStore.getState().setRefOrbits(e.data.result);
+        // Did the user pan while we were waiting?
+        if (pendingWorkerJob !== null) {
+          // Discard the obsolete result, dispatch the pending work immediately
+          dispatchPendingWork();
+        } else if (currentWorkerJob) {
+          const job = currentWorkerJob;
+
+          // Apply state synchronously to avoid tearing/flickering
+          viewportStore.setState((state) => {
+            // Need to deduce how much the user has panned *since* this job was queued
+            // To do that, we find the absolute physical coordinate right now:
+            const currentAbsoluteCr = parseFloat(state.anchorCr) + state.deltaCr;
+            const currentAbsoluteCi = parseFloat(state.anchorCi) + state.deltaCi;
+            const currentAbsoluteZr = parseFloat(state.anchorZr) + state.deltaZr;
+            const currentAbsoluteZi = parseFloat(state.anchorZi) + state.deltaZi;
+
+            // Our new anchor will be the one the worker just finished
+            const newDeltaCr = currentAbsoluteCr - parseFloat(job.absCr);
+            const newDeltaCi = currentAbsoluteCi - parseFloat(job.absCi);
+            const newDeltaZr = currentAbsoluteZr - parseFloat(job.absZr);
+            const newDeltaZi = currentAbsoluteZi - parseFloat(job.absZi);
+
+            return {
+              anchorZr: job.absZr,
+              anchorZi: job.absZi,
+              anchorCr: job.absCr,
+              anchorCi: job.absCi,
+              deltaZr: newDeltaZr,
+              deltaZi: newDeltaZi,
+              deltaCr: newDeltaCr,
+              deltaCi: newDeltaCi,
+              zoom: state.zoom, // don't clobber active zoom
+              sliceAngle: state.sliceAngle,
+              exponent: state.exponent,
+              maxIter: state.maxIter,
+              refOrbits: e.data.result,
+            };
+          });
+
+          isWorkerBusy = false;
+          currentWorkerJob = null;
+        }
       }
     };
 
@@ -212,43 +293,27 @@ export const ApeironViewport: React.FC = () => {
             const absCr = (parseFloat(state.anchorCr) + state.deltaCr).toString();
             const absCi = (parseFloat(state.anchorCi) + state.deltaCi).toString();
 
-            const casesJson = JSON.stringify([
-              {
-                zr: absZr,
-                zi: absZi,
-                cr: absCr,
-                ci: absCi,
-                exponent: state.exponent,
-              },
-            ]);
-            worker.postMessage({
+            const job = {
               id: Date.now(),
-              type: 'COMPUTE',
-              casesJson,
-              maxIterations: state.maxIter,
-            });
+              absZr,
+              absZi,
+              absCr,
+              absCi,
+              exponent: state.exponent,
+              maxIter: state.maxIter,
+            };
 
-            // Accept the new center
-            viewportStore
-              .getState()
-              .setAnchorsAndDeltas(
-                absZr,
-                absZi,
-                absCr,
-                absCi,
-                0.0,
-                0.0,
-                0.0,
-                0.0,
-                state.zoom,
-                state.sliceAngle,
-                state.exponent,
-              );
+            if (isWorkerBusy) {
+              pendingWorkerJob = job;
+            } else {
+              pendingWorkerJob = job;
+              dispatchPendingWork();
+            }
           }, 150); // 150ms debounce
         }
       } else {
         if (state.refOrbits !== null) {
-          viewportStore.getState().setRefOrbits(null);
+          viewportStore.setState({ refOrbits: null });
         }
       }
     });

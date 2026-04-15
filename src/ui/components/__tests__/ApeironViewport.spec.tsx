@@ -21,10 +21,30 @@ vi.mock('../../../engine/initEngine', () => ({
 }));
 
 describe('ApeironViewport Orchestration', () => {
+  let workerPostMessage: ReturnType<typeof vi.fn>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let workerOnMessage: (e: any) => void;
+
   beforeEach(() => {
     window.HTMLElement.prototype.setPointerCapture = vi.fn();
     window.HTMLElement.prototype.releasePointerCapture = vi.fn();
     vi.useFakeTimers();
+
+    workerPostMessage = vi.fn();
+    window.Worker = vi.fn().mockImplementation(function () {
+      const mockWorker = {
+        postMessage: workerPostMessage,
+        terminate: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        set onmessage(fn: (e: any) => void) {
+          workerOnMessage = fn;
+        },
+      };
+      return mockWorker;
+    }) as unknown as typeof Worker;
+
     // Reset our zustand store
     viewportStore.setState({
       anchorZr: '0.0',
@@ -75,8 +95,17 @@ describe('ApeironViewport Orchestration', () => {
       vi.advanceTimersByTime(10);
     });
 
-    // After 150ms, the viewport orchestration resets the deltas back to 0
-    // and adjusts the string anchors based on `parseFloat() + delta` -> `-0.8 + 0.001 = -0.799`
+    // After 150ms, the viewport orchestration fires the worker.
+    // It NO LONGER resets the deltas until the worker completes, preventing flicker!
+    expect(viewportStore.getState().deltaCr).toBe(0.001);
+    expect(workerPostMessage).toHaveBeenCalledTimes(1);
+
+    // Simulate worker returning data
+    act(() => {
+      workerOnMessage({ data: { type: 'COMPUTE_RESULT', result: new Float64Array(10) } });
+    });
+
+    // NOW it resets the delta and updates the anchor to match the job
     expect(viewportStore.getState().deltaCr).toBe(0.0);
     const anchorCrValue = parseFloat(viewportStore.getState().anchorCr);
     expect(anchorCrValue).toBeCloseTo(-0.799);
@@ -106,7 +135,15 @@ describe('ApeironViewport Orchestration', () => {
       vi.advanceTimersByTime(150);
     });
 
-    // After 150ms of silence, it should reset deltas
+    // After 150ms of silence, it should fire the worker
+    expect(workerPostMessage).toHaveBeenCalledTimes(1);
+    expect(viewportStore.getState().deltaCr).toBe(0.005);
+
+    // Simulate worker return
+    act(() => {
+      workerOnMessage({ data: { type: 'COMPUTE_RESULT', result: new Float64Array(10) } });
+    });
+
     expect(viewportStore.getState().deltaCr).toBe(0.0);
     const anchorCrValue = parseFloat(viewportStore.getState().anchorCr);
     expect(anchorCrValue).toBeCloseTo(-0.795); // -0.8 + 0.005
@@ -223,5 +260,52 @@ describe('ApeironViewport Orchestration', () => {
     // If 'f32', it combines anchors with deltas directly instead of treating them as purely delta passes.
     // Cr anchor is -0.8, delta is 0.
     expect(args[2]).toBeCloseTo(-0.8);
+  });
+
+  it('enforces Latest-Only Buffer to prevent worker queue overlap and flickering', async () => {
+    // Start zoomed in to trigger perturbation
+    act(() => {
+      viewportStore.setState({ zoom: 1e-5 });
+    });
+
+    const { unmount } = render(<ApeironViewport />);
+
+    // Trigger pan 1
+    act(() => {
+      viewportStore.setState({ deltaCr: 0.001 });
+      vi.advanceTimersByTime(150); // wait for debounce
+    });
+
+    // Worker should have received 1 computation request
+    expect(workerPostMessage).toHaveBeenCalledTimes(1);
+
+    // Trigger pan 2 while worker is officially busy (has not returned COMPUTE_RESULT)
+    act(() => {
+      viewportStore.setState({ deltaCr: 0.002 });
+      vi.advanceTimersByTime(150); // wait for debounce
+    });
+
+    // Worker should NOT have received a second computation request yet!
+    // It is busy processing Epoch 1. It must queue Epoch 2 silently.
+    expect(workerPostMessage).toHaveBeenCalledTimes(1);
+
+    // Provide the handshake for Epoch 1
+    act(() => {
+      workerOnMessage({ data: { type: 'COMPUTE_RESULT', result: new Float64Array(10) } });
+    });
+
+    // Once Epoch 1 finishes, it discards rendering it and instantly fires Epoch 2
+    expect(workerPostMessage).toHaveBeenCalledTimes(2);
+
+    // Provide handshake for Epoch 2
+    act(() => {
+      workerOnMessage({ data: { type: 'COMPUTE_RESULT', result: new Float64Array(10) } });
+    });
+
+    // Everything should now be settled at Epoch 2 math
+    expect(viewportStore.getState().deltaCr).toBe(0.0);
+    expect(parseFloat(viewportStore.getState().anchorCr)).toBeCloseTo(-0.798); // -0.8 + 0.002
+
+    unmount();
   });
 });
