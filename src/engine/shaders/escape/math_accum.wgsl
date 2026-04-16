@@ -626,6 +626,100 @@ fn unit_test_complex_math(@builtin(global_invocation_id) global_id: vec3<u32>) {
   data_out[idx * 4u + 3u] = sq_res.y;
 }
 
+@compute @workgroup_size(64)
+fn unit_test_polynomial(@builtin(global_invocation_id) global_id: vec3<u32>) {
+  let idx = global_id.x;
+  if (idx * 4u >= arrayLength(&data_in)) {
+      return;
+  }
+  
+  let z = vec2<f32>(data_in[idx * 4u], data_in[idx * 4u + 1u]);
+  let c_val = vec2<f32>(data_in[idx * 4u + 2u], data_in[idx * 4u + 3u]);
+  
+  let d = camera.exponent;
+  let p_res = step_polynomial(z, c_val, d);
+  let der_res = step_derivative(z, c_val, d); // Note: feeding c_val as dummy 'der' for testing
+  
+  data_out[idx * 4u] = p_res.x;
+  data_out[idx * 4u + 1u] = p_res.y;
+  data_out[idx * 4u + 2u] = der_res.x;
+  data_out[idx * 4u + 3u] = der_res.y;
+}
+
+@compute @workgroup_size(64)
+fn unit_test_state_resume(@builtin(global_invocation_id) global_id: vec3<u32>) {
+  let idx = global_id.x;
+  if (idx * 4u >= arrayLength(&data_in)) {
+      return;
+  }
+  
+  // Test how the engine consumes CheckpointState correctly during progressive continuation
+  let zx = data_in[idx * 4u];
+  let zy = data_in[idx * 4u + 1u];
+  let it = data_in[idx * 4u + 2u];
+  
+  // Inject mock checkpoint data mathematically (via code to bypass binding issues if testing)
+  // Let's actually use the checkpoint buffer. If camera.load_checkpoint > 0.5, we should resume.
+  // We'll write to checkpoint, or we'll just run continue_mandelbrot_iterations for 2 steps.
+  let start_z = vec2<f32>(0.0, 0.0);
+  let start_c = vec2<f32>(zx, zy);
+  
+  // Execute just 2 iterations from whatever state is in checkpoint
+  let res = continue_mandelbrot_iterations(start_z, start_c, 0.0, 100.0, 1.0, 0.0, 0.0, idx);
+  
+  // Write the resulting checkpoint memory out to assert the FSM behaved correctly
+  let cp = checkpoint[idx];
+  data_out[idx * 4u] = cp.zx;
+  data_out[idx * 4u + 1u] = cp.zy;
+  data_out[idx * 4u + 2u] = cp.iter;
+  data_out[idx * 4u + 3u] = cp.der_x;
+}
+
+@compute @workgroup_size(64)
+fn unit_test_sa_init(@builtin(global_invocation_id) global_id: vec3<u32>) {
+  let idx = global_id.x;
+  if (idx * 4u >= arrayLength(&data_in)) {
+      return;
+  }
+  
+  // Test how Series Approximation calculates starting jumps
+  let dz_x = data_in[idx * 4u];
+  let dz_y = data_in[idx * 4u + 1u];
+  let dc_x = data_in[idx * 4u + 2u];
+  let dc_y = data_in[idx * 4u + 3u];
+  
+  // For unit tests, assume reference orbit starts at offset 0
+  let sa = init_perturbation_state(vec2<f32>(dz_x, dz_y), vec2<f32>(dc_x, dc_y), 0u, idx);
+  
+  data_out[idx * 4u] = sa.dz.x;
+  data_out[idx * 4u + 1u] = sa.dz.y;
+  data_out[idx * 4u + 2u] = sa.der.x;
+  data_out[idx * 4u + 3u] = sa.der.y;
+}
+
+@compute @workgroup_size(64)
+fn unit_test_bla_advance(@builtin(global_invocation_id) global_id: vec3<u32>) {
+  let idx = global_id.x;
+  if (idx * 4u >= arrayLength(&data_in)) {
+      return;
+  }
+  
+  let dz_in = vec2<f32>(data_in[idx * 4u], data_in[idx * 4u + 1u]);
+  let iter_in = data_in[idx * 4u + 2u];
+  
+  // We mock a tiny delta C
+  let delta_c = vec2<f32>(1e-15, 1e-15);
+  let der_in = vec2<f32>(1.0, 0.0);
+  let start_c = vec2<f32>(-1.748, 0.0);
+  
+  let bla = advance_via_bla(dz_in, der_in, delta_c, start_c, iter_in, 100.0, 0u, 1000.0, 1000.0, idx, 0.0);
+  
+  data_out[idx * 4u] = bla.dz.x;
+  data_out[idx * 4u + 1u] = bla.dz.y;
+  data_out[idx * 4u + 2u] = bla.iter;
+  data_out[idx * 4u + 3u] = select(0.0, 1.0, bla.advanced);
+}
+
 @vertex
 fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   var pos = array<vec2<f32>, 6>(

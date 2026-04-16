@@ -143,7 +143,15 @@ export class WebGPUTestHarness {
     return result;
   }
 
-  public async executeUnitTest(entryPoint: string, input: Float32Array): Promise<Float32Array> {
+  public async executeUnitTest(
+    entryPoint: string,
+    input: Float32Array,
+    options: {
+      cameraData?: Float32Array;
+      refOrbits?: Float64Array;
+      checkpointData?: Float32Array;
+    } = {},
+  ): Promise<Float32Array> {
     const computeModule = this.device.createShaderModule({ code: this.mathShaderCode });
     const computePipeline = this.device.createComputePipeline({
       layout: 'auto',
@@ -173,10 +181,86 @@ export class WebGPUTestHarness {
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
 
+    const cameraTestBuffer = this.device.createBuffer({
+      size: 96,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+
+    // Standard mock camera fallback
+    const cameraFallback = new Float32Array([
+      0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 100.0, 0.0, 0.0, 100.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 100.0,
+      0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+    ]);
+    this.device.queue.writeBuffer(cameraTestBuffer, 0, options.cameraData ?? cameraFallback);
+
+    const checkpointBuffer = this.device.createBuffer({
+      size: Math.max(computeUnits * 32, 32),
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
+    // Pre-seed checkpoint buffer for testing FSM continuation
+    let mockCheckpoint = options.checkpointData;
+    if (!mockCheckpoint) {
+      mockCheckpoint = new Float32Array(Math.max(computeUnits * 8, 8));
+      for (let i = 0; i < computeUnits; i++) {
+        mockCheckpoint[i * 8] = input[i * 4]; // zx
+        mockCheckpoint[i * 8 + 1] = input[i * 4 + 1]; // zy
+        mockCheckpoint[i * 8 + 2] = 1.0; // der_x
+        mockCheckpoint[i * 8 + 3] = 0.0; // der_y
+        mockCheckpoint[i * 8 + 4] = input[i * 4 + 2]; // iter
+        mockCheckpoint[i * 8 + 5] = 0.0; // tia
+        mockCheckpoint[i * 8 + 6] = 0.0;
+        mockCheckpoint[i * 8 + 7] = 0.0;
+      }
+    }
+    this.device.queue.writeBuffer(checkpointBuffer, 0, mockCheckpoint);
+
+    // Some WGSL functions require the reference orbit `binding 3` during tests indirectly (like SA and BLA)
+    let refOrbitsActualBuffer: GPUBuffer | null = null;
+    if (
+      (entryPoint === 'unit_test_sa_init' || entryPoint === 'unit_test_bla_advance') &&
+      options.refOrbits
+    ) {
+      const refArray = options.refOrbits;
+      refOrbitsActualBuffer = this.device.createBuffer({
+        size: refArray.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      this.device.queue.writeBuffer(
+        refOrbitsActualBuffer,
+        0,
+        refArray.buffer,
+        refArray.byteOffset,
+        refArray.byteLength,
+      );
+    } else {
+      refOrbitsActualBuffer = this.device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      this.device.queue.writeBuffer(
+        refOrbitsActualBuffer,
+        0,
+        new Float32Array([0.0, 0.0, 0.0, 0.0]),
+      );
+    }
+
     const entries: GPUBindGroupEntry[] = [
       { binding: 1, resource: { buffer: inputStorageBuffer } },
       { binding: 2, resource: { buffer: outputStorageBuffer } },
     ];
+
+    // Auto layout parsing logic
+    if (entryPoint === 'unit_test_polynomial') {
+      entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
+    } else if (entryPoint === 'unit_test_state_resume') {
+      entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
+      entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
+    } else if (entryPoint === 'unit_test_sa_init' || entryPoint === 'unit_test_bla_advance') {
+      entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
+      entries.push({ binding: 3, resource: { buffer: refOrbitsActualBuffer } });
+      entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
+    }
 
     const bindGroup = this.device.createBindGroup({
       layout: computePipeline.getBindGroupLayout(0),
@@ -200,6 +284,9 @@ export class WebGPUTestHarness {
     inputStorageBuffer.destroy();
     outputStorageBuffer.destroy();
     stagingBuffer.destroy();
+    cameraTestBuffer.destroy();
+    checkpointBuffer.destroy();
+    refOrbitsActualBuffer.destroy();
 
     return result;
   }
