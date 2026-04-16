@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { initEngine } from '../../engine/initEngine';
 import type { ApeironEngine } from '../../engine/initEngine';
-import type { RenderFrameDescriptor } from '../../engine/RenderFrameDescriptor';
+// Import removed
 
 import mathAccumWgsl from '../../engine/shaders/escape/math_accum.wgsl?raw';
 import resolvePresentWgsl from '../../engine/shaders/escape/resolve_present.wgsl?raw';
@@ -9,8 +9,8 @@ import layoutWgsl from '../../engine/shaders/escape/generated/layout.wgsl?raw';
 import layoutAccessorsWgsl from '../../engine/shaders/escape/generated/layout_accessors.wgsl?raw';
 import { viewportStore, calculateMaxIter } from '../stores/viewportStore';
 import { renderStore } from '../stores/renderStore';
-import { IterationBudgetController } from '../../engine/IterationBudgetController';
 import { calculateSkipIter } from '../../engine/seriesApproximation';
+import { ProgressiveRenderScheduler } from '../../engine/ProgressiveRenderScheduler';
 
 export const ApeironViewport: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -171,20 +171,7 @@ export const ApeironViewport: React.FC = () => {
         engineRef.current = engine;
 
         // ── Accumulation state machine ──────────────────────────────────────
-        // accumulationCount tracks how many consecutive frames have been
-        // accumulated for the current static geometry. It resets to 0 whenever
-        // geometry changes or the mode transitions to INTERACT.
-        //   count == 0 → first frame, blendWeight = 0.0 (replace prev buffer)
-        //   count >= 1 → Nth frame,  blendWeight = 1/count (temporal blend)
-        // The engine receives blendWeight directly — no frameCount arithmetic.
-        let accumulationCount = 0;
-        let deepeningTotalIter = 0;
-        const budgetController = new IterationBudgetController(14);
-        let cycleJitterX = 0;
-        let cycleJitterY = 0;
-        let lastDesc: RenderFrameDescriptor | null = null;
-        let lastCanvasSizeVersion = -1;
-
+        const scheduler = new ProgressiveRenderScheduler();
         const INTERACT_ITER_FRACTION = 0.33;
         const INTERACT_ITER_FLOOR = calculateMaxIter(1.0);
 
@@ -200,43 +187,9 @@ export const ApeironViewport: React.FC = () => {
           const cr = isPerturb ? state.deltaCr : parseFloat(state.anchorCr) + state.deltaCr;
           const ci = isPerturb ? state.deltaCi : parseFloat(state.anchorCi) + state.deltaCi;
 
-          // Snapshot of interaction state for deterministic early-return & cache invalidation
-          const isInteractingSnapshot = state.interactionState !== 'STATIC';
+          const isInteracting = state.interactionState !== 'STATIC';
           const renderDpr = window.devicePixelRatio || 1;
-          const snapshotRenderScale = isInteractingSnapshot ? 1.0 / renderDpr : 1.0;
-
-          // Detect geometry changes (anything that requires a fresh accumulation).
-          const geometryChanged =
-            !lastDesc ||
-            lastDesc.zr !== zr ||
-            lastDesc.zi !== zi ||
-            lastDesc.cr !== cr ||
-            lastDesc.ci !== ci ||
-            lastDesc.zoom !== state.zoom ||
-            lastDesc.sliceAngle !== state.sliceAngle ||
-            lastDesc.exponent !== state.exponent ||
-            lastDesc.maxIter !== state.maxIter || // We store state.maxIter in lastDesc.maxIter for accurate caching
-            lastDesc.refOrbits !== state.refOrbits ||
-            lastDesc.theme.themeVersion !== theme.themeVersion ||
-            lastDesc.renderScale !== snapshotRenderScale ||
-            lastCanvasSizeVersion !== canvasSizeVersion;
-
-          if (geometryChanged || isInteractingSnapshot) {
-            accumulationCount = 0;
-            deepeningTotalIter = 0;
-            cycleJitterX = 0;
-            cycleJitterY = 0;
-          }
-
-          const MAX_ACCUM_FRAMES = 64;
-          if (!isInteractingSnapshot && accumulationCount >= MAX_ACCUM_FRAMES) {
-            requestRef.current = requestAnimationFrame(loop);
-            return;
-          }
-
-          const currentInteractionState = viewportStore.getState().interactionState;
-          const isInteracting = currentInteractionState !== 'STATIC';
-          const renderScale = isInteracting ? 1.0 / renderDpr : 1.0;
+          const snapshotRenderScale = isInteracting ? 1.0 / renderDpr : 1.0;
 
           const skipIter = canvas
             ? calculateSkipIter(
@@ -259,29 +212,7 @@ export const ApeironViewport: React.FC = () => {
               )
             : state.maxIter;
 
-          const isFirstSlice = deepeningTotalIter === 0;
-          const mathPassMs = engine.getMathPassMs();
-          const rawBudget = budgetController.update(
-            mathPassMs !== -1 ? mathPassMs : 14,
-            isFirstSlice,
-          );
-          const yieldIterLimit = Math.min(effectiveMaxIter - deepeningTotalIter, rawBudget);
-
-          const advancePingPong = isFirstSlice;
-          const clearCheckpoint = isFirstSlice && accumulationCount > 0;
-          const isDeepeningComplete = deepeningTotalIter + yieldIterLimit >= effectiveMaxIter;
-          const isFinalSlice = isDeepeningComplete;
-
-          const blendWeight = accumulationCount > 0 ? 1.0 / (accumulationCount + 1) : 0.0;
-
-          const isResume = accumulationCount > 0 || deepeningTotalIter > 0 ? 1.0 : 0.0;
-
-          if (advancePingPong && !isInteracting && accumulationCount > 0) {
-            cycleJitterX = (Math.random() - 0.5) * (2.0 / canvas.width);
-            cycleJitterY = (Math.random() - 0.5) * (2.0 / canvas.height);
-          }
-
-          const desc: RenderFrameDescriptor = {
+          const context = {
             zr,
             zi,
             cr,
@@ -293,27 +224,28 @@ export const ApeironViewport: React.FC = () => {
             exponent: state.exponent,
             refOrbits: state.refOrbits,
             skipIter,
-            renderScale,
-            blendWeight,
-            jitterX: cycleJitterX,
-            jitterY: cycleJitterY,
-            yieldIterLimit,
-            isResume,
-            isFinalSlice,
-            advancePingPong,
-            clearCheckpoint,
-            theme,
           };
 
-          engine.renderFrame(desc);
+          const command = scheduler.update(
+            context,
+            isInteracting,
+            canvasSizeVersion,
+            theme.themeVersion,
+            snapshotRenderScale,
+            canvas?.width ?? 1,
+            canvas?.height ?? 1,
+            engine.getMathPassMs(),
+          );
 
-          const hudDeepenNumerator = deepeningTotalIter + yieldIterLimit;
-
-          deepeningTotalIter += yieldIterLimit;
-          if (isDeepeningComplete) {
-            deepeningTotalIter = 0;
-            accumulationCount++;
+          if (!command) {
+            requestRef.current = requestAnimationFrame(loop);
+            return;
           }
+
+          engine.renderFrame({ context, command, theme });
+
+          const hudDeepenNumerator = scheduler.getDeepeningTotalIter() + command.yieldIterLimit;
+          scheduler.notifySliceComplete(command);
 
           if (hudRef.current) {
             // eslint-disable-next-line no-constant-condition
@@ -322,7 +254,7 @@ export const ApeironViewport: React.FC = () => {
               const ms = engine.getMathPassMs();
               const modeStr = isInteracting
                 ? 'INTERACT'
-                : isFinalSlice
+                : command.isFinalSlice && scheduler.getAccumulationCount() > 0
                   ? 'ACCUMULATING'
                   : 'DEEPENING';
               const msStr = ms !== -1 ? ms.toFixed(2) : '---';
@@ -331,11 +263,11 @@ export const ApeironViewport: React.FC = () => {
               hudRef.current.innerHTML = `
 Mode:    ${modeStr}<br>
 GPU:     ${msStr} ms<br>
-Budget:  ${budgetController.getBudget()} iter/frame<br>
-Slice:   ${yieldIterLimit} iters (this pass)<br>
+Budget:  ${scheduler.getBudget()} iter/frame<br>
+Slice:   ${command.yieldIterLimit} iters (this pass)<br>
 Deepen:  ${deepenPct}% (${hudDeepenNumerator} / ${effectiveMaxIter})<br>
 SA Skip: ${skipIter}<br>
-Accum:   ${accumulationCount} / ${MAX_ACCUM_FRAMES}
+Accum:   ${scheduler.getAccumulationCount()} / 64
               `.trim();
             } else {
               // @ts-expect-error Typescript ref narrowing bug in this config
@@ -344,9 +276,6 @@ Accum:   ${accumulationCount} / ${MAX_ACCUM_FRAMES}
           }
 
           // Store true maxIter in cache for geometry validation, not effectiveMaxIter
-          lastDesc = { ...desc, maxIter: state.maxIter, renderScale: snapshotRenderScale };
-          lastCanvasSizeVersion = canvasSizeVersion;
-
           requestRef.current = requestAnimationFrame(loop);
         };
         requestRef.current = requestAnimationFrame(loop);

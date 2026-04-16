@@ -315,23 +315,23 @@ export class PassManager {
     if (!this.gBufferTextureA || !this.gBufferTextureB) return;
 
     const aspectRatio = width / height;
-    const renderWidth = Math.max(1, Math.floor(width * desc.renderScale));
-    const renderHeight = Math.max(1, Math.floor(height * desc.renderScale));
+    const renderWidth = Math.max(1, Math.floor(width * desc.command.renderScale));
+    const renderHeight = Math.max(1, Math.floor(height * desc.command.renderScale));
 
     // ── Ref orbits ───────────────────────────────────────────────────────────
-    if (desc.refOrbits !== undefined && desc.refOrbits !== this.lastRefOrbits) {
-      if (desc.refOrbits) {
+    if (desc.context.refOrbits !== undefined && desc.context.refOrbits !== this.lastRefOrbits) {
+      if (desc.context.refOrbits) {
         if (this.activeRefOrbitsBuffer) this.activeRefOrbitsBuffer.destroy();
         this.activeRefOrbitsBuffer = this.device.createBuffer({
-          size: desc.refOrbits.byteLength,
+          size: desc.context.refOrbits.byteLength,
           usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
         this.device.queue.writeBuffer(
           this.activeRefOrbitsBuffer,
           0,
-          desc.refOrbits.buffer,
-          desc.refOrbits.byteOffset,
-          desc.refOrbits.byteLength,
+          desc.context.refOrbits.buffer,
+          desc.context.refOrbits.byteOffset,
+          desc.context.refOrbits.byteLength,
         );
         this.hasValidActiveRefOrbits = true;
       } else if (this.hasValidActiveRefOrbits) {
@@ -339,48 +339,48 @@ export class PassManager {
         this.activeRefOrbitsBuffer = null;
         this.hasValidActiveRefOrbits = false;
       }
-      this.lastRefOrbits = desc.refOrbits;
+      this.lastRefOrbits = desc.context.refOrbits;
     }
 
     // ── Camera uniforms ──────────────────────────────────────────────────────
     // Written every frame — the RAF loop only calls render() when needed, so
     // we skip the camState string-diff and always upload the current values.
     const actualRefMaxIter =
-      this.hasValidActiveRefOrbits && desc.refOrbits
-        ? (desc.refOrbits.length - META_STRIDE) / FLOATS_PER_ITER
-        : desc.maxIter;
-    const paletteMaxIter = this.hasValidActiveRefOrbits ? actualRefMaxIter : desc.maxIter;
+      this.hasValidActiveRefOrbits && desc.context.refOrbits
+        ? (desc.context.refOrbits.length - META_STRIDE) / FLOATS_PER_ITER
+        : desc.context.maxIter;
+    const paletteMaxIter = this.hasValidActiveRefOrbits ? actualRefMaxIter : desc.context.maxIter;
 
     const usePerturbationAllowed = desc.theme?.precisionMode !== 'f32';
     const usePerturbation = this.hasValidActiveRefOrbits && usePerturbationAllowed ? 1.0 : 0.0;
 
     const cameraData = packCameraParams({
-      zr: desc.zr,
-      zi: desc.zi,
-      cr: desc.cr,
-      ci: desc.ci,
-      scale: desc.zoom,
+      zr: desc.context.zr,
+      zi: desc.context.zi,
+      cr: desc.context.cr,
+      ci: desc.context.ci,
+      scale: desc.context.zoom,
       aspect: aspectRatio,
-      max_iter: desc.maxIter,
-      slice_angle: desc.sliceAngle,
+      max_iter: desc.context.maxIter,
+      slice_angle: desc.context.sliceAngle,
       use_perturbation: usePerturbation,
       ref_max_iter: actualRefMaxIter,
-      exponent: desc.exponent,
+      exponent: desc.context.exponent,
       coloring_mode:
         desc.theme?.coloringMode === 'stripe'
           ? 1.0
           : desc.theme?.coloringMode === 'banded'
             ? 2.0
             : 0.0,
-      jitter_x: desc.jitterX,
-      jitter_y: desc.jitterY,
-      blend_weight: desc.blendWeight,
-      render_scale: desc.renderScale,
-      yield_iter_limit: desc.yieldIterLimit,
-      is_resume: desc.isResume,
-      is_final_slice: desc.isFinalSlice ? 1.0 : 0.0,
+      jitter_x: desc.command.jitterX,
+      jitter_y: desc.command.jitterY,
+      blend_weight: desc.command.blendWeight,
+      render_scale: desc.command.renderScale,
+      yield_iter_limit: desc.command.yieldIterLimit,
+      is_resume: desc.command.isResume,
+      is_final_slice: desc.command.isFinalSlice ? 1.0 : 0.0,
       canvas_width: width,
-      skip_iter: desc.skipIter,
+      skip_iter: desc.context.skipIter,
     });
     this.device.queue.writeBuffer(this.accumPass.uniformsBuffer, 0, cameraData);
 
@@ -393,7 +393,7 @@ export class PassManager {
       if (!desc.theme) {
         paletteData = new Float32Array(32);
         paletteData[12] = paletteMaxIter;
-        paletteData[31] = desc.trueMaxIter;
+        paletteData[31] = desc.context.trueMaxIter;
       } else {
         const t = desc.theme;
         let surfaceParamA = 1.0;
@@ -432,7 +432,7 @@ export class PassManager {
                   : 1.0,
           surface_param_a: surfaceParamA,
           surface_param_b: surfaceParamB,
-          true_max_iter: desc.trueMaxIter,
+          true_max_iter: desc.context.trueMaxIter,
         });
       }
       this.device.queue.writeBuffer(this.presentPass.paletteUniformsBuffer, 0, paletteData);
@@ -447,7 +447,7 @@ export class PassManager {
     this.device.queue.writeBuffer(
       this.presentPass.paletteUniformsBuffer,
       124,
-      new Float32Array([desc.trueMaxIter]),
+      new Float32Array([desc.context.trueMaxIter]),
     );
 
     // Write render_scale to its dedicated uniform buffer (group 0, binding 1 of the resolve pass).
@@ -455,20 +455,20 @@ export class PassManager {
     this.device.queue.writeBuffer(
       this.presentPass.renderScaleBuffer,
       0,
-      new Float32Array([desc.renderScale]),
+      new Float32Array([desc.command.renderScale]),
     );
 
     // ── GPU command submission ───────────────────────────────────────────────
     const commandEncoder = this.device.createCommandEncoder();
 
-    if (desc.clearCheckpoint && this.checkpointBuffer) {
+    if (desc.command.clearCheckpoint && this.checkpointBuffer) {
       commandEncoder.clearBuffer(this.checkpointBuffer);
     }
 
     // Deno WebGPU stub or some browsers might report the feature but lack the function
     const queryActive = this.querySet !== null && this.isQueryReady;
 
-    if (desc.advancePingPong) {
+    if (desc.command.advancePingPong) {
       this.pingPongTargetIsB = !this.pingPongTargetIsB;
     }
     const writeTex = this.pingPongTargetIsB ? this.gBufferTextureB : this.gBufferTextureA;

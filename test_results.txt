@@ -1,0 +1,83 @@
+
+ RUN  v4.1.4 /home/jtdubs/dev/apeiron
+
+ ✓ src/engine/__tests__/IterationBudgetController.spec.ts > IterationBudgetController > initializes with a budget of 1000 1ms
+ ✓ src/engine/__tests__/IterationBudgetController.spec.ts > IterationBudgetController > does not increase budget on non-first slices even if fast 0ms
+ ✓ src/engine/__tests__/IterationBudgetController.spec.ts > IterationBudgetController > increases budget by 500 after 3 consecutive fast first-slices 0ms
+ ✓ src/engine/__tests__/IterationBudgetController.spec.ts > IterationBudgetController > allows intermediate non-first slices between fast first slices without resetting the counter 0ms
+ ✓ src/engine/__tests__/IterationBudgetController.spec.ts > IterationBudgetController > drops budget aggressively on any spiked slice 0ms
+ ✓ src/engine/__tests__/IterationBudgetController.spec.ts > IterationBudgetController > drops budget aggressively on a spiked first slice 0ms
+ ✓ src/engine/__tests__/IterationBudgetController.spec.ts > IterationBudgetController > clamps max budget to 5000 0ms
+ ✓ src/engine/__tests__/IterationBudgetController.spec.ts > IterationBudgetController > clamps min budget to 100 0ms
+ ✓ src/engine/__tests__/IterationBudgetController.spec.ts > IterationBudgetController > reset floors the budget back to 1000 and clears consecutive counter 0ms
+ ✓ src/engine/__tests__/PassManager.spec.ts > PassManager Pure Function Uniform Building > Series Approximation Math Tracker > returns 0 when precisionMode is f32 1ms
+ ✓ src/engine/__tests__/PassManager.spec.ts > PassManager Pure Function Uniform Building > Series Approximation Math Tracker > returns 0 when sliceAngle implies Julia/cross-plane panning 0ms
+ ✓ src/engine/__tests__/PassManager.spec.ts > PassManager Pure Function Uniform Building > Series Approximation Math Tracker > correctly calculates the mathematical skip limit against simulated trajectory bounds 0ms
+ ✓ src/util/__tests__/urlSync.spec.ts > urlSync > compresses and returns a valid base64 string 2ms
+ ✓ src/util/__tests__/urlSync.spec.ts > urlSync > can reliably deserialize a base64 string and restore zustand state perfectly 1ms
+ ✓ src/util/__tests__/urlSync.spec.ts > urlSync > gracefully handles garbage or missing base64 hashes 1ms
+ ✓ src/ui/components/__tests__/ApeironViewport.spec.tsx > ApeironViewport Orchestration > triggers WebWorker computation after 150ms debounce on deep zoom pan 35ms
+ ✓ src/ui/components/__tests__/ApeironViewport.spec.tsx > ApeironViewport Orchestration > maintains 150ms debounce across continuous rapid panning 4ms
+ ✓ src/ui/components/__tests__/ApeironViewport.spec.tsx > ApeironViewport Orchestration > bypasses perturbation and clears refOrbits when zooming out past 1e-4 3ms
+ ✓ src/ui/components/__tests__/ApeironViewport.spec.tsx > ApeironViewport Orchestration > updates sliceAngle constraints during middle-mouse 4D dragging 6ms
+ ✓ src/ui/components/__tests__/ApeironViewport.spec.tsx > ApeironViewport Orchestration > handles pinch-to-zoom multi-touch centroid math 3ms
+ × src/ui/components/__tests__/ApeironViewport.spec.tsx > ApeironViewport Orchestration > forces f32 precision override even while possessing orbits 8ms
+   → expected undefined to be close to -0.8, received difference is NaN, but expected 0.005
+ ✓ src/ui/components/__tests__/ApeironViewport.spec.tsx > ApeironViewport Orchestration > enforces Latest-Only Buffer to prevent worker queue overlap and flickering 2ms
+ × src/ui/components/__tests__/ApeironViewport.spec.tsx > ApeironViewport Orchestration > resets accumulationCount (blendWeight=0) strictly on geometry change 3ms
+   → expected undefined to be +0 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/engine/__tests__/ProgressiveRenderScheduler.test.ts [ src/engine/__tests__/ProgressiveRenderScheduler.test.ts ]
+ReferenceError: describe is not defined
+ ❯ src/engine/__tests__/ProgressiveRenderScheduler.test.ts:21:1
+     19| }
+     20|
+     21| describe('ProgressiveRenderScheduler', () => {
+       | ^
+     22|   let scheduler: ProgressiveRenderScheduler;
+     23|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/ui/components/__tests__/ApeironViewport.spec.tsx > ApeironViewport Orchestration > forces f32 precision override even while possessing orbits
+AssertionError: expected undefined to be close to -0.8, received difference is NaN, but expected 0.005
+ ❯ src/ui/components/__tests__/ApeironViewport.spec.tsx:278:21
+    276|     // If 'f32', it combines anchors with deltas directly instead of t…
+    277|     // Cr anchor is -0.8, delta is 0.
+    278|     expect(desc.cr).toBeCloseTo(-0.8);
+       |                     ^
+    279|   });
+    280|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/ui/components/__tests__/ApeironViewport.spec.tsx > ApeironViewport Orchestration > resets accumulationCount (blendWeight=0) strictly on geometry change
+AssertionError: expected undefined to be +0 // Object.is equality
+
+- Expected:
+0
+
++ Received:
+undefined
+
+ ❯ src/ui/components/__tests__/ApeironViewport.spec.tsx:347:30
+    345|     expect(renderFrameMock).toHaveBeenCalled();
+    346|     let desc: RenderFrameDescriptor = renderFrameMock.mock.calls[0][0];
+    347|     expect(desc.blendWeight).toBe(0.0);
+       |                              ^
+    348|
+    349|     renderFrameMock.mockClear();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed | 3 passed (5)
+      Tests  2 failed | 21 passed (23)
+   Start at  13:00:21
+   Duration  578ms (transform 144ms, setup 68ms, import 223ms, tests 75ms, environment 1.62s)
+

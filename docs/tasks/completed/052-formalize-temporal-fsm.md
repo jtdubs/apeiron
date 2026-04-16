@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 052: Formalize Temporal State Machine & Pipeline Contract

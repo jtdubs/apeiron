@@ -96,4 +96,4 @@
 
 ## Phase 16: State Machine Formalization
 
-- [ ] [Task 052: Formalize Temporal State Machine & Pipeline Contract](tasks/052-formalize-temporal-fsm.md)
+- [x] [Task 052: Formalize Temporal State Machine & Pipeline Contract](tasks/completed/052-formalize-temporal-fsm.md)

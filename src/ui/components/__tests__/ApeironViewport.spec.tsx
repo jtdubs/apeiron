@@ -275,7 +275,7 @@ describe('ApeironViewport Orchestration', () => {
 
     // If 'f32', it combines anchors with deltas directly instead of treating them as purely delta passes.
     // Cr anchor is -0.8, delta is 0.
-    expect(desc.cr).toBeCloseTo(-0.8);
+    expect(desc.context.cr).toBeCloseTo(-0.8);
   });
 
   it('enforces Latest-Only Buffer to prevent worker queue overlap and flickering', async () => {
@@ -344,7 +344,7 @@ describe('ApeironViewport Orchestration', () => {
     // First frame: accumulationCount=0 → blendWeight=0.0 always (replace prev buffer).
     expect(renderFrameMock).toHaveBeenCalled();
     let desc: RenderFrameDescriptor = renderFrameMock.mock.calls[0][0];
-    expect(desc.blendWeight).toBe(0.0);
+    expect(desc.command.blendWeight).toBe(0.0);
 
     renderFrameMock.mockClear();
 
@@ -353,7 +353,7 @@ describe('ApeironViewport Orchestration', () => {
       vi.advanceTimersByTime(16);
     });
     desc = renderFrameMock.mock.calls[0][0];
-    expect(desc.blendWeight).toBeCloseTo(1.0 / 2);
+    expect(desc.command.blendWeight).toBeCloseTo(1.0 / 2);
 
     renderFrameMock.mockClear();
 
@@ -369,6 +369,6 @@ describe('ApeironViewport Orchestration', () => {
 
     // blendWeight must be 0.0 again — geometry change resets accumulationCount to 0
     desc = renderFrameMock.mock.calls[0][0];
-    expect(desc.blendWeight).toBe(0.0);
+    expect(desc.command.blendWeight).toBe(0.0);
   });
 });
