@@ -170,7 +170,7 @@ export const ApeironViewport: React.FC = () => {
         if (!isMounted) return;
         engineRef.current = engine;
 
-        // ── Accumulation state machine ──────────────────────────────────────
+        // ── Render Orchestration Loop ───────────────────────────────────────
         const scheduler = new ProgressiveRenderScheduler();
         const loop = () => {
           if (!isMounted) return;
