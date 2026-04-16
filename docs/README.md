@@ -25,6 +25,7 @@ Welcome to the Apeiron documentation! This index serves as the entry point for a
 ## Workflow & Development
 
 - [Development Guide](development.md): Rules for local orchestration, NPM usage as the single source of truth, and system tooling.
+- [Best Practices](best-practices.md): Core coding standards regarding cross-boundary data, FSM execution, shader modularization, and headless WGSL unit testing.
 - [Task Management](tasks/template.md): The protocol for tracking, executing, and resolving architectural implementations.
 - [Roadmap](roadmap.md): Our strategic, phased sequencing plan.
 - [Test Plan & Diagnostics](test-plan.md): The execution model outlining headless "Fuzzy" Correctness data-testing against Rust buffers vs strict "Bit-Perfect" WebGPU regressions.
