@@ -9,6 +9,7 @@ Welcome to the Apeiron documentation! This index serves as the entry point for a
 - [Math Backend Design](math-backend-design.md): The native Rust/WASM arbitrary-precision calculation motor and ground-truth data generator.
 - [Rendering Engine Design](rendering-engine-design.md): The headless-capable WebGPU compute and rasterization pipelines (including Distance Estimation and Histogram mapping).
 - [Animation Design](animation-design.md): The interpolation framework governing cinematic playback and mathematical scale-bridging.
+- [State Machine Architecture](state-machine-architecture.md): The decoupling of the Temporal Pipeline Execution flow from the declarative mathematical intents and UI snapshots.
 - [Progressive Rendering Design](progressive-rendering-design.md): The performance framework governing multi-frame accumulation (supersampling) and interactive resolution scaling.
 
 ## Product & Requirements
