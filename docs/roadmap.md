@@ -104,6 +104,6 @@
 
 ## Phase 17: Telemetry & DX (GTKWave Analyzer)
 
-- [ ] [Task 057: Telemetry Registry & Headless Primitives](tasks/057-telemetry-registry.md)
+- [x] [Task 057: Telemetry Registry & Headless Primitives](tasks/completed/057-telemetry-registry.md)
 - [ ] [Task 058: Telemetry Data Integration (Producers)](tasks/058-telemetry-integration.md)
 - [ ] [Task 059: Telemetry UI (GTKWave Analyzer)](tasks/059-telemetry-ui.md)
