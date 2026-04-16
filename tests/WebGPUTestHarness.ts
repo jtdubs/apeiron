@@ -1,6 +1,7 @@
 import type { RenderState } from '../src/ui/stores/renderStore.ts';
 import { PassManager } from '../src/engine/PassManager.ts';
 import type { RenderFrameDescriptor } from '../src/engine/RenderFrameDescriptor.ts';
+import { CameraParams, packCameraParams } from '../src/engine/generated/MemoryLayout.ts';
 
 export class WebGPUTestHarness {
   constructor(
@@ -17,140 +18,39 @@ export class WebGPUTestHarness {
     exponent: number = 2.0,
     skipIter: number = 0.0,
   ): Promise<Float32Array> {
-    const computeModule = this.device.createShaderModule({ code: this.mathShaderCode });
-    const computePipeline = this.device.createComputePipeline({
-      layout: 'auto',
-      compute: {
-        module: computeModule,
-        entryPoint: 'main_compute',
+    return this.executeUnitTest(
+      'main_compute',
+      input,
+      {
+        cameraData: {
+          scale: 1.0,
+          aspect: 1.0,
+          render_scale: 1.0,
+          canvas_width: 1.0,
+          yield_iter_limit: maxIter,
+          ref_max_iter: maxIter,
+          max_iter: maxIter,
+          use_perturbation: usePerturbation ? 1.0 : 0.0,
+          exponent: exponent,
+          skip_iter: skipIter,
+        },
+        refOrbits: refOrbits,
       },
-    });
-
-    const inputSize = input.byteLength;
-    const computeUnits = input.length / 6;
-    const outputSize = computeUnits * 4 * 4;
-
-    const inputStorageBuffer = this.device.createBuffer({
-      size: inputSize,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(inputStorageBuffer, 0, input as unknown as BufferSource);
-
-    const outputStorageBuffer = this.device.createBuffer({
-      size: outputSize,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-    });
-
-    const stagingBuffer = this.device.createBuffer({
-      size: outputSize,
-      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-    });
-
-    const cameraTestBuffer = this.device.createBuffer({
-      size: 96,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-
-    const cameraData = new Float32Array([
-      0.0, // zr
-      0.0, // zi
-      0.0, // cr
-      0.0, // ci
-      1.0, // scale
-      1.0, // aspect
-      maxIter,
-      0.0, // sliceAngle
-      usePerturbation ? 1.0 : 0.0,
-      maxIter,
-      exponent,
-      0.0, // coloringMode
-      0.0, // jitterX
-      0.0, // jitterY
-      0.0, // blendWeight (first frame = 0.0, replaces prev buffer)
-      1.0, // renderScale
-      maxIter, // yieldIterLimit
-      0.0, // isResume
-      1.0, // isFinalSlice
-      1.0, // canvasWidth
-      skipIter, // skipIter
-      0.0,
-      0.0,
-      0.0,
-    ]);
-    this.device.queue.writeBuffer(cameraTestBuffer, 0, cameraData);
-
-    const entries: GPUBindGroupEntry[] = [
-      { binding: 0, resource: { buffer: cameraTestBuffer } },
-      { binding: 1, resource: { buffer: inputStorageBuffer } },
-      { binding: 2, resource: { buffer: outputStorageBuffer } },
-    ];
-
-    const checkpointBuffer = this.device.createBuffer({
-      size: computeUnits * 32, // CheckpointState is 32 bytes
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
-
-    let refOrbitsBuffer: GPUBuffer | null = null;
-    if (refOrbits) {
-      refOrbitsBuffer = this.device.createBuffer({
-        size: refOrbits.byteLength,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      });
-      this.device.queue.writeBuffer(
-        refOrbitsBuffer,
-        0,
-        refOrbits.buffer,
-        refOrbits.byteOffset,
-        refOrbits.byteLength,
-      );
-      entries.push({ binding: 3, resource: { buffer: refOrbitsBuffer } });
-    } else {
-      refOrbitsBuffer = this.device.createBuffer({
-        size: 16,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      });
-      this.device.queue.writeBuffer(refOrbitsBuffer, 0, new Float32Array([0.0, 0.0, 0.0, 0.0]));
-      entries.push({ binding: 3, resource: { buffer: refOrbitsBuffer } });
-    }
-
-    const bindGroup = this.device.createBindGroup({
-      layout: computePipeline.getBindGroupLayout(0),
-      entries,
-    });
-
-    const commandEncoder = this.device.createCommandEncoder();
-    const passEncoder = commandEncoder.beginComputePass();
-    passEncoder.setPipeline(computePipeline);
-    passEncoder.setBindGroup(0, bindGroup);
-    passEncoder.dispatchWorkgroups(computeUnits);
-    passEncoder.end();
-
-    commandEncoder.copyBufferToBuffer(outputStorageBuffer, 0, stagingBuffer, 0, outputSize);
-    this.device.queue.submit([commandEncoder.finish()]);
-
-    await stagingBuffer.mapAsync(GPUMapMode.READ);
-    const arrayBuffer = stagingBuffer.getMappedRange();
-    const result = new Float32Array(arrayBuffer.slice(0));
-    stagingBuffer.unmap();
-    inputStorageBuffer.destroy();
-    outputStorageBuffer.destroy();
-    stagingBuffer.destroy();
-    cameraTestBuffer.destroy();
-    if (refOrbitsBuffer) refOrbitsBuffer.destroy();
-    checkpointBuffer.destroy();
-
-    return result;
+      6,
+      4,
+    );
   }
 
   public async executeUnitTest(
     entryPoint: string,
     input: Float32Array,
     options: {
-      cameraData?: Float32Array;
+      cameraData?: CameraParams;
       refOrbits?: Float64Array;
       checkpointData?: Float32Array;
     } = {},
+    inputStride: number = 4,
+    outputStride: number = 4,
   ): Promise<Float32Array> {
     const computeModule = this.device.createShaderModule({ code: this.mathShaderCode });
     const computePipeline = this.device.createComputePipeline({
@@ -162,8 +62,8 @@ export class WebGPUTestHarness {
     });
 
     const inputSize = input.byteLength;
-    const outputSize = inputSize;
-    const computeUnits = input.length / 4;
+    const computeUnits = input.length / inputStride;
+    const outputSize = computeUnits * outputStride * 4;
 
     const inputStorageBuffer = this.device.createBuffer({
       size: inputSize,
@@ -187,11 +87,19 @@ export class WebGPUTestHarness {
     });
 
     // Standard mock camera fallback
-    const cameraFallback = new Float32Array([
-      0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 100.0, 0.0, 0.0, 100.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 100.0,
-      0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0,
-    ]);
-    this.device.queue.writeBuffer(cameraTestBuffer, 0, options.cameraData ?? cameraFallback);
+    const cameraFallback: CameraParams = {
+      scale: 1.0,
+      aspect: 1.0,
+      max_iter: 100.0,
+      ref_max_iter: 100.0,
+      exponent: 2.0,
+      render_scale: 1.0,
+      yield_iter_limit: 100.0,
+      canvas_width: 1.0,
+    };
+
+    const packedCamera = packCameraParams(options.cameraData ?? cameraFallback);
+    this.device.queue.writeBuffer(cameraTestBuffer, 0, packedCamera);
 
     const checkpointBuffer = this.device.createBuffer({
       size: Math.max(computeUnits * 32, 32),
@@ -203,11 +111,15 @@ export class WebGPUTestHarness {
     if (!mockCheckpoint) {
       mockCheckpoint = new Float32Array(Math.max(computeUnits * 8, 8));
       for (let i = 0; i < computeUnits; i++) {
-        mockCheckpoint[i * 8] = input[i * 4]; // zx
-        mockCheckpoint[i * 8 + 1] = input[i * 4 + 1]; // zy
+        mockCheckpoint[i * 8] = input[i * inputStride]; // zx
+        mockCheckpoint[i * 8 + 1] = input[i * inputStride + 1]; // zy
         mockCheckpoint[i * 8 + 2] = 1.0; // der_x
         mockCheckpoint[i * 8 + 3] = 0.0; // der_y
-        mockCheckpoint[i * 8 + 4] = input[i * 4 + 2]; // iter
+        let iterVal = 0;
+        if (inputStride >= 3) {
+          iterVal = input[i * inputStride + 2];
+        }
+        mockCheckpoint[i * 8 + 4] = iterVal; // iter
         mockCheckpoint[i * 8 + 5] = 0.0; // tia
         mockCheckpoint[i * 8 + 6] = 0.0;
         mockCheckpoint[i * 8 + 7] = 0.0;
@@ -218,7 +130,9 @@ export class WebGPUTestHarness {
     // Some WGSL functions require the reference orbit `binding 3` during tests indirectly (like SA and BLA)
     let refOrbitsActualBuffer: GPUBuffer | null = null;
     if (
-      (entryPoint === 'unit_test_sa_init' || entryPoint === 'unit_test_bla_advance') &&
+      (entryPoint === 'unit_test_sa_init' ||
+        entryPoint === 'unit_test_bla_advance' ||
+        entryPoint === 'main_compute') &&
       options.refOrbits
     ) {
       const refArray = options.refOrbits;
@@ -260,6 +174,10 @@ export class WebGPUTestHarness {
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
       entries.push({ binding: 3, resource: { buffer: refOrbitsActualBuffer } });
       entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
+    } else if (entryPoint === 'main_compute') {
+      entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
+      entries.push({ binding: 3, resource: { buffer: refOrbitsActualBuffer } });
+      entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
     }
 
     const bindGroup = this.device.createBindGroup({
@@ -271,7 +189,8 @@ export class WebGPUTestHarness {
     const passEncoder = commandEncoder.beginComputePass();
     passEncoder.setPipeline(computePipeline);
     passEncoder.setBindGroup(0, bindGroup);
-    passEncoder.dispatchWorkgroups(Math.ceil(computeUnits / 64));
+    const workgroupDivisor = entryPoint === 'main_compute' ? 1 : 64;
+    passEncoder.dispatchWorkgroups(Math.ceil(computeUnits / workgroupDivisor));
     passEncoder.end();
 
     commandEncoder.copyBufferToBuffer(outputStorageBuffer, 0, stagingBuffer, 0, outputSize);
