@@ -5,8 +5,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { initEngine } from '../src/engine/initEngine.ts';
+
 import { WebGPUTestHarness } from './WebGPUTestHarness.ts';
 import { WorkerInputMessage, WorkerOutputMessage } from '../src/engine/math-workers/rust.worker.ts';
+import {
+  ORBIT_STRIDE,
+  META_STRIDE,
+  FLOATS_PER_ITER,
+} from '../src/engine/generated/MemoryLayout.ts';
 
 interface SharedState {
   engine: any;
@@ -52,17 +58,30 @@ async function initSharedState(): Promise<SharedState | null> {
     });
     worker.terminate();
 
-    const mathAccumWgsl = fs.readFileSync(
-      path.resolve('./src/engine/shaders/escape/math_accum.wgsl'),
+    const layoutWgsl = fs.readFileSync(
+      path.resolve('./src/engine/shaders/escape/generated/layout.wgsl'),
       'utf8',
     );
-    const resolveWgsl = fs.readFileSync(
-      path.resolve('./src/engine/shaders/escape/resolve_present.wgsl'),
+    const layoutAccessorsWgsl = fs.readFileSync(
+      path.resolve('./src/engine/shaders/escape/generated/layout_accessors.wgsl'),
       'utf8',
     );
 
-    const engine = await initEngine(undefined, mathAccumWgsl, resolveWgsl);
-    const harness = new WebGPUTestHarness(engine.device, mathAccumWgsl, resolveWgsl);
+    const mathAccumWgslStr =
+      layoutWgsl +
+      '\n' +
+      fs.readFileSync(path.resolve('./src/engine/shaders/escape/math_accum.wgsl'), 'utf8');
+    const mathAccumWgsl = mathAccumWgslStr.replace(
+      'fn unpack_f64_to_f32',
+      layoutAccessorsWgsl + '\nfn unpack_f64_to_f32',
+    );
+    const resolveWgslStr =
+      layoutWgsl +
+      '\n' +
+      fs.readFileSync(path.resolve('./src/engine/shaders/escape/resolve_present.wgsl'), 'utf8');
+
+    const engine = await initEngine(undefined, mathAccumWgsl, resolveWgslStr);
+    const harness = new WebGPUTestHarness(engine.device, mathAccumWgsl, resolveWgslStr);
 
     const rawCases = JSON.parse(casesJson);
     const clusterCases: any[] = [];
@@ -142,7 +161,7 @@ async function initSharedState(): Promise<SharedState | null> {
       } as WorkerInputMessage);
     });
 
-    const blockSize = 100 * 136 + 8;
+    const blockSize = 100 * FLOATS_PER_ITER + META_STRIDE;
     const variantsPerCase = 6;
     const alignedRefOrbits = new Float64Array(clusterCases.length * blockSize);
     for (let c = 0; c < rawCases.length; c++) {
@@ -216,11 +235,11 @@ Deno.test('Fuzzy Match Tolerance Checker (against Ground Truth)', async () => {
   const { clusterCases, offsetsGroundTruth, perturbGpuResult, f32GpuResult } = state;
   let passed = true;
   const max_iterations = 100;
-  const blockSizeG = max_iterations * 136 + 8;
+  const blockSizeG = max_iterations * FLOATS_PER_ITER + META_STRIDE;
 
   for (let i = 0; i < clusterCases.length; i++) {
     const start = i * blockSizeG;
-    const metadataOffset = start + max_iterations * 8;
+    const metadataOffset = start + max_iterations * ORBIT_STRIDE;
     // The escape iter is pushed as the 4th element of metadata:
     // 0: cycle_found, 1: pad, 2: pad, 3: escaped_iter
     const expectedIter = offsetsGroundTruth[metadataOffset + 3];
@@ -505,7 +524,7 @@ Deno.test('Validating Series Approximation Skip Iteration Algebraic Jump', async
   // First, we run Standard Perturbation (no skipping) - the control group
   const standardRes = await harness.executeTestCompute(
     inputs,
-    alignedRefOrbits.subarray(0, 100 * 136 + 8), // Provide valid ref orbits from point 0
+    alignedRefOrbits.subarray(0, 100 * FLOATS_PER_ITER + META_STRIDE), // Provide valid ref orbits from point 0
     100, // maxIter
     true, // usePerturbation
     2.0, // exponent
@@ -516,7 +535,7 @@ Deno.test('Validating Series Approximation Skip Iteration Algebraic Jump', async
   // It shouldn't change the escape path results noticeably.
   const skipRes = await harness.executeTestCompute(
     inputs,
-    alignedRefOrbits.subarray(0, 100 * 8 + 8),
+    alignedRefOrbits.subarray(0, 100 * ORBIT_STRIDE + META_STRIDE),
     100,
     true,
     2.0,

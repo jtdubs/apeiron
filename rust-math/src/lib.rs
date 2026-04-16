@@ -5,6 +5,10 @@ use serde::Deserialize;
 use bigdecimal::ToPrimitive;
 use bigdecimal::FromPrimitive;
 
+#[path = "generated/layout.rs"]
+pub mod layout;
+use layout::*;
+
 #[derive(Deserialize)]
 pub struct Point {
     pub zr: String,
@@ -18,9 +22,10 @@ pub struct Point {
 pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Float64Array {
     let points: Vec<Point> = serde_json::from_str(points_json).unwrap_or_else(|_| vec![]);
     
-    // Each point yields: (max_iterations) * 8 floats for the orbit (x, y, ar, ai, br, bi, cr, ci)
-    // PLUS 8 metadata floats: [cycle_found, der_r, der_i, iter/escape, abs_zr, abs_zi, abs_cr, abs_ci]
-    let mut results = Vec::with_capacity(points.len() * ((max_iterations as usize * 8) + 8));
+    // Vector packing format relies on strongly typed constants inside layout.rs
+    // which represent ORBIT_STRIDE, META_STRIDE, BLA_LEVELS, BLA_NODE_STRIDE.
+    let floats_per_case = (max_iterations as usize * FLOATS_PER_ITER) + META_STRIDE;
+    let mut results = Vec::with_capacity(points.len() * floats_per_case);
 
     for p in points {
         let mut x = BigDecimal::from_str(&p.zr).unwrap_or(BigDecimal::zero());
@@ -55,14 +60,17 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
         let mut orbit = Vec::with_capacity((max_iterations * 8) as usize);
 
         while iter < max_iterations {
-            orbit.push(x.to_f64().unwrap_or(0.0));
-            orbit.push(y.to_f64().unwrap_or(0.0));
-            orbit.push(ar.to_f64().unwrap_or(0.0));
-            orbit.push(ai.to_f64().unwrap_or(0.0));
-            orbit.push(br.to_f64().unwrap_or(0.0));
-            orbit.push(bi.to_f64().unwrap_or(0.0));
-            orbit.push(cr.to_f64().unwrap_or(0.0));
-            orbit.push(ci.to_f64().unwrap_or(0.0));
+            let node = crate::layout::ReferenceOrbitNode {
+                x: x.to_f64().unwrap_or(0.0),
+                y: y.to_f64().unwrap_or(0.0),
+                ar: ar.to_f64().unwrap_or(0.0),
+                ai: ai.to_f64().unwrap_or(0.0),
+                br: br.to_f64().unwrap_or(0.0),
+                bi: bi.to_f64().unwrap_or(0.0),
+                cr: cr.to_f64().unwrap_or(0.0),
+                ci: ci.to_f64().unwrap_or(0.0),
+            };
+            node.push_to(&mut orbit);
 
             let x2 = &x * &x;
             let y2 = &y * &y;
@@ -184,41 +192,45 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
             results.push(*v);
         }
 
-        let pushed_values = orbit.len() / 8;
+        let pushed_values = orbit.len() / ORBIT_STRIDE;
         let remaining = max_iterations as usize - pushed_values;
+        let pad_node = crate::layout::ReferenceOrbitNode {
+            x: x.to_f64().unwrap_or(0.0),
+            y: y.to_f64().unwrap_or(0.0),
+            ar: ar.to_f64().unwrap_or(0.0),
+            ai: ai.to_f64().unwrap_or(0.0),
+            br: br.to_f64().unwrap_or(0.0),
+            bi: bi.to_f64().unwrap_or(0.0),
+            cr: cr.to_f64().unwrap_or(0.0),
+            ci: ci.to_f64().unwrap_or(0.0),
+        };
         for _ in 0..remaining {
-            results.push(x.to_f64().unwrap_or(0.0));
-            results.push(y.to_f64().unwrap_or(0.0));
-            results.push(ar.to_f64().unwrap_or(0.0));
-            results.push(ai.to_f64().unwrap_or(0.0));
-            results.push(br.to_f64().unwrap_or(0.0));
-            results.push(bi.to_f64().unwrap_or(0.0));
-            results.push(cr.to_f64().unwrap_or(0.0));
-            results.push(ci.to_f64().unwrap_or(0.0));
+            pad_node.push_to(&mut results);
         }
 
-        results.push(if cycle_found { 1.0 } else { 0.0 });
-        results.push(cycle_der_r.to_f64().unwrap_or(0.0));
-        results.push(cycle_der_i.to_f64().unwrap_or(0.0));
-        results.push(if escaped { iter as f64 } else { max_iterations as f64 });
-        
-        // Append absolute tracking metadata to be retrieved cleanly by WebGPU without JS Float parsing
-        results.push(p.zr.parse::<f64>().unwrap_or(0.0));
-        results.push(p.zi.parse::<f64>().unwrap_or(0.0));
-        results.push(p.cr.parse::<f64>().unwrap_or(0.0));
-        results.push(p.ci.parse::<f64>().unwrap_or(0.0));
+        let meta = crate::layout::OrbitMetadata {
+            cycle_found: if cycle_found { 1.0 } else { 0.0 },
+            cycle_der_r: cycle_der_r.to_f64().unwrap_or(0.0),
+            cycle_der_i: cycle_der_i.to_f64().unwrap_or(0.0),
+            escaped_iter: if escaped { iter as f64 } else { max_iterations as f64 },
+            abs_zr: p.zr.parse::<f64>().unwrap_or(0.0),
+            abs_zi: p.zi.parse::<f64>().unwrap_or(0.0),
+            abs_cr: p.cr.parse::<f64>().unwrap_or(0.0),
+            abs_ci: p.ci.parse::<f64>().unwrap_or(0.0),
+        };
+        meta.push_to(&mut results);
         // --- BLA Block Grid Compilation ---
         // We compile a dense uniform matrix of dimensions [max_iterations, MAX_LEVELS]
         // where level L implies a block size of 2^L.
-        let max_levels = 16; 
+        let max_levels = BLA_LEVELS; 
         
         // First, extract the x, y array from the computed orbit
         let mut blx = vec![0.0f64; max_iterations as usize];
         let mut bly = vec![0.0f64; max_iterations as usize];
-        let pushed_values = orbit.len() / 8;
+        let pushed_values = orbit.len() / ORBIT_STRIDE;
         for i in 0..pushed_values {
-            blx[i] = orbit[i * 8];
-            bly[i] = orbit[i * 8 + 1];
+            blx[i] = orbit[i * ORBIT_STRIDE];
+            bly[i] = orbit[i * ORBIT_STRIDE + 1];
         }
 
         // DP table for blocks: level -> iter -> block
@@ -271,15 +283,17 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
         for i in 0..(max_iterations as usize) {
             for l in 0..max_levels {
                 let node = bla_grid[l][i];
-                let cur_len = (1 << l) as f64;
-                results.push(node.0);
-                results.push(node.1);
-                results.push(node.2);
-                results.push(node.3);
-                results.push(node.4);
-                results.push(cur_len);
-                results.push(0.0); // pad
-                results.push(0.0); // pad
+                let bn = crate::layout::BLANode {
+                    ar: node.0,
+                    ai: node.1,
+                    br: node.2,
+                    bi: node.3,
+                    err: node.4,
+                    len: (1 << l) as f64,
+                    pad1: 0.0,
+                    pad2: 0.0,
+                };
+                bn.push_to(&mut results);
             }
         }
     }

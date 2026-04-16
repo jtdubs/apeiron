@@ -25,3 +25,6 @@ dist-ssr
 
 # Rust cargo output
 rust-math/target/
+
+# Generated files
+**/generated/

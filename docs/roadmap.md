@@ -92,3 +92,4 @@
 - [ ] [Task 045: Adaptive Dynamic Resolution Scaling (ADRS)](tasks/045-adaptive-drs.md)
 - [x] [Task 046: Shader Interior Early-Out (Period Detection)](tasks/completed/046-shader-interior-early-out.md)
 - [x] [Task 047: Execution Checkpointing](tasks/completed/047-execution-checkpointing.md)
+- [x] [Task 051: Buffer Alignment Cleanup and Abstraction](tasks/completed/051-buffer-alignment-cleanup.md)

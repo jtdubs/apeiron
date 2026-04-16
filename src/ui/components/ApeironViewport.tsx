@@ -5,6 +5,8 @@ import type { RenderFrameDescriptor } from '../../engine/RenderFrameDescriptor';
 
 import mathAccumWgsl from '../../engine/shaders/escape/math_accum.wgsl?raw';
 import resolvePresentWgsl from '../../engine/shaders/escape/resolve_present.wgsl?raw';
+import layoutWgsl from '../../engine/shaders/escape/generated/layout.wgsl?raw';
+import layoutAccessorsWgsl from '../../engine/shaders/escape/generated/layout_accessors.wgsl?raw';
 import { viewportStore, calculateMaxIter } from '../stores/viewportStore';
 import { renderStore } from '../stores/renderStore';
 import { IterationBudgetController } from '../../engine/IterationBudgetController';
@@ -158,7 +160,13 @@ export const ApeironViewport: React.FC = () => {
 
     const initialize = async () => {
       try {
-        const engine = await initEngine(canvas, mathAccumWgsl, resolvePresentWgsl);
+        const engine = await initEngine(
+          canvas,
+          mathAccumWgsl,
+          resolvePresentWgsl,
+          layoutWgsl,
+          layoutAccessorsWgsl,
+        );
         if (!isMounted) return;
         engineRef.current = engine;
 

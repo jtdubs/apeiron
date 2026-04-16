@@ -1,3 +1,10 @@
+import {
+  META_STRIDE,
+  FLOATS_PER_ITER,
+  unpackReferenceOrbitNode,
+  type ReferenceOrbitNode,
+} from './generated/MemoryLayout';
+
 export function calculateSkipIter(
   refOrbits: Float64Array | null,
   zoom: number,
@@ -18,20 +25,21 @@ export function calculateSkipIter(
   const dc_mag = Math.sqrt(dcr_max * dcr_max + dci_max * dci_max);
   const dc_mag_3 = dc_mag * dc_mag * dc_mag;
 
-  // Each iteration has 8 orbit floats + 128 BLA floats (16 levels * 8 floats)
-  const floats_per_case = 136;
-  const refLength = (refOrbits.length - 8) / floats_per_case;
+  const refLength = (refOrbits.length - META_STRIDE) / FLOATS_PER_ITER;
 
   let skipIter = 0;
+  const node: ReferenceOrbitNode = {};
 
   for (let i = 0; i < refLength; i++) {
-    const cr = refOrbits[i * 8 + 6];
-    const ci = refOrbits[i * 8 + 7];
+    unpackReferenceOrbitNode(refOrbits, META_STRIDE + i * FLOATS_PER_ITER, node);
+
+    const cr = node.cr!;
+    const ci = node.ci!;
     const c_mag = Math.sqrt(cr * cr + ci * ci);
     const error = c_mag * dc_mag_3;
 
-    const ar = refOrbits[i * 8 + 2];
-    const ai = refOrbits[i * 8 + 3];
+    const ar = node.ar!;
+    const ai = node.ai!;
     const a_mag = Math.sqrt(ar * ar + ai * ai);
 
     // 1e-6 target for WebGPU f32 stability, and cap absolute approximation magnitude.

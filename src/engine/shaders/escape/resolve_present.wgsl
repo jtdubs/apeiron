@@ -1,3 +1,4 @@
+// #import "./generated/layout.wgsl"
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
   @location(0) uv: vec2<f32>,
@@ -23,27 +24,6 @@ fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
 struct CameraScaleParams { render_scale: f32 };
 @group(0) @binding(1) var<uniform> camera_scale: CameraScaleParams;
 
-struct ResolveUniforms {
-  a: vec4<f32>,
-  b: vec4<f32>,
-  c: vec4<f32>,
-  d: vec4<f32>,
-  max_iter: f32,
-  light_azimuth: f32,
-  light_elevation: f32,
-  diffuse: f32,
-  shininess: f32,
-  height_scale: f32,
-  ambient: f32,
-  coloring_mode: f32,
-  color_density: f32,
-  color_phase: f32,
-  surface_mode: f32,
-  surface_param_a: f32,
-  surface_param_b: f32,
-  // pad field removed — render_scale is now in camera_scale (group 0 binding 1)
-  true_max_iter: f32,
-};
 
 @group(1) @binding(0) var<uniform> params: ResolveUniforms;
 

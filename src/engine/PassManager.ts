@@ -1,5 +1,10 @@
 import type { RenderFrameDescriptor } from './RenderFrameDescriptor';
-import { buildCameraUniforms, buildPaletteUniforms } from './uniforms';
+import {
+  META_STRIDE,
+  FLOATS_PER_ITER,
+  packCameraParams,
+  packResolveUniforms,
+} from './generated/MemoryLayout';
 
 // ─── AccumulationPass ────────────────────────────────────────────────────────
 
@@ -342,40 +347,94 @@ export class PassManager {
     // we skip the camState string-diff and always upload the current values.
     const actualRefMaxIter =
       this.hasValidActiveRefOrbits && desc.refOrbits
-        ? (desc.refOrbits.length - 8) / 136
+        ? (desc.refOrbits.length - META_STRIDE) / FLOATS_PER_ITER
         : desc.maxIter;
     const paletteMaxIter = this.hasValidActiveRefOrbits ? actualRefMaxIter : desc.maxIter;
 
-    const cameraData = buildCameraUniforms(
-      desc.zr,
-      desc.zi,
-      desc.cr,
-      desc.ci,
-      desc.zoom,
-      aspectRatio,
-      desc.maxIter,
-      desc.sliceAngle,
-      desc.exponent,
-      desc.jitterX,
-      desc.jitterY,
-      desc.blendWeight,
-      this.hasValidActiveRefOrbits,
-      desc.refOrbits ? desc.refOrbits.length : undefined,
-      desc.renderScale,
-      desc.yieldIterLimit,
-      desc.isResume,
-      desc.isFinalSlice,
-      width,
-      desc.skipIter,
-      desc.theme,
-    );
+    const usePerturbationAllowed = desc.theme?.precisionMode !== 'f32';
+    const usePerturbation = this.hasValidActiveRefOrbits && usePerturbationAllowed ? 1.0 : 0.0;
+
+    const cameraData = packCameraParams({
+      zr: desc.zr,
+      zi: desc.zi,
+      cr: desc.cr,
+      ci: desc.ci,
+      scale: desc.zoom,
+      aspect: aspectRatio,
+      max_iter: desc.maxIter,
+      slice_angle: desc.sliceAngle,
+      use_perturbation: usePerturbation,
+      ref_max_iter: actualRefMaxIter,
+      exponent: desc.exponent,
+      coloring_mode:
+        desc.theme?.coloringMode === 'stripe'
+          ? 1.0
+          : desc.theme?.coloringMode === 'banded'
+            ? 2.0
+            : 0.0,
+      jitter_x: desc.jitterX,
+      jitter_y: desc.jitterY,
+      blend_weight: desc.blendWeight,
+      render_scale: desc.renderScale,
+      yield_iter_limit: desc.yieldIterLimit,
+      is_resume: desc.isResume,
+      is_final_slice: desc.isFinalSlice ? 1.0 : 0.0,
+      canvas_width: width,
+      skip_iter: desc.skipIter,
+    });
     this.device.queue.writeBuffer(this.accumPass.uniformsBuffer, 0, cameraData);
 
     // ── Palette/resolve uniforms (only on theme change) ──────────────────────
     const themeVersion = desc.theme?.themeVersion ?? -1;
     if (themeVersion !== this.lastThemeVersion) {
       this.lastThemeVersion = themeVersion;
-      const paletteData = buildPaletteUniforms(desc.theme, paletteMaxIter, desc.trueMaxIter);
+
+      let paletteData: Float32Array;
+      if (!desc.theme) {
+        paletteData = new Float32Array(32);
+        paletteData[12] = paletteMaxIter;
+        paletteData[31] = desc.trueMaxIter;
+      } else {
+        const t = desc.theme;
+        let surfaceParamA = 1.0;
+        let surfaceParamB = 1.0;
+        if (t.surfaceMode === 'soft-glow') {
+          surfaceParamA = t.glowFalloff ?? 20.0;
+          surfaceParamB = t.glowScatter ?? 1.0;
+        } else if (t.surfaceMode === 'contours') {
+          surfaceParamA = t.contourFrequency ?? 20.0;
+          surfaceParamB = t.contourThickness ?? 0.8;
+        }
+
+        paletteData = packResolveUniforms({
+          a: [t.paletteA?.[0] ?? 0, t.paletteA?.[1] ?? 0, t.paletteA?.[2] ?? 0, 0.0],
+          b: [t.paletteB?.[0] ?? 0, t.paletteB?.[1] ?? 0, t.paletteB?.[2] ?? 0, 0.0],
+          c: [t.paletteC?.[0] ?? 0, t.paletteC?.[1] ?? 0, t.paletteC?.[2] ?? 0, 0.0],
+          d: [t.paletteD?.[0] ?? 0, t.paletteD?.[1] ?? 0, t.paletteD?.[2] ?? 0, 0.0],
+          max_iter: paletteMaxIter,
+          light_azimuth: t.lightAzimuth ?? 0,
+          light_elevation: t.lightElevation ?? 0,
+          diffuse: t.diffuse ?? 0,
+          shininess: t.shininess ?? 0,
+          height_scale: t.heightScale ?? 0,
+          ambient: t.ambient ?? 0,
+          coloring_mode:
+            t.coloringMode === 'stripe' ? 1.0 : t.coloringMode === 'banded' ? 2.0 : 0.0,
+          color_density: t.colorDensity ?? 3.0,
+          color_phase: t.colorPhase ?? 0.0,
+          surface_mode:
+            t.surfaceMode === 'off'
+              ? 0.0
+              : t.surfaceMode === 'soft-glow'
+                ? 2.0
+                : t.surfaceMode === 'contours'
+                  ? 3.0
+                  : 1.0,
+          surface_param_a: surfaceParamA,
+          surface_param_b: surfaceParamB,
+          true_max_iter: desc.trueMaxIter,
+        });
+      }
       this.device.queue.writeBuffer(this.presentPass.paletteUniformsBuffer, 0, paletteData);
     }
     // Keep paletteMaxIter in sync even when theme version hasn't changed
