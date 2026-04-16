@@ -7,10 +7,10 @@ import mathAccumWgsl from '../../engine/shaders/escape/math_accum.wgsl?raw';
 import resolvePresentWgsl from '../../engine/shaders/escape/resolve_present.wgsl?raw';
 import layoutWgsl from '../../engine/shaders/escape/generated/layout.wgsl?raw';
 import layoutAccessorsWgsl from '../../engine/shaders/escape/generated/layout_accessors.wgsl?raw';
-import { viewportStore, calculateMaxIter } from '../stores/viewportStore';
+import { viewportStore } from '../stores/viewportStore';
 import { renderStore } from '../stores/renderStore';
-import { calculateSkipIter } from '../../engine/seriesApproximation';
 import { ProgressiveRenderScheduler } from '../../engine/ProgressiveRenderScheduler';
+import { buildMathContext } from '../stores/mathContextAdapter';
 
 export const ApeironViewport: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -172,59 +172,16 @@ export const ApeironViewport: React.FC = () => {
 
         // ── Accumulation state machine ──────────────────────────────────────
         const scheduler = new ProgressiveRenderScheduler();
-        const INTERACT_ITER_FRACTION = 0.33;
-        const INTERACT_ITER_FLOOR = calculateMaxIter(1.0);
-
         const loop = () => {
           if (!isMounted) return;
           const state = viewportStore.getState();
           const theme = renderStore.getState();
 
-          const isPerturb = state.refOrbits !== null && theme.precisionMode !== 'f32';
-
-          const zr = isPerturb ? state.deltaZr : parseFloat(state.anchorZr) + state.deltaZr;
-          const zi = isPerturb ? state.deltaZi : parseFloat(state.anchorZi) + state.deltaZi;
-          const cr = isPerturb ? state.deltaCr : parseFloat(state.anchorCr) + state.deltaCr;
-          const ci = isPerturb ? state.deltaCi : parseFloat(state.anchorCi) + state.deltaCi;
-
           const isInteracting = state.interactionState !== 'STATIC';
           const renderDpr = window.devicePixelRatio || 1;
           const snapshotRenderScale = isInteracting ? 1.0 / renderDpr : 1.0;
 
-          const skipIter = canvas
-            ? calculateSkipIter(
-                state.refOrbits,
-                state.zoom,
-                state.deltaCr,
-                state.deltaCi,
-                canvas.width,
-                canvas.height,
-                state.sliceAngle,
-                theme.precisionMode,
-              )
-            : 0;
-
-          const effectiveMaxIter = isInteracting
-            ? Math.min(
-                state.maxIter,
-                Math.max(INTERACT_ITER_FLOOR, Math.floor(state.maxIter * INTERACT_ITER_FRACTION)) +
-                  skipIter,
-              )
-            : state.maxIter;
-
-          const context = {
-            zr,
-            zi,
-            cr,
-            ci,
-            zoom: state.zoom,
-            maxIter: effectiveMaxIter,
-            trueMaxIter: state.maxIter,
-            sliceAngle: state.sliceAngle,
-            exponent: state.exponent,
-            refOrbits: state.refOrbits,
-            skipIter,
-          };
+          const context = buildMathContext(state, theme, canvas?.width ?? 0, canvas?.height ?? 0);
 
           const command = scheduler.update(
             context,
@@ -254,15 +211,15 @@ export const ApeironViewport: React.FC = () => {
               const ms = engine.getMathPassMs();
               const modeStr = scheduler.getPipelineMode(isInteracting);
               const msStr = ms !== -1 ? ms.toFixed(2) : '---';
-              const deepenPct = Math.round((hudDeepenNumerator / effectiveMaxIter) * 100);
+              const deepenPct = Math.round((hudDeepenNumerator / context.maxIter) * 100);
 
               hudRef.current.innerHTML = `
 Mode:    ${modeStr}<br>
 GPU:     ${msStr} ms<br>
 Budget:  ${scheduler.getBudget()} iter/frame<br>
 Slice:   ${command.yieldIterLimit} iters (this pass)<br>
-Deepen:  ${deepenPct}% (${hudDeepenNumerator} / ${effectiveMaxIter})<br>
-SA Skip: ${skipIter}<br>
+Deepen:  ${deepenPct}% (${hudDeepenNumerator} / ${context.maxIter})<br>
+SA Skip: ${context.skipIter}<br>
 Accum:   ${scheduler.getAccumulationCount()} / 64
               `.trim();
             } else {
