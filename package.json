@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run build:math && tsc -b && vite build",
     "build:math": "node scripts/compileLayoutSchema.js && cd rust-math && wasm-pack build --target web --out-dir ../src/engine/math-workers/wasm",
+    "test": "npm run test:engine && npm run test:ui",
     "test:engine": "$HOME/.deno/bin/deno test --unstable-webgpu --allow-read --allow-env --allow-write --no-check tests/engine.deno.ts",
     "test:ui": "vitest run",
     "test:update": "UPDATE_SNAPSHOTS=true $HOME/.deno/bin/deno test --unstable-webgpu --allow-read --allow-env --allow-write --no-check tests/engine.deno.ts",
