@@ -54,5 +54,6 @@ export function buildMathContext(
     exponent: state.exponent,
     refOrbits: state.refOrbits,
     skipIter,
+    debugViewMode: state.debugViewMode,
   };
 }

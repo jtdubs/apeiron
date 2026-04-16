@@ -15,6 +15,7 @@ function createMockContext(overrides?: Partial<MathContext>): MathContext {
     exponent: 2,
     refOrbits: null,
     skipIter: 0,
+    debugViewMode: 0,
     ...overrides,
   };
 }

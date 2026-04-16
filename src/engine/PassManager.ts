@@ -378,7 +378,7 @@ export class PassManager {
       render_scale: desc.command.renderScale,
       yield_iter_limit: desc.command.yieldIterLimit,
       load_checkpoint: desc.command.loadCheckpoint ? 1.0 : 0.0,
-      pad4: 0.0,
+      debug_view_mode: desc.context.debugViewMode,
       canvas_width: width,
       skip_iter: desc.context.skipIter,
     });

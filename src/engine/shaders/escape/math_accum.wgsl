@@ -767,15 +767,39 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   
   let ret = execute_engine_math(start_z, start_c, delta_z, delta_c, 0u, pixel_id);
   
-  if (ret.x < -1.0) {
-      if (camera.blend_weight > 0.0) {
+  var output_color = ret;
+  
+  if (camera.debug_view_mode > 0.5) {
+      if (camera.debug_view_mode == 1.0) {
+          let is_limit = select(0.0, 1.0, ret.x >= camera.max_iter);
+          output_color = vec4<f32>(is_limit, 0.0, 1.0 - is_limit, 1.0);
+      } else if (camera.debug_view_mode == 2.0) {
+          var col = vec3<f32>(0.2, 0.2, 0.2);
+          if (cp.iter > 0.0) { col = vec3<f32>(0.0, 1.0, 0.0); }
+          else if (cp.iter < 0.0) { col = vec3<f32>(1.0, 0.0, 0.0); }
+          output_color = vec4<f32>(col, 1.0);
+      } else if (camera.debug_view_mode == 3.0) {
+          let skip_ratio = clamp(camera.skip_iter / camera.max_iter, 0.0, 1.0);
+          output_color = vec4<f32>(skip_ratio, 0.5, 1.0 - skip_ratio, 1.0);
+      } else if (camera.debug_view_mode == 4.0) {
+          let strain = clamp(ret.y * camera.scale * 100.0, 0.0, 1.0);
+          output_color = vec4<f32>(strain, strain, 0.0, 1.0);
+      }
+      
+      // Still allow yielding to not flash black holes
+      if (ret.x < -1.0 && camera.blend_weight > 0.0) {
           return textureLoad(readTex, coord, 0);
-      } else {
-          // Unresolved yield pixels should default to interior black, not palette baseline!
-          return vec4<f32>(camera.max_iter, 0.0, 0.0, 0.0);
+      }
+  } else {
+      if (ret.x < -1.0) {
+          if (camera.blend_weight > 0.0) {
+              return textureLoad(readTex, coord, 0);
+          } else {
+              return vec4<f32>(camera.max_iter, 0.0, 0.0, 0.0);
+          }
       }
   }
   
   let prev = textureLoad(readTex, coord, 0);
-  return mix(prev, ret, select(1.0, camera.blend_weight, camera.blend_weight > 0.0));
+  return mix(prev, output_color, select(1.0, camera.blend_weight, camera.blend_weight > 0.0));
 }

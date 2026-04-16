@@ -71,7 +71,7 @@ const SCHEMA = {
         { name: 'render_scale', type: 'f32' },
         { name: 'yield_iter_limit', type: 'f32' },
         { name: 'load_checkpoint', type: 'f32' },
-        { name: 'pad4', type: 'f32' },
+        { name: 'debug_view_mode', type: 'f32' },
         { name: 'canvas_width', type: 'f32' },
         { name: 'skip_iter', type: 'f32' },
         { name: 'pad1', type: 'f32' },

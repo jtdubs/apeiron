@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 055: Fragment Shader Debug Channels & UI Integration

@@ -16,6 +16,7 @@ export interface MathContext {
   exponent: number;
   refOrbits: Float64Array | null;
   skipIter: number;
+  debugViewMode: number;
 }
 
 /**

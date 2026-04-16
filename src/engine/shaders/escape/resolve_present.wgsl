@@ -21,7 +21,12 @@ fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
 
 // Minimal view into the camera uniform to read render_scale without
 // duplicating the full CameraParams layout here.
-struct CameraScaleParams { render_scale: f32 };
+struct CameraScaleParams { 
+  render_scale: f32,
+  debug_view_mode: f32,
+  pad1: f32,
+  pad2: f32,
+};
 @group(0) @binding(1) var<uniform> camera_scale: CameraScaleParams;
 
 
@@ -44,6 +49,10 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   let de = tex_color.g;
   let nx = tex_color.b;
   let ny = tex_color.a;
+
+  if (camera_scale.debug_view_mode > 0.5) {
+    return vec4<f32>(tex_color.rgb, 1.0);
+  }
 
   if (iter >= params.max_iter) {
     // Inside the set (Black)

@@ -1,10 +1,12 @@
 import React from 'react';
 import { useStore } from 'zustand';
 import { renderStore, THEMES } from '../stores/renderStore';
+import { viewportStore } from '../stores/viewportStore';
 import { ScrubbableNumber } from './ScrubbableNumber';
 
 export const ApeironSettingsPanel: React.FC = () => {
   const state = useStore(renderStore);
+  const viewportState = useStore(viewportStore);
 
   return (
     <div className="hud-settings-panel">
@@ -290,6 +292,21 @@ export const ApeironSettingsPanel: React.FC = () => {
 
       <div className="hud-settings-section">
         <div className="hud-settings-label">Debug</div>
+
+        <div className="hud-settings-label">Debug View Mode</div>
+        <select
+          value={viewportState.debugViewMode}
+          onChange={(e) => viewportState.setDebugViewMode(Number(e.target.value))}
+          className="hud-settings-select"
+          style={{ marginBottom: 12 }}
+        >
+          <option value={0}>None</option>
+          <option value={1}>Show Limit Cycles</option>
+          <option value={2}>Show Checkpoints</option>
+          <option value={3}>Show BLA Nodes</option>
+          <option value={4}>Interpolation Strain</option>
+        </select>
+
         <div className="hud-settings-flex-row">
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
             <input
