@@ -1,5 +1,6 @@
 import type { MathContext, ExecutionCommand } from './RenderFrameDescriptor';
 import { IterationBudgetController } from './IterationBudgetController';
+import { TelemetryRegistry } from './debug/TelemetryRegistry';
 
 export function contextsEqual(a: MathContext, b: MathContext): boolean {
   return (
@@ -23,12 +24,105 @@ export class ProgressiveRenderScheduler {
   private cycleJitterX = 0;
   private cycleJitterY = 0;
 
+  private channels;
+
   private lastContext: MathContext | null = null;
   private lastCanvasSizeVersion = -1;
   private lastThemeVersion = -1;
   private lastRenderScale = 1.0;
 
   private readonly MAX_ACCUM_FRAMES = 64;
+
+  constructor() {
+    const reg = TelemetryRegistry.getInstance();
+    this.channels = {
+      mode: reg.register({ id: 'engine.fsm', label: 'FSM Mode', group: 'FSM', type: 'digital' }),
+      budget: reg.register({
+        id: 'engine.budget',
+        label: 'Iteration Budget',
+        group: 'FSM',
+        type: 'analog',
+        smoothingAlpha: 0.1,
+      }),
+      renderscale: reg.register({
+        id: 'engine.renderscale',
+        label: 'Canvas Res Scale',
+        group: 'System',
+        type: 'analog',
+      }),
+      saSkip: reg.register({
+        id: 'engine.fsm.saSkip',
+        label: 'SA Skip Depth',
+        group: 'FSM',
+        type: 'analog',
+      }),
+      zoom: reg.register({ id: 'math.zoom', label: 'Zoom Level', group: 'Math', type: 'analog' }),
+      maxIter: reg.register({
+        id: 'math.maxIter',
+        label: 'Requested Max Iter',
+        group: 'Math',
+        type: 'analog',
+      }),
+      exponent: reg.register({
+        id: 'math.exponent',
+        label: 'Exponent',
+        group: 'Math',
+        type: 'analog',
+      }),
+      sliceAngle: reg.register({
+        id: 'math.sliceAngle',
+        label: 'Slice Angle',
+        group: 'Math',
+        type: 'analog',
+      }),
+      zr: reg.register({ id: 'math.zr', label: 'Z_Real', group: 'Math', type: 'analog' }),
+      zi: reg.register({ id: 'math.zi', label: 'Z_Imag', group: 'Math', type: 'analog' }),
+      cr: reg.register({ id: 'math.cr', label: 'C_Real', group: 'Math', type: 'analog' }),
+      ci: reg.register({ id: 'math.ci', label: 'C_Imag', group: 'Math', type: 'analog' }),
+      yieldIter: reg.register({
+        id: 'cmd.yieldIter',
+        label: 'Yield Iter Limit',
+        group: 'Execution',
+        type: 'analog',
+      }),
+      loadCheckpoint: reg.register({
+        id: 'cmd.loadCheckpoint',
+        label: 'Load Checkpoint',
+        group: 'Execution',
+        type: 'digital',
+      }),
+      advancePingPong: reg.register({
+        id: 'cmd.advancePingPong',
+        label: 'Advance Ping-Pong',
+        group: 'Execution',
+        type: 'digital',
+      }),
+      clearCheckpoint: reg.register({
+        id: 'cmd.clearCheckpoint',
+        label: 'Clear Checkpoint',
+        group: 'Execution',
+        type: 'digital',
+      }),
+      blendWeight: reg.register({
+        id: 'cmd.blendWeight',
+        label: 'Blend Weight',
+        group: 'Execution',
+        type: 'analog',
+      }),
+      jitterX: reg.register({
+        id: 'cmd.jitterX',
+        label: 'Jitter X',
+        group: 'Execution',
+        type: 'analog',
+      }),
+      jitterY: reg.register({
+        id: 'cmd.jitterY',
+        label: 'Jitter Y',
+        group: 'Execution',
+        type: 'analog',
+      }),
+    };
+  }
 
   public getAccumulationCount(): number {
     return this.accumulationCount;
@@ -111,6 +205,31 @@ export class ProgressiveRenderScheduler {
       jitterX: this.cycleJitterX,
       jitterY: this.cycleJitterY,
     };
+
+    const mode = this.getPipelineMode(isInteracting);
+    const modeVal = mode === 'INTERACT' ? 0 : mode === 'DEEPENING' ? 1 : 2;
+
+    this.channels.mode.push(modeVal);
+    this.channels.budget.push(rawBudget);
+    this.channels.renderscale.push(snapshotRenderScale);
+    this.channels.saSkip.push(context.skipIter);
+
+    this.channels.zoom.push(context.zoom);
+    this.channels.maxIter.push(context.maxIter);
+    this.channels.exponent.push(context.exponent);
+    this.channels.sliceAngle.push(context.sliceAngle);
+    this.channels.zr.push(context.zr);
+    this.channels.zi.push(context.zi);
+    this.channels.cr.push(context.cr);
+    this.channels.ci.push(context.ci);
+
+    this.channels.yieldIter.push(command.yieldIterLimit);
+    this.channels.loadCheckpoint.push(command.loadCheckpoint ? 1 : 0);
+    this.channels.advancePingPong.push(command.advancePingPong ? 1 : 0);
+    this.channels.clearCheckpoint.push(command.clearCheckpoint ? 1 : 0);
+    this.channels.blendWeight.push(command.blendWeight);
+    this.channels.jitterX.push(command.jitterX);
+    this.channels.jitterY.push(command.jitterY);
 
     return command;
   }

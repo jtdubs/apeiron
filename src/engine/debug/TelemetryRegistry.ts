@@ -13,12 +13,22 @@ export interface MetricDefinition {
   maxBound?: number;
 }
 
+export interface TelemetryChannel {
+  /** High performance execution pipeline push (modifies RingBuffer directly without map lookups) */
+  push: (value: number) => void;
+}
+
+interface InternalChannelData {
+  buffer: RingBuffer;
+  push: (value: number) => void;
+  getEma: () => number;
+}
+
 export class TelemetryRegistry {
   private static instance: TelemetryRegistry | null = null;
 
   private metrics = new Map<string, MetricDefinition>();
-  private buffers = new Map<string, RingBuffer>();
-  private emaValues = new Map<string, number>();
+  private channels = new Map<string, InternalChannelData>();
 
   private constructor() {}
 
@@ -29,49 +39,42 @@ export class TelemetryRegistry {
     return TelemetryRegistry.instance;
   }
 
-  // Necessary for isolating test environments since this acts as a global FSM
   public static resetInstanceForTesting(): void {
     TelemetryRegistry.instance = new TelemetryRegistry();
   }
 
   /**
-   * Defines a metric and allocates its fixed-width RingBuffer for capturing.
+   * Defines a metric and allocates its fixed-width RingBuffer.
+   * Returns a lightweight TelemetryChannel struct containing a highly optimized closure that pushes raw data directly into the allocated memory.
    */
-  public register(def: MetricDefinition, capacity: number = 600): void {
-    if (!this.metrics.has(def.id)) {
-      this.metrics.set(def.id, def);
-      this.buffers.set(def.id, new RingBuffer(capacity));
-      if (def.smoothingAlpha !== undefined) {
-        this.emaValues.set(def.id, 0);
-      }
+  public register(def: MetricDefinition, capacity: number = 600): TelemetryChannel {
+    if (this.metrics.has(def.id)) {
+      // Hot-reload failsafe. If system re-registers, return the exact same live closure hook
+      return { push: this.channels.get(def.id)!.push };
     }
-  }
 
-  /**
-   * The primary hot-path API. Must run extremely fast.
-   */
-  public push(id: string, value: number): void {
-    const buffer = this.buffers.get(id);
-    if (!buffer) return;
+    const buffer = new RingBuffer(capacity);
+    let ema = 0;
 
-    buffer.push(value);
-
-    // Track EMA inline if requested
-    const def = this.metrics.get(id);
-    if (def && typeof def.smoothingAlpha === 'number') {
-      const currentEma = this.emaValues.get(id) ?? 0;
-      if (currentEma === 0 && buffer.getCount() === 1) {
-        // Seed the EMA directly on the very first frame
-        this.emaValues.set(id, value);
-      } else {
-        const newEma = def.smoothingAlpha * value + (1 - def.smoothingAlpha) * currentEma;
-        this.emaValues.set(id, newEma);
+    const push = (value: number) => {
+      buffer.push(value);
+      if (typeof def.smoothingAlpha === 'number') {
+        if (buffer.getCount() === 1) {
+          ema = value;
+        } else {
+          ema = def.smoothingAlpha * value + (1 - def.smoothingAlpha) * ema;
+        }
       }
-    }
+    };
+
+    this.metrics.set(def.id, def);
+    this.channels.set(def.id, { buffer, push, getEma: () => ema });
+
+    return { push };
   }
 
   public getBuffer(id: string): RingBuffer | undefined {
-    return this.buffers.get(id);
+    return this.channels.get(id)?.buffer;
   }
 
   public getDefinition(id: string): MetricDefinition | undefined {
@@ -79,16 +82,22 @@ export class TelemetryRegistry {
   }
 
   public getLatest(id: string): number {
-    const buffer = this.buffers.get(id);
+    const buffer = this.getBuffer(id);
     if (!buffer || buffer.getCount() === 0) return 0;
 
-    // Reverse calculating the index of the last pushed item
     const idx = (buffer.getHeadIndex() - 1 + buffer.getCapacity()) % buffer.getCapacity();
     return buffer.getRawBuffer()[idx];
   }
 
   public getEma(id: string): number {
-    return this.emaValues.get(id) ?? this.getLatest(id);
+    const channel = this.channels.get(id);
+    if (channel && channel.buffer.getCount() > 0) {
+      const def = this.metrics.get(id);
+      if (def && typeof def.smoothingAlpha === 'number') {
+        return channel.getEma();
+      }
+    }
+    return this.getLatest(id);
   }
 
   public getAllRegisteredIds(): string[] {

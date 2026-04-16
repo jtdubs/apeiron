@@ -1,4 +1,5 @@
 import { viewportStore, type ViewportState } from '../ui/stores/viewportStore';
+import { TelemetryRegistry, type TelemetryChannel } from './debug/TelemetryRegistry';
 
 export interface WorkerJob {
   id: number;
@@ -19,7 +20,29 @@ export class PerturbationOrchestrator {
   private logTimeoutId: number | null = null;
   private unsubStore: () => void;
 
+  private channels: {
+    latency: TelemetryChannel;
+    pendingJobs: TelemetryChannel;
+  };
+
   constructor(workerFactory?: () => Worker) {
+    const reg = TelemetryRegistry.getInstance();
+    this.channels = {
+      latency: reg.register({
+        id: 'workers.latency',
+        label: 'Worker Latency',
+        group: 'Workers',
+        type: 'analog',
+        smoothingAlpha: 0.2,
+      }),
+      pendingJobs: reg.register({
+        id: 'workers.pendingJobCount',
+        label: 'Pending Jobs',
+        group: 'Workers',
+        type: 'analog',
+      }),
+    };
+
     // If a mock is passed (for tests), use it. Otherwise statically construct Vite worker string.
     this.worker = workerFactory
       ? workerFactory()
@@ -53,9 +76,11 @@ export class PerturbationOrchestrator {
         casesJson,
         maxIterations: this.currentWorkerJob.maxIter,
       });
+      this.channels.pendingJobs.push(1);
     } else {
       this.isWorkerBusy = false;
       this.currentWorkerJob = null;
+      this.channels.pendingJobs.push(0);
     }
   }
 
@@ -66,6 +91,10 @@ export class PerturbationOrchestrator {
         this.dispatchPendingWork();
       } else if (this.currentWorkerJob) {
         const job = this.currentWorkerJob;
+
+        const latency = performance.now() - job.id;
+        this.channels.latency.push(latency);
+        this.channels.pendingJobs.push(this.pendingWorkerJob ? 1 : 0);
 
         // Apply state synchronously to avoid tearing
         viewportStore.setState((state) => {
@@ -121,7 +150,7 @@ export class PerturbationOrchestrator {
           const absCi = (parseFloat(state.anchorCi) + state.deltaCi).toString();
 
           const job: WorkerJob = {
-            id: Date.now(),
+            id: performance.now(),
             absZr,
             absZi,
             absCr,

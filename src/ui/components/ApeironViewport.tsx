@@ -12,10 +12,10 @@ import { renderStore } from '../stores/renderStore';
 import { ProgressiveRenderScheduler } from '../../engine/ProgressiveRenderScheduler';
 import { buildMathContext } from '../stores/mathContextAdapter';
 import { PerturbationOrchestrator } from '../../engine/PerturbationOrchestrator';
+import { TelemetryRegistry } from '../../engine/debug/TelemetryRegistry';
 
 export const ApeironViewport: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const hudRef = useRef<HTMLDivElement>(null);
   const engineRef = useRef<ApeironEngine | null>(null);
   const requestRef = useRef<number | null>(null);
 
@@ -173,8 +173,43 @@ export const ApeironViewport: React.FC = () => {
 
         // ── Render Orchestration Loop ───────────────────────────────────────
         const scheduler = new ProgressiveRenderScheduler();
+        let lastFrameTime = performance.now();
+
+        const registry = TelemetryRegistry.getInstance();
+        const channels = {
+          time: registry.register({
+            id: 'engine.frametime',
+            label: 'Frame Time (ms)',
+            group: 'System',
+            type: 'analog',
+            smoothingAlpha: 0.1,
+          }),
+          rate: registry.register({
+            id: 'engine.framerate',
+            label: 'Overall FPS',
+            group: 'System',
+            type: 'analog',
+            smoothingAlpha: 0.05,
+          }),
+          gpu: registry.register({
+            id: 'webgpu.renderms',
+            label: 'GPU Math Pass',
+            group: 'WebGPU',
+            type: 'analog',
+            smoothingAlpha: 0.1,
+          }),
+        };
+
         const loop = () => {
           if (!isMounted) return;
+
+          const now = performance.now();
+          const dt = Math.max(0.1, now - lastFrameTime); // prevent divide by zero
+          lastFrameTime = now;
+
+          channels.time.push(dt);
+          channels.rate.push(1000 / dt);
+
           const state = viewportStore.getState();
           const theme = renderStore.getState();
 
@@ -202,31 +237,12 @@ export const ApeironViewport: React.FC = () => {
 
           engine.renderFrame({ context, command, theme });
 
-          const hudDeepenNumerator = scheduler.getDeepeningTotalIter() + command.yieldIterLimit;
           scheduler.notifySliceComplete(command);
 
-          if (hudRef.current) {
-            // eslint-disable-next-line no-constant-condition
-            if (true) {
-              hudRef.current.style.display = 'block';
-              const ms = engine.getMathPassMs();
-              const modeStr = scheduler.getPipelineMode(isInteracting);
-              const msStr = ms !== -1 ? ms.toFixed(2) : '---';
-              const deepenPct = Math.round((hudDeepenNumerator / context.maxIter) * 100);
-
-              hudRef.current.innerHTML = `
-Mode:    ${modeStr}<br>
-GPU:     ${msStr} ms<br>
-Budget:  ${scheduler.getBudget()} iter/frame<br>
-Slice:   ${command.yieldIterLimit} iters (this pass)<br>
-Deepen:  ${deepenPct}% (${hudDeepenNumerator} / ${context.maxIter})<br>
-SA Skip: ${context.skipIter}<br>
-Accum:   ${scheduler.getAccumulationCount()} / 64
-              `.trim();
-            } else {
-              // @ts-expect-error Typescript ref narrowing bug in this config
-              if (hudRef.current != null) hudRef.current.style.display = 'none';
-            }
+          // Deprecated HUD removed via Task 058 integration
+          const ms = engine.getMathPassMs();
+          if (ms !== -1) {
+            channels.gpu.push(ms);
           }
 
           // Store true maxIter in cache for geometry validation, not effectiveMaxIter
@@ -286,21 +302,6 @@ Accum:   ${scheduler.getAccumulationCount()} / 64
           height: '100vh',
           display: 'block',
           touchAction: 'none',
-        }}
-      />
-      <div
-        ref={hudRef}
-        style={{
-          position: 'absolute',
-          bottom: 10,
-          left: 10,
-          background: 'rgba(0,0,0,0.5)',
-          color: '#0f0',
-          padding: '4px 8px',
-          fontFamily: 'monospace',
-          display: 'none',
-          pointerEvents: 'none',
-          zIndex: 9999,
         }}
       />
     </>
