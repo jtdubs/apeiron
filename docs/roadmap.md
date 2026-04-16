@@ -98,3 +98,4 @@
 
 - [x] [Task 052: Formalize Temporal State Machine & Pipeline Contract](tasks/completed/052-formalize-temporal-fsm.md)
 - [x] [Task 053: Refactor Math Accumulation Shader](tasks/completed/053-refactor-math-accum.md)
+- [x] [Task 054: Compute Shader Unit Testing Architecture](tasks/completed/054-compute-shader-unit-testing.md)

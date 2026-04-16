@@ -607,6 +607,25 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
   data_out[idx * 4u + 3u] = ret.w;
 }
 
+@compute @workgroup_size(64)
+fn unit_test_complex_math(@builtin(global_invocation_id) global_id: vec3<u32>) {
+  let idx = global_id.x;
+  if (idx * 4u >= arrayLength(&data_in)) {
+      return;
+  }
+  
+  let a = vec2<f32>(data_in[idx * 4u], data_in[idx * 4u + 1u]);
+  let b = vec2<f32>(data_in[idx * 4u + 2u], data_in[idx * 4u + 3u]);
+  
+  let mul_res = complex_mul(a, b);
+  let sq_res = complex_sq(a);
+  
+  data_out[idx * 4u] = mul_res.x;
+  data_out[idx * 4u + 1u] = mul_res.y;
+  data_out[idx * 4u + 2u] = sq_res.x;
+  data_out[idx * 4u + 3u] = sq_res.y;
+}
+
 @vertex
 fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   var pos = array<vec2<f32>, 6>(

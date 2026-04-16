@@ -143,6 +143,67 @@ export class WebGPUTestHarness {
     return result;
   }
 
+  public async executeUnitTest(entryPoint: string, input: Float32Array): Promise<Float32Array> {
+    const computeModule = this.device.createShaderModule({ code: this.mathShaderCode });
+    const computePipeline = this.device.createComputePipeline({
+      layout: 'auto',
+      compute: {
+        module: computeModule,
+        entryPoint: entryPoint,
+      },
+    });
+
+    const inputSize = input.byteLength;
+    const outputSize = inputSize;
+    const computeUnits = input.length / 4;
+
+    const inputStorageBuffer = this.device.createBuffer({
+      size: inputSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    this.device.queue.writeBuffer(inputStorageBuffer, 0, input as unknown as BufferSource);
+
+    const outputStorageBuffer = this.device.createBuffer({
+      size: outputSize,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
+    });
+
+    const stagingBuffer = this.device.createBuffer({
+      size: outputSize,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+
+    const entries: GPUBindGroupEntry[] = [
+      { binding: 1, resource: { buffer: inputStorageBuffer } },
+      { binding: 2, resource: { buffer: outputStorageBuffer } },
+    ];
+
+    const bindGroup = this.device.createBindGroup({
+      layout: computePipeline.getBindGroupLayout(0),
+      entries,
+    });
+
+    const commandEncoder = this.device.createCommandEncoder();
+    const passEncoder = commandEncoder.beginComputePass();
+    passEncoder.setPipeline(computePipeline);
+    passEncoder.setBindGroup(0, bindGroup);
+    passEncoder.dispatchWorkgroups(Math.ceil(computeUnits / 64));
+    passEncoder.end();
+
+    commandEncoder.copyBufferToBuffer(outputStorageBuffer, 0, stagingBuffer, 0, outputSize);
+    this.device.queue.submit([commandEncoder.finish()]);
+
+    await stagingBuffer.mapAsync(GPUMapMode.READ);
+    const arrayBuffer = stagingBuffer.getMappedRange();
+    const result = new Float32Array(arrayBuffer.slice(0));
+    stagingBuffer.unmap();
+    inputStorageBuffer.destroy();
+    outputStorageBuffer.destroy();
+    stagingBuffer.destroy();
+
+    return result;
+  }
+
   public createSession(width: number, height: number): TestRenderSession {
     return new TestRenderSession(
       this.device,

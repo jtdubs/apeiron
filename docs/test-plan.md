@@ -35,6 +35,12 @@ The WebGPU engine is tested headlessly (`npm run test:engine`) using Deno to val
 - **Methodology:** We decouple rendering dependencies (`HTMLCanvasElement`) and run the full 2-pass sequence (`compute` + `resolve`) targeting offscreen textures. Output buffers are scanned explicitly for `NaN`-derived colors (e.g. solid Magenta) or visual collapses.
 - **Tolerance:** Explicit fault logic. Render must NOT contain known error markers.
 
+### Flavor D: Isolated WGSL Unit Tests
+
+- **Goal:** Prove the mathematical fidelity of pure WGSL helper functions (e.g., `complex_mul`, `complex_sq`) independently of the full algorithmic pipeline.
+- **Methodology:** Use alternate `@compute` entry points (following a strict `@compute fn unit_test_...` naming convention). Feed `test_in` standard buffers containing known operands and assert against `test_out` buffers outputting the discrete results.
+- **Tolerance:** Pure strict equality matching JS logic verification; mathematically deterministic headless testing.
+
 ### Headless Execution Adapter Requirements
 
 Because CI environments lack physical GPUs, test runner initialization MUST include an explicit hardware check via `navigator.gpu.requestAdapter()`. The Deno orchestration script explicitly passes `--unstable-webgpu` to securely leverage SwiftShader software rasterization before compiling and running `.wgsl` cases.
