@@ -11,6 +11,7 @@ or altering the execution context, you **MUST** review the master index:
 - `docs/README.md`: The central hub containing links to all technical requirements, architectural
   boundaries, core math designs, and product use-cases. **You MUST consult this index and read the
   relevant deep-dive documents before proceeding.**
+- `docs/best-practices.md`: The primary coding standards guide. It contains strict rules on data boundaries, FSM execution, shader modularization, and headless WGSL unit testing. You must adhere to these practices in all implementations.
 
 If you are modifying the mathematical algorithms, rendering pathways, or debugging deep-zoom
 glitches, you are explicitly required to review the `docs/math-backend-design.md`, `docs/rendering-engine-design.md`, and
@@ -27,6 +28,9 @@ glitches, you are explicitly required to review the `docs/math-backend-design.md
 - **Precision Limits**: Be constantly aware of `f32` precision limits in WebGPU shaders. When
   zooming beyond `~10^5`, we must pivot to perturbation theory or `f64` emulation.
 - **Data-First Testing**: Any new pipeline feature must be verifiable without rendering a visual pixel. Core math in WebGPU and Rust must be tested by comparing raw output buffers (Compute Shaders or ArrayBuffers) deterministically, rather than relying solely on image perceptual diffing.
+- **Single Source of Truth (SSOT)**: Hardcoded magic numbers for buffer offsets/sizes are strictly forbidden. All layout constants must securely cross from the TS schema into Rust and WGSL automatically.
+- **Shader Modularization**: Monolithic WGSL entry points are disallowed. Extract complex math and looping logic into standalone, testable WGSL `fn` components.
+- **State Machine UI Separation**: Decouple explicit intent (`MathContext`) from imperative logic (`ExecutionCommand`) using headless Finite State Machines. DO NOT put logic inside the UI loop.
 
 ## 3. Operations
 
