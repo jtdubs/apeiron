@@ -101,3 +101,9 @@
 - [x] [Task 054: Compute Shader Unit Testing Architecture](tasks/completed/054-compute-shader-unit-testing.md)
 - [x] [Task 055: Fragment Shader Debug Channels & UI Integration](tasks/completed/055-fragment-shader-debug-channels.md)
 - [x] [Task 056: Fix WebGPU Storage Buffer Binding Size Limits](tasks/completed/056-max-buffer-size.md)
+
+## Phase 17: Telemetry & DX (GTKWave Analyzer)
+
+- [ ] [Task 057: Telemetry Registry & Headless Primitives](tasks/057-telemetry-registry.md)
+- [ ] [Task 058: Telemetry Data Integration (Producers)](tasks/058-telemetry-integration.md)
+- [ ] [Task 059: Telemetry UI (GTKWave Analyzer)](tasks/059-telemetry-ui.md)
