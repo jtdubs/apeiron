@@ -39,7 +39,7 @@ describe('ProgressiveRenderScheduler', () => {
     const initialContext = createMockContext();
     const command1 = scheduler.update(initialContext, false, 0, 0, 1.0, 1920, 1080, 10);
     // Should be a fresh start
-    expect(command1?.isResume).toBe(0.0);
+    expect(command1?.loadCheckpoint).toBe(false);
     expect(command1?.clearCheckpoint).toBe(false);
 
     scheduler.notifySliceComplete(command1!);
@@ -51,7 +51,7 @@ describe('ProgressiveRenderScheduler', () => {
     // It should reset the counters
     expect(scheduler.getAccumulationCount()).toBe(0);
     expect(scheduler.getDeepeningTotalIter()).toBe(0);
-    expect(command2?.isResume).toBe(0.0);
+    expect(command2?.loadCheckpoint).toBe(false);
   });
 
   it('handles INTERACT safe frame locking', () => {
@@ -73,8 +73,7 @@ describe('ProgressiveRenderScheduler', () => {
 
     // Pass 1: DEEPENING (starts fresh)
     const cmd1 = scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, 50); // fast ms to give high budget but not 500
-    expect(cmd1?.isResume).toBe(0.0);
-    expect(cmd1?.isFinalSlice).toBe(false);
+    expect(cmd1?.loadCheckpoint).toBe(false);
 
     scheduler.notifySliceComplete(cmd1!);
     expect(scheduler.getDeepeningTotalIter()).toBeGreaterThan(0);
@@ -82,20 +81,19 @@ describe('ProgressiveRenderScheduler', () => {
 
     // Pass 2: DEEPENING resumes
     const cmd2 = scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, 50);
-    expect(cmd2?.isResume).toBe(1.0);
-    expect(cmd2?.isFinalSlice).toBe(false);
+    expect(cmd2?.loadCheckpoint).toBe(true);
 
     // We manually advance deepening so it reaches final
     // We manually advance deepening so it reaches final
     // modify scheduler internals if we could, but let's just loop until final slice
     let cmdX = cmd2;
-    while (!cmdX?.isFinalSlice) {
+    while (scheduler.getPipelineMode(false) === 'DEEPENING') {
       scheduler.notifySliceComplete(cmdX!);
+      if (scheduler.getPipelineMode(false) === 'ACCUMULATING') break;
       cmdX = scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, -1);
     }
 
-    expect(cmdX?.isFinalSlice).toBe(true);
-    scheduler.notifySliceComplete(cmdX!);
+    expect(scheduler.getPipelineMode(false)).toBe('ACCUMULATING');
 
     // Now it should hit ACCUMULATING cycle 1
     expect(scheduler.getAccumulationCount()).toBe(1);

@@ -87,11 +87,9 @@ export class ProgressiveRenderScheduler {
 
     const advancePingPong = isFirstSlice;
     const clearCheckpoint = isFirstSlice && this.accumulationCount > 0;
-    const isDeepeningComplete = this.deepeningTotalIter + yieldIterLimit >= context.maxIter;
-    const isFinalSlice = isDeepeningComplete;
 
     const blendWeight = this.accumulationCount > 0 ? 1.0 / (this.accumulationCount + 1) : 0.0;
-    const isResume = this.accumulationCount > 0 || this.deepeningTotalIter > 0 ? 1.0 : 0.0;
+    const loadCheckpoint = this.accumulationCount > 0 || this.deepeningTotalIter > 0;
 
     if (advancePingPong && !isInteracting && this.accumulationCount > 0) {
       this.cycleJitterX = (Math.random() - 0.5) * (2.0 / canvasWidth);
@@ -106,8 +104,7 @@ export class ProgressiveRenderScheduler {
     const command: ExecutionCommand = {
       renderScale: snapshotRenderScale,
       yieldIterLimit,
-      isResume,
-      isFinalSlice,
+      loadCheckpoint,
       advancePingPong,
       clearCheckpoint,
       blendWeight,
@@ -118,9 +115,15 @@ export class ProgressiveRenderScheduler {
     return command;
   }
 
+  public getPipelineMode(isInteracting: boolean): 'INTERACT' | 'ACCUMULATING' | 'DEEPENING' {
+    if (isInteracting) return 'INTERACT';
+    if (this.accumulationCount > 0 && this.deepeningTotalIter === 0) return 'ACCUMULATING';
+    return 'DEEPENING';
+  }
+
   public notifySliceComplete(command: ExecutionCommand) {
     this.deepeningTotalIter += command.yieldIterLimit;
-    if (command.isFinalSlice) {
+    if (this.deepeningTotalIter >= this.lastContext!.maxIter) {
       this.deepeningTotalIter = 0;
       this.accumulationCount++;
     }

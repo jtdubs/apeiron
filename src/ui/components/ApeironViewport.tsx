@@ -252,11 +252,7 @@ export const ApeironViewport: React.FC = () => {
             if (true) {
               hudRef.current.style.display = 'block';
               const ms = engine.getMathPassMs();
-              const modeStr = isInteracting
-                ? 'INTERACT'
-                : command.isFinalSlice && scheduler.getAccumulationCount() > 0
-                  ? 'ACCUMULATING'
-                  : 'DEEPENING';
+              const modeStr = scheduler.getPipelineMode(isInteracting);
               const msStr = ms !== -1 ? ms.toFixed(2) : '---';
               const deepenPct = Math.round((hudDeepenNumerator / effectiveMaxIter) * 100);
 

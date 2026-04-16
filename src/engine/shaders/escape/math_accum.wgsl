@@ -66,7 +66,7 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
   var iter = start_iter;
   var tia_sum = start_tia;
   
-  if (camera.is_resume > 0.5 && checkpoint[pixel_idx].iter > 0.0) {
+  if (camera.load_checkpoint > 0.5 && checkpoint[pixel_idx].iter > 0.0) {
     x = checkpoint[pixel_idx].zx;
     y = checkpoint[pixel_idx].zy;
     der_x = checkpoint[pixel_idx].der_x;
@@ -225,7 +225,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
   var prev_z_mag = 0.0;
   var tia_sum = 0.0;
   
-  if (camera.is_resume > 0.5 && checkpoint[pixel_idx].iter > 0.0) {
+  if (camera.load_checkpoint > 0.5 && checkpoint[pixel_idx].iter > 0.0) {
      dz.x = checkpoint[pixel_idx].dz_x;
      dz.y = checkpoint[pixel_idx].dz_y;
      iter = checkpoint[pixel_idx].iter;
@@ -501,7 +501,7 @@ fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32
      let cycle = orbit_meta.cycle_found;
      let ref_escaped_iter = orbit_meta.escaped_iter;
      
-     if (camera.is_resume > 0.5 && checkpoint[pixel_idx].iter > 0.0 && checkpoint[pixel_idx].iter >= ref_escaped_iter && ref_escaped_iter < camera.max_iter) {
+     if (camera.load_checkpoint > 0.5 && checkpoint[pixel_idx].iter > 0.0 && checkpoint[pixel_idx].iter >= ref_escaped_iter && ref_escaped_iter < camera.max_iter) {
          return continue_mandelbrot_iterations(vec2<f32>(0.0,0.0), start_c, 0.0, camera.max_iter, 1.0, 0.0, 0.0, pixel_idx);
      }
      
@@ -549,7 +549,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   let coord = vec2<i32>(in.position.xy);
   var cp = checkpoint[pixel_id];
   
-  if (cp.iter < 0.0 && camera.is_resume > 0.5) {
+  if (cp.iter < 0.0 && camera.load_checkpoint > 0.5) {
       let stored_result = vec4<f32>(cp.zx, cp.zy, cp.der_x, cp.der_y);
       let prev = textureLoad(readTex, coord, 0);
       return mix(prev, stored_result, select(1.0, camera.blend_weight, camera.blend_weight > 0.0));

@@ -377,8 +377,8 @@ export class PassManager {
       blend_weight: desc.command.blendWeight,
       render_scale: desc.command.renderScale,
       yield_iter_limit: desc.command.yieldIterLimit,
-      is_resume: desc.command.isResume,
-      is_final_slice: desc.command.isFinalSlice ? 1.0 : 0.0,
+      load_checkpoint: desc.command.loadCheckpoint ? 1.0 : 0.0,
+      pad4: 0.0,
       canvas_width: width,
       skip_iter: desc.context.skipIter,
     });
