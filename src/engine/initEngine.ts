@@ -34,6 +34,10 @@ export async function initEngine(
 
   const device = await adapter.requestDevice({
     requiredFeatures,
+    requiredLimits: {
+      maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize,
+      maxBufferSize: adapter.limits.maxBufferSize,
+    },
   });
 
   let context: GPUCanvasContext | null = null;

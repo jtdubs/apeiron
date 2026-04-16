@@ -100,3 +100,4 @@
 - [x] [Task 053: Refactor Math Accumulation Shader](tasks/completed/053-refactor-math-accum.md)
 - [x] [Task 054: Compute Shader Unit Testing Architecture](tasks/completed/054-compute-shader-unit-testing.md)
 - [x] [Task 055: Fragment Shader Debug Channels & UI Integration](tasks/completed/055-fragment-shader-debug-channels.md)
+- [x] [Task 056: Fix WebGPU Storage Buffer Binding Size Limits](tasks/completed/056-max-buffer-size.md)
