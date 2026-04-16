@@ -11,6 +11,7 @@ import { viewportStore } from '../stores/viewportStore';
 import { renderStore } from '../stores/renderStore';
 import { ProgressiveRenderScheduler } from '../../engine/ProgressiveRenderScheduler';
 import { buildMathContext } from '../stores/mathContextAdapter';
+import { PerturbationOrchestrator } from '../../engine/PerturbationOrchestrator';
 
 export const ApeironViewport: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -239,150 +240,7 @@ Accum:   ${scheduler.getAccumulationCount()} / 64
 
     initialize();
 
-    // Perturbation Web Worker Orchestration
-    const worker = new Worker(
-      new URL('../../engine/math-workers/rust.worker.ts', import.meta.url),
-      {
-        type: 'module',
-      },
-    );
-
-    interface WorkerJob {
-      id: number;
-      absZr: string;
-      absZi: string;
-      absCr: string;
-      absCi: string;
-      exponent: number;
-      maxIter: number;
-    }
-    let isWorkerBusy = false;
-    let pendingWorkerJob: WorkerJob | null = null;
-    let currentWorkerJob: WorkerJob | null = null;
-
-    const dispatchPendingWork = () => {
-      if (pendingWorkerJob) {
-        currentWorkerJob = pendingWorkerJob;
-        pendingWorkerJob = null;
-        isWorkerBusy = true;
-
-        const casesJson = JSON.stringify([
-          {
-            zr: currentWorkerJob.absZr,
-            zi: currentWorkerJob.absZi,
-            cr: currentWorkerJob.absCr,
-            ci: currentWorkerJob.absCi,
-            exponent: currentWorkerJob.exponent,
-          },
-        ]);
-        worker.postMessage({
-          id: currentWorkerJob.id,
-          type: 'COMPUTE',
-          casesJson,
-          maxIterations: currentWorkerJob.maxIter,
-        });
-      } else {
-        isWorkerBusy = false;
-        currentWorkerJob = null;
-      }
-    };
-
-    worker.onmessage = (e: MessageEvent) => {
-      if (e.data.type === 'COMPUTE_RESULT' && e.data.result) {
-        // Did the user pan while we were waiting?
-        if (pendingWorkerJob !== null) {
-          // Discard the obsolete result, dispatch the pending work immediately
-          dispatchPendingWork();
-        } else if (currentWorkerJob) {
-          const job = currentWorkerJob;
-
-          // Apply state synchronously to avoid tearing/flickering
-          viewportStore.setState((state) => {
-            // Need to deduce how much the user has panned *since* this job was queued
-            // To do that, we find the absolute physical coordinate right now:
-            const currentAbsoluteCr = parseFloat(state.anchorCr) + state.deltaCr;
-            const currentAbsoluteCi = parseFloat(state.anchorCi) + state.deltaCi;
-            const currentAbsoluteZr = parseFloat(state.anchorZr) + state.deltaZr;
-            const currentAbsoluteZi = parseFloat(state.anchorZi) + state.deltaZi;
-
-            // Our new anchor will be the one the worker just finished
-            const newDeltaCr = currentAbsoluteCr - parseFloat(job.absCr);
-            const newDeltaCi = currentAbsoluteCi - parseFloat(job.absCi);
-            const newDeltaZr = currentAbsoluteZr - parseFloat(job.absZr);
-            const newDeltaZi = currentAbsoluteZi - parseFloat(job.absZi);
-
-            return {
-              anchorZr: job.absZr,
-              anchorZi: job.absZi,
-              anchorCr: job.absCr,
-              anchorCi: job.absCi,
-              deltaZr: newDeltaZr,
-              deltaZi: newDeltaZi,
-              deltaCr: newDeltaCr,
-              deltaCi: newDeltaCi,
-              zoom: state.zoom, // don't clobber active zoom
-              sliceAngle: state.sliceAngle,
-              exponent: state.exponent,
-              maxIter: state.maxIter,
-              refOrbits: e.data.result,
-            };
-          });
-
-          isWorkerBusy = false;
-          currentWorkerJob = null;
-        }
-      }
-    };
-
-    let timeoutId: number | null = null;
-    let logTimeoutId: number | null = null;
-    const unsub = viewportStore.subscribe((state, prevState) => {
-      if (logTimeoutId) clearTimeout(logTimeoutId);
-      logTimeoutId = window.setTimeout(() => {
-        console.log(
-          `📍 Viewport Config - z_anchor: ${state.anchorZr}, ${state.anchorZi} | c_anchor: ${state.anchorCr}, ${state.anchorCi} | zoom: ${state.zoom}`,
-        );
-      }, 250);
-
-      // We only compute new orbits if we are deep zooming
-      if (state.zoom < 1e-4) {
-        if (
-          state.deltaCr !== prevState.deltaCr ||
-          state.deltaCi !== prevState.deltaCi ||
-          state.zoom !== prevState.zoom
-        ) {
-          if (timeoutId) clearTimeout(timeoutId);
-          timeoutId = window.setTimeout(() => {
-            // Recenter: JS gives the exact absolute float until Rust BigFloat addition is fully implemented
-            const absZr = (parseFloat(state.anchorZr) + state.deltaZr).toString();
-            const absZi = (parseFloat(state.anchorZi) + state.deltaZi).toString();
-            const absCr = (parseFloat(state.anchorCr) + state.deltaCr).toString();
-            const absCi = (parseFloat(state.anchorCi) + state.deltaCi).toString();
-
-            const job = {
-              id: Date.now(),
-              absZr,
-              absZi,
-              absCr,
-              absCi,
-              exponent: state.exponent,
-              maxIter: state.maxIter,
-            };
-
-            if (isWorkerBusy) {
-              pendingWorkerJob = job;
-            } else {
-              pendingWorkerJob = job;
-              dispatchPendingWork();
-            }
-          }, 150); // 150ms debounce
-        }
-      } else {
-        if (state.refOrbits !== null) {
-          viewportStore.setState({ refOrbits: null });
-        }
-      }
-    });
+    const orchestrator = new PerturbationOrchestrator();
 
     const resizeObserver = new ResizeObserver((entries) => {
       if (!canvas) return;
@@ -408,11 +266,8 @@ Accum:   ${scheduler.getAccumulationCount()} / 64
       if (requestRef.current) {
         cancelAnimationFrame(requestRef.current);
       }
-      unsub();
-      if (timeoutId) clearTimeout(timeoutId);
-      if (logTimeoutId) clearTimeout(logTimeoutId);
       if (wheelTimeoutId) window.clearTimeout(wheelTimeoutId);
-      worker.terminate();
+      orchestrator.destroy();
       resizeObserver.disconnect();
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);
