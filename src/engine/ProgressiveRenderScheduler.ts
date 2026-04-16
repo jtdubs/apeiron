@@ -1,6 +1,6 @@
 import type { MathContext, ExecutionCommand } from './RenderFrameDescriptor';
 import { IterationBudgetController } from './IterationBudgetController';
-import { TelemetryRegistry } from './debug/TelemetryRegistry';
+import { TelemetryRegistry, type TelemetryChannel } from './debug/TelemetryRegistry';
 
 export function contextsEqual(a: MathContext, b: MathContext): boolean {
   return (
@@ -24,7 +24,27 @@ export class ProgressiveRenderScheduler {
   private cycleJitterX = 0;
   private cycleJitterY = 0;
 
-  private channels;
+  private channels: {
+    mode: TelemetryChannel;
+    budget: TelemetryChannel;
+    renderscale: TelemetryChannel;
+    saSkip: TelemetryChannel;
+    zoom: TelemetryChannel;
+    maxIter: TelemetryChannel;
+    exponent: TelemetryChannel;
+    sliceAngle: TelemetryChannel;
+    zr: TelemetryChannel;
+    zi: TelemetryChannel;
+    cr: TelemetryChannel;
+    ci: TelemetryChannel;
+    yieldIter: TelemetryChannel;
+    loadCheckpoint: TelemetryChannel;
+    advancePingPong: TelemetryChannel;
+    clearCheckpoint: TelemetryChannel;
+    blendWeight: TelemetryChannel;
+    jitterX: TelemetryChannel;
+    jitterY: TelemetryChannel;
+  };
 
   private lastContext: MathContext | null = null;
   private lastCanvasSizeVersion = -1;
@@ -36,12 +56,20 @@ export class ProgressiveRenderScheduler {
   constructor() {
     const reg = TelemetryRegistry.getInstance();
     this.channels = {
-      mode: reg.register({ id: 'engine.fsm', label: 'FSM Mode', group: 'FSM', type: 'digital' }),
+      mode: reg.register({
+        id: 'engine.fsm',
+        label: 'FSM Mode',
+        group: 'FSM',
+        type: 'enum',
+        retention: 'latch',
+        enumValues: { 0: 'INTERACT', 1: 'DEEPENING', 2: 'ACCUM' },
+      }),
       budget: reg.register({
         id: 'engine.budget',
         label: 'Iteration Budget',
         group: 'FSM',
         type: 'analog',
+        retention: 'latch',
         smoothingAlpha: 0.1,
       }),
       renderscale: reg.register({
@@ -49,77 +77,121 @@ export class ProgressiveRenderScheduler {
         label: 'Canvas Res Scale',
         group: 'System',
         type: 'analog',
+        retention: 'latch',
       }),
       saSkip: reg.register({
         id: 'engine.fsm.saSkip',
         label: 'SA Skip Depth',
         group: 'FSM',
         type: 'analog',
+        retention: 'latch',
       }),
-      zoom: reg.register({ id: 'math.zoom', label: 'Zoom Level', group: 'Math', type: 'analog' }),
+
+      zoom: reg.register({
+        id: 'math.zoom',
+        label: 'Zoom Level',
+        group: 'Math',
+        type: 'analog',
+        retention: 'latch',
+      }),
       maxIter: reg.register({
         id: 'math.maxIter',
         label: 'Requested Max Iter',
         group: 'Math',
         type: 'analog',
+        retention: 'latch',
       }),
       exponent: reg.register({
         id: 'math.exponent',
         label: 'Exponent',
         group: 'Math',
         type: 'analog',
+        retention: 'latch',
       }),
       sliceAngle: reg.register({
         id: 'math.sliceAngle',
         label: 'Slice Angle',
         group: 'Math',
         type: 'analog',
+        retention: 'latch',
       }),
-      zr: reg.register({ id: 'math.zr', label: 'Z_Real', group: 'Math', type: 'analog' }),
-      zi: reg.register({ id: 'math.zi', label: 'Z_Imag', group: 'Math', type: 'analog' }),
-      cr: reg.register({ id: 'math.cr', label: 'C_Real', group: 'Math', type: 'analog' }),
-      ci: reg.register({ id: 'math.ci', label: 'C_Imag', group: 'Math', type: 'analog' }),
+      zr: reg.register({
+        id: 'math.zr',
+        label: 'Z_Real',
+        group: 'Math',
+        type: 'analog',
+        retention: 'latch',
+      }),
+      zi: reg.register({
+        id: 'math.zi',
+        label: 'Z_Imag',
+        group: 'Math',
+        type: 'analog',
+        retention: 'latch',
+      }),
+      cr: reg.register({
+        id: 'math.cr',
+        label: 'C_Real',
+        group: 'Math',
+        type: 'analog',
+        retention: 'latch',
+      }),
+      ci: reg.register({
+        id: 'math.ci',
+        label: 'C_Imag',
+        group: 'Math',
+        type: 'analog',
+        retention: 'latch',
+      }),
+
       yieldIter: reg.register({
         id: 'cmd.yieldIter',
         label: 'Yield Iter Limit',
         group: 'Execution',
         type: 'analog',
+        retention: 'lapse',
       }),
       loadCheckpoint: reg.register({
         id: 'cmd.loadCheckpoint',
         label: 'Load Checkpoint',
         group: 'Execution',
         type: 'digital',
+        retention: 'lapse',
       }),
       advancePingPong: reg.register({
         id: 'cmd.advancePingPong',
         label: 'Advance Ping-Pong',
         group: 'Execution',
         type: 'digital',
+        retention: 'lapse',
       }),
       clearCheckpoint: reg.register({
         id: 'cmd.clearCheckpoint',
         label: 'Clear Checkpoint',
         group: 'Execution',
         type: 'digital',
+        retention: 'lapse',
       }),
       blendWeight: reg.register({
         id: 'cmd.blendWeight',
         label: 'Blend Weight',
         group: 'Execution',
         type: 'analog',
+        retention: 'lapse',
       }),
       jitterX: reg.register({
         id: 'cmd.jitterX',
         label: 'Jitter X',
         group: 'Execution',
         type: 'analog',
+        retention: 'lapse',
       }),
       jitterY: reg.register({
         id: 'cmd.jitterY',
         label: 'Jitter Y',
         group: 'Execution',
         type: 'analog',
+        retention: 'lapse',
       }),
     };
   }
@@ -209,27 +281,27 @@ export class ProgressiveRenderScheduler {
     const mode = this.getPipelineMode(isInteracting);
     const modeVal = mode === 'INTERACT' ? 0 : mode === 'DEEPENING' ? 1 : 2;
 
-    this.channels.mode.push(modeVal);
-    this.channels.budget.push(rawBudget);
-    this.channels.renderscale.push(snapshotRenderScale);
-    this.channels.saSkip.push(context.skipIter);
+    this.channels.mode.set(modeVal);
+    this.channels.budget.set(rawBudget);
+    this.channels.renderscale.set(snapshotRenderScale);
+    this.channels.saSkip.set(context.skipIter);
 
-    this.channels.zoom.push(context.zoom);
-    this.channels.maxIter.push(context.maxIter);
-    this.channels.exponent.push(context.exponent);
-    this.channels.sliceAngle.push(context.sliceAngle);
-    this.channels.zr.push(context.zr);
-    this.channels.zi.push(context.zi);
-    this.channels.cr.push(context.cr);
-    this.channels.ci.push(context.ci);
+    this.channels.zoom.set(context.zoom);
+    this.channels.maxIter.set(context.maxIter);
+    this.channels.exponent.set(context.exponent);
+    this.channels.sliceAngle.set(context.sliceAngle);
+    this.channels.zr.set(context.zr);
+    this.channels.zi.set(context.zi);
+    this.channels.cr.set(context.cr);
+    this.channels.ci.set(context.ci);
 
-    this.channels.yieldIter.push(command.yieldIterLimit);
-    this.channels.loadCheckpoint.push(command.loadCheckpoint ? 1 : 0);
-    this.channels.advancePingPong.push(command.advancePingPong ? 1 : 0);
-    this.channels.clearCheckpoint.push(command.clearCheckpoint ? 1 : 0);
-    this.channels.blendWeight.push(command.blendWeight);
-    this.channels.jitterX.push(command.jitterX);
-    this.channels.jitterY.push(command.jitterY);
+    this.channels.yieldIter.set(command.yieldIterLimit);
+    this.channels.loadCheckpoint.set(command.loadCheckpoint ? 1 : 0);
+    this.channels.advancePingPong.set(command.advancePingPong ? 1 : 0);
+    this.channels.clearCheckpoint.set(command.clearCheckpoint ? 1 : 0);
+    this.channels.blendWeight.set(command.blendWeight);
+    this.channels.jitterX.set(command.jitterX);
+    this.channels.jitterY.set(command.jitterY);
 
     return command;
   }

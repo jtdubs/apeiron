@@ -106,4 +106,5 @@
 
 - [x] [Task 057: Telemetry Registry & Headless Primitives](tasks/completed/057-telemetry-registry.md)
 - [x] [Task 058: Telemetry Data Integration (Producers)](tasks/completed/058-telemetry-integration.md)
-- [ ] [Task 059: Telemetry UI (GTKWave Analyzer)](tasks/059-telemetry-ui.md)
+- [x] [Task 059: Telemetry UI (GTKWave Analyzer)](tasks/completed/059-telemetry-ui.md)
+- [x] [Task 060: Frame-Series Telemetry Refactoring](tasks/completed/060-frame-series-telemetry.md)

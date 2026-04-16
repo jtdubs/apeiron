@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 057: Telemetry Registry & Headless Primitives

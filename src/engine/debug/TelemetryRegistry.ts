@@ -1,27 +1,30 @@
 import { RingBuffer } from './RingBuffer';
 
-export type SignalType = 'analog' | 'digital' | 'text';
+export type SignalType = 'analog' | 'digital' | 'text' | 'enum';
+export type RetentionPolicy = 'latch' | 'lapse';
 
 export interface MetricDefinition {
   id: string;
   label: string;
   group: string;
   type: SignalType;
+  retention: RetentionPolicy;
+  lapseValue?: number; // e.g., 0 or NaN used when a 'lapse' metric is inactive
   /** Alpha factor for the Exponential Moving Average used in readable text overlays */
   smoothingAlpha?: number;
   minBound?: number;
   maxBound?: number;
+  enumValues?: Record<number, string>;
 }
 
 export interface TelemetryChannel {
-  /** High performance execution pipeline push (modifies RingBuffer directly without map lookups) */
-  push: (value: number) => void;
+  /** High performance execution pipeline hook. Bypasses Maps and writes directly to Typed Arrays. */
+  set: (value: number) => void;
 }
 
 interface InternalChannelData {
   buffer: RingBuffer;
-  push: (value: number) => void;
-  getEma: () => number;
+  ema: number;
 }
 
 export class TelemetryRegistry {
@@ -29,6 +32,16 @@ export class TelemetryRegistry {
 
   private metrics = new Map<string, MetricDefinition>();
   private channels = new Map<string, InternalChannelData>();
+
+  // High performance lockstep arrays
+  private activeTransients = new Float64Array(256);
+  private transientFlags = new Uint8Array(256);
+  private lastLatchedValues = new Float64Array(256);
+
+  private indexToDef = new Map<number, MetricDefinition>();
+  private indexToInternal = new Map<number, InternalChannelData>();
+  private idToIndex = new Map<string, number>();
+  private nextIndex = 0;
 
   private constructor() {}
 
@@ -44,33 +57,96 @@ export class TelemetryRegistry {
   }
 
   /**
-   * Defines a metric and allocates its fixed-width RingBuffer.
-   * Returns a lightweight TelemetryChannel struct containing a highly optimized closure that pushes raw data directly into the allocated memory.
+   * Defines a metric and returns a lightweight closure that writes directly to contiguous memory,
+   * completely avoiding Map lookups on the hot path.
    */
   public register(def: MetricDefinition, capacity: number = 600): TelemetryChannel {
     if (this.metrics.has(def.id)) {
-      // Hot-reload failsafe. If system re-registers, return the exact same live closure hook
-      return { push: this.channels.get(def.id)!.push };
+      const idx = this.idToIndex.get(def.id)!;
+      return {
+        set: (val: number) => {
+          this.activeTransients[idx] = val;
+          this.transientFlags[idx] = 1;
+        },
+      };
     }
 
-    const buffer = new RingBuffer(capacity);
-    let ema = 0;
+    const index = this.nextIndex++;
+    this.idToIndex.set(def.id, index);
+    this.indexToDef.set(index, def);
 
-    const push = (value: number) => {
-      buffer.push(value);
-      if (typeof def.smoothingAlpha === 'number') {
-        if (buffer.getCount() === 1) {
-          ema = value;
-        } else {
-          ema = def.smoothingAlpha * value + (1 - def.smoothingAlpha) * ema;
-        }
-      }
-    };
+    const internalData: InternalChannelData = { buffer: new RingBuffer(capacity), ema: 0 };
 
     this.metrics.set(def.id, def);
-    this.channels.set(def.id, { buffer, push, getEma: () => ema });
+    this.channels.set(def.id, internalData);
+    this.indexToInternal.set(index, internalData);
 
-    return { push };
+    if (def.retention === 'latch') {
+      this.lastLatchedValues[index] = def.lapseValue ?? 0;
+    }
+
+    return {
+      set: (val: number) => {
+        this.activeTransients[index] = val;
+        this.transientFlags[index] = 1;
+      },
+    };
+  }
+
+  /**
+   * Legacy string-based setting just in case it's needed from slow paths.
+   */
+  public set(id: string, value: number): void {
+    const idx = this.idToIndex.get(id);
+    if (idx !== undefined) {
+      this.activeTransients[idx] = value;
+      this.transientFlags[idx] = 1;
+    }
+  }
+
+  /**
+   * Resets the transient bitmask at the start of the render frame loop.
+   */
+  public beginFrame(): void {
+    this.transientFlags.fill(0);
+  }
+
+  /**
+   * Explicit execution boundary. Unpacks active arrays into historical RingBuffers.
+   */
+  public commitFrame(): void {
+    for (let i = 0; i < this.nextIndex; i++) {
+      const def = this.indexToDef.get(i)!;
+      const channel = this.indexToInternal.get(i)!;
+
+      let valToWrite: number;
+      const isTransientSet = this.transientFlags[i] === 1;
+
+      if (isTransientSet) {
+        valToWrite = this.activeTransients[i];
+        if (def.retention === 'latch') {
+          this.lastLatchedValues[i] = valToWrite;
+        }
+      } else {
+        if (def.retention === 'latch') {
+          const latchVal = this.lastLatchedValues[i];
+          valToWrite = Number.isNaN(latchVal) ? (def.lapseValue ?? NaN) : latchVal;
+        } else {
+          valToWrite = def.lapseValue ?? NaN;
+        }
+      }
+
+      channel.buffer.push(valToWrite);
+
+      if (typeof def.smoothingAlpha === 'number' && !Number.isNaN(valToWrite)) {
+        const cBuffer = channel.buffer;
+        if (cBuffer.getCount() === 1) {
+          channel.ema = valToWrite;
+        } else {
+          channel.ema = def.smoothingAlpha * valToWrite + (1 - def.smoothingAlpha) * channel.ema;
+        }
+      }
+    }
   }
 
   public getBuffer(id: string): RingBuffer | undefined {
@@ -94,7 +170,7 @@ export class TelemetryRegistry {
     if (channel && channel.buffer.getCount() > 0) {
       const def = this.metrics.get(id);
       if (def && typeof def.smoothingAlpha === 'number') {
-        return channel.getEma();
+        return channel.ema;
       }
     }
     return this.getLatest(id);

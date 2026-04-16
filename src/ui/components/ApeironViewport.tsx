@@ -176,26 +176,29 @@ export const ApeironViewport: React.FC = () => {
         let lastFrameTime = performance.now();
 
         const registry = TelemetryRegistry.getInstance();
-        const channels = {
-          time: registry.register({
+        const devChannels = {
+          frametime: registry.register({
             id: 'engine.frametime',
             label: 'Frame Time (ms)',
             group: 'System',
             type: 'analog',
+            retention: 'latch',
             smoothingAlpha: 0.1,
           }),
-          rate: registry.register({
+          framerate: registry.register({
             id: 'engine.framerate',
             label: 'Overall FPS',
             group: 'System',
             type: 'analog',
+            retention: 'latch',
             smoothingAlpha: 0.05,
           }),
-          gpu: registry.register({
+          renderms: registry.register({
             id: 'webgpu.renderms',
             label: 'GPU Math Pass',
             group: 'WebGPU',
             type: 'analog',
+            retention: 'lapse',
             smoothingAlpha: 0.1,
           }),
         };
@@ -203,12 +206,15 @@ export const ApeironViewport: React.FC = () => {
         const loop = () => {
           if (!isMounted) return;
 
+          const registry = TelemetryRegistry.getInstance();
+          registry.beginFrame();
+
           const now = performance.now();
           const dt = Math.max(0.1, now - lastFrameTime); // prevent divide by zero
           lastFrameTime = now;
 
-          channels.time.push(dt);
-          channels.rate.push(1000 / dt);
+          devChannels.frametime.set(dt);
+          devChannels.framerate.set(1000 / dt);
 
           const state = viewportStore.getState();
           const theme = renderStore.getState();
@@ -231,6 +237,7 @@ export const ApeironViewport: React.FC = () => {
           );
 
           if (!command) {
+            registry.commitFrame();
             requestRef.current = requestAnimationFrame(loop);
             return;
           }
@@ -239,13 +246,12 @@ export const ApeironViewport: React.FC = () => {
 
           scheduler.notifySliceComplete(command);
 
-          // Deprecated HUD removed via Task 058 integration
           const ms = engine.getMathPassMs();
           if (ms !== -1) {
-            channels.gpu.push(ms);
+            devChannels.renderms.set(ms);
           }
 
-          // Store true maxIter in cache for geometry validation, not effectiveMaxIter
+          registry.commitFrame();
           requestRef.current = requestAnimationFrame(loop);
         };
         requestRef.current = requestAnimationFrame(loop);

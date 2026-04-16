@@ -21,25 +21,34 @@ export class PerturbationOrchestrator {
   private unsubStore: () => void;
 
   private channels: {
-    latency: TelemetryChannel;
-    pendingJobs: TelemetryChannel;
+    dispatched: TelemetryChannel;
+    active: TelemetryChannel;
+    pending: TelemetryChannel;
   };
 
   constructor(workerFactory?: () => Worker) {
     const reg = TelemetryRegistry.getInstance();
     this.channels = {
-      latency: reg.register({
-        id: 'workers.latency',
-        label: 'Worker Latency',
+      dispatched: reg.register({
+        id: 'workers.dispatchedJobId',
+        label: 'Job Dispatched',
         group: 'Workers',
-        type: 'analog',
-        smoothingAlpha: 0.2,
+        type: 'digital',
+        retention: 'lapse',
       }),
-      pendingJobs: reg.register({
+      active: reg.register({
+        id: 'workers.activeJobId',
+        label: 'Active Job ID',
+        group: 'Workers',
+        type: 'digital',
+        retention: 'latch',
+      }),
+      pending: reg.register({
         id: 'workers.pendingJobCount',
         label: 'Pending Jobs',
         group: 'Workers',
         type: 'analog',
+        retention: 'latch',
       }),
     };
 
@@ -76,11 +85,13 @@ export class PerturbationOrchestrator {
         casesJson,
         maxIterations: this.currentWorkerJob.maxIter,
       });
-      this.channels.pendingJobs.push(1);
+
+      this.channels.dispatched.set(this.currentWorkerJob.id);
+      this.channels.pending.set(1);
     } else {
       this.isWorkerBusy = false;
       this.currentWorkerJob = null;
-      this.channels.pendingJobs.push(0);
+      this.channels.pending.set(0);
     }
   }
 
@@ -91,10 +102,6 @@ export class PerturbationOrchestrator {
         this.dispatchPendingWork();
       } else if (this.currentWorkerJob) {
         const job = this.currentWorkerJob;
-
-        const latency = performance.now() - job.id;
-        this.channels.latency.push(latency);
-        this.channels.pendingJobs.push(this.pendingWorkerJob ? 1 : 0);
 
         // Apply state synchronously to avoid tearing
         viewportStore.setState((state) => {
@@ -120,6 +127,9 @@ export class PerturbationOrchestrator {
             refOrbits: e.data.result,
           };
         });
+
+        this.channels.active.set(job.id);
+        this.channels.pending.set(0);
 
         this.isWorkerBusy = false;
         this.currentWorkerJob = null;

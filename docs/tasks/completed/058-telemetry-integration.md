@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 058: Telemetry Data Integration (Producers)

@@ -1,0 +1,259 @@
+.telemetry-dashboard-wrapper {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100vw;
+  z-index: 1000;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.telemetry-toggle-btn {
+  background: rgba(30, 30, 30, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  transition: background 0.2s;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  align-self: flex-end;
+  margin: 0 20px 20px 0;
+}
+
+.telemetry-toggle-btn:hover {
+  background: rgba(50, 50, 50, 0.8);
+}
+
+.telemetry-dashboard {
+  background: rgba(15, 15, 18, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.5);
+  font-family: 'Inter', sans-serif;
+  color: #fff;
+  position: relative;
+}
+
+.telemetry-resize-handle {
+  width: 100%;
+  height: 8px;
+  position: absolute;
+  top: -4px;
+  left: 0;
+  cursor: ns-resize;
+  z-index: 1001;
+  transition: background 0.2s;
+}
+
+.telemetry-resize-handle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.telemetry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 16px;
+  background: #111;
+  border-bottom: 1px solid #333;
+}
+
+.telemetry-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #aaa;
+  letter-spacing: 1px;
+}
+
+.telemetry-header button {
+  background: none;
+  border: 1px solid transparent;
+  color: #888;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+.telemetry-header button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.telemetry-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Sidebar tree */
+.telemetry-sidebar {
+  width: 250px;
+  background: #161616;
+  border-right: 1px solid #333;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.telemetry-sidebar-group {
+  padding: 12px 0 0 0;
+}
+.telemetry-sidebar-group-title {
+  color: #666;
+  font-size: 10px;
+  text-transform: uppercase;
+  padding: 0 16px 4px 16px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+.telemetry-sidebar-item {
+  color: #bbb;
+  font-size: 12px;
+  padding: 6px 16px 6px 24px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.1s;
+}
+.telemetry-sidebar-item:hover {
+  background: #222;
+  color: #fff;
+}
+.telemetry-sidebar-item.active {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border-left: 3px solid #3b82f6;
+}
+
+/* Main workspace */
+.telemetry-workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.telemetry-workspace-scroll-container {
+  display: flex;
+  min-height: 100%;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* Value readout columns */
+.telemetry-values-col {
+  width: 250px;
+  flex-shrink: 0;
+  background: #0a0a0a;
+  border-right: 1px solid #333;
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+}
+
+.telemetry-signal-row {
+  display: flex;
+  align-items: center;
+  padding: 0 16px 0 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.02);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.telemetry-signal-row:active {
+  cursor: grabbing !important;
+}
+
+.telemetry-signal-name {
+  font-size: 11px;
+  color: #ccc;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 8px;
+}
+
+.telemetry-signal-val {
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: bold;
+  text-align: right;
+  min-width: 50px;
+}
+
+/* Remove button */
+.telemetry-signal-remove {
+  background: none;
+  border: none;
+  color: #555;
+  cursor: pointer;
+  margin-right: 8px;
+  padding: 0 8px;
+  font-size: 12px;
+  height: 100%;
+}
+.telemetry-signal-remove:hover {
+  color: #ff4444;
+}
+
+/* Canvas container */
+.telemetry-canvas-container {
+  flex: 1;
+  position: relative;
+  cursor: crosshair;
+}
+.telemetry-canvas-container:active {
+  cursor: grabbing;
+}
+.telemetry-canvas {
+  width: 100%;
+  display: block;
+}
+
+/* Custom Scrollbars */
+.telemetry-dashboard *::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.telemetry-dashboard *::-webkit-scrollbar-track {
+  background: #111;
+  border-left: 1px solid #222;
+  border-top: 1px solid #222;
+}
+
+.telemetry-dashboard *::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  border: 3px solid #111;
+  background-clip: padding-box;
+}
+
+.telemetry-dashboard *::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.telemetry-dashboard *::-webkit-scrollbar-corner {
+  background: #111;
+}

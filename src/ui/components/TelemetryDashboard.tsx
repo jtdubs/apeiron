@@ -1,0 +1,467 @@
+import React, { useRef, useEffect, useState } from 'react';
+import { TelemetryRegistry } from '../../engine/debug/TelemetryRegistry';
+import { TelemetryRenderer, type IBufferSnapshot } from '../../engine/debug/TelemetryRenderer';
+import './TelemetryDashboard.css';
+
+const COLORS = [
+  '#00ffcc', // teal
+  '#ff00cc', // pink
+  '#ccff00', // yellow-green
+  '#00ccff', // sky blue
+  '#ffcc00', // yellow-orange
+  '#cc00ff', // purple
+];
+
+export const TelemetryDashboard: React.FC = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rendererRef = useRef<TelemetryRenderer | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollInnerRef = useRef<HTMLDivElement>(null);
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [panelHeight, setPanelHeight] = useState(350);
+  const resizeRef = useRef({ isResizing: false });
+  const zoomXRef = useRef(1.0);
+  const panXRef = useRef(0.0);
+  const [cursorX, setCursorX] = useState<number | null>(null);
+  const [activeSignals, setActiveSignals] = useState<string[]>(() => {
+    return ['engine.framerate', 'webgpu.renderms', 'engine.fsm'];
+  });
+
+  const [displayValues, setDisplayValues] = useState<Record<string, number>>({});
+  const frozenSnapshotsRef = useRef<Map<string, IBufferSnapshot> | null>(null);
+  const latestCursorValuesRef = useRef<Record<string, number>>({});
+
+  const panningRef = useRef({ isDown: false, startX: 0, startPan: 0 });
+  const isScrolling = useRef(false);
+  const ignoreScrollEvent = useRef(false);
+  const scrollTimeout = useRef<number | null>(null);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (cursorX !== null) {
+        setDisplayValues({ ...latestCursorValuesRef.current });
+      } else if (!isPaused) {
+        const reg = TelemetryRegistry.getInstance();
+        const data: Record<string, number> = {};
+        activeSignals.forEach((id) => {
+          data[id] = reg.getEma(id);
+        });
+        setDisplayValues(data);
+      }
+    }, 100);
+    return () => clearInterval(interval);
+  }, [cursorX, isPaused, activeSignals]);
+
+  useEffect(() => {
+    if (!isOpen || !canvasRef.current || !containerRef.current) return;
+
+    const canvas = canvasRef.current;
+    rendererRef.current = new TelemetryRenderer(canvas);
+
+    let animationId: number;
+    let isActive = true;
+    let lastRenderKey = '';
+
+    const renderLoop = () => {
+      if (!isActive) return;
+      if (rendererRef.current) {
+        const expectedHeight =
+          activeSignals.length * rendererRef.current.laneHeight + rendererRef.current.headerHeight;
+        let didResize = false;
+        if (canvas.height !== expectedHeight) {
+          canvas.height = expectedHeight;
+          rendererRef.current.resize(canvas.width, canvas.height);
+          didResize = true;
+        }
+
+        const firstBuf =
+          activeSignals.length > 0
+            ? TelemetryRegistry.getInstance().getBuffer(activeSignals[0])
+            : null;
+        const currentHead = firstBuf ? firstBuf.getHeadIndex() : 0;
+        const currentCount = firstBuf ? firstBuf.getCount() : 0;
+
+        const currentRenderKey = `${currentHead}:${currentCount}:${zoomXRef.current}:${panXRef.current}:${cursorX}:${isPaused}:${canvas.width}`;
+
+        if (scrollContainerRef.current && scrollInnerRef.current) {
+          const fakeWidth = zoomXRef.current * 100;
+          const targetWidth = `${fakeWidth}%`;
+          if (scrollInnerRef.current.style.width !== targetWidth) {
+            scrollInnerRef.current.style.width = targetWidth;
+          }
+          if (!isScrolling.current) {
+            const maxScroll =
+              scrollContainerRef.current.scrollWidth - scrollContainerRef.current.clientWidth;
+            const targetScroll = (1.0 - panXRef.current) * maxScroll;
+            if (Math.abs(scrollContainerRef.current.scrollLeft - targetScroll) > 1) {
+              ignoreScrollEvent.current = true;
+              scrollContainerRef.current.scrollLeft = targetScroll;
+            }
+          }
+        }
+
+        if (didResize || currentRenderKey !== lastRenderKey) {
+          const vals = rendererRef.current.render(
+            activeSignals,
+            TelemetryRegistry.getInstance(),
+            zoomXRef.current,
+            panXRef.current,
+            frozenSnapshotsRef.current,
+            cursorX,
+          );
+          latestCursorValuesRef.current = vals;
+          lastRenderKey = currentRenderKey;
+        }
+      }
+      animationId = requestAnimationFrame(renderLoop);
+    };
+
+    rectUpdate();
+    renderLoop();
+
+    const resizeObserver = new ResizeObserver(() => rectUpdate());
+    resizeObserver.observe(containerRef.current);
+
+    function rectUpdate() {
+      if (!canvas || !containerRef.current || !rendererRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      if (canvas.width !== Math.max(1, rect.width)) {
+        rendererRef.current.resize(rect.width, canvas.height);
+      }
+    }
+
+    return () => {
+      isActive = false;
+      cancelAnimationFrame(animationId);
+      resizeObserver.disconnect();
+    };
+  }, [isOpen, activeSignals, cursorX, isPaused]);
+
+  useEffect(() => {
+    const handleMove = (e: PointerEvent) => {
+      if (!resizeRef.current.isResizing) return;
+      // The dashboard expands upwards from the bottom, so higher Y meaning lower physical height
+      const newHeight = window.innerHeight - e.clientY;
+      const minHeight = 120; // 1 lane (60) + grids (20) + header (30)
+      const maxHeight = window.innerHeight - 50;
+      setPanelHeight(Math.max(minHeight, Math.min(newHeight, maxHeight)));
+      e.preventDefault();
+    };
+    const handleUp = () => {
+      if (resizeRef.current.isResizing) {
+        resizeRef.current.isResizing = false;
+        document.body.style.cursor = '';
+      }
+    };
+
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isPaused) {
+      const snapshots = new Map<string, IBufferSnapshot>();
+      const reg = TelemetryRegistry.getInstance();
+      for (const id of activeSignals) {
+        const buf = reg.getBuffer(id);
+        if (buf) {
+          snapshots.set(id, {
+            rawBuffer: buf.getRawBuffer().slice(),
+            count: buf.getCount(),
+            capacity: buf.getCapacity(),
+            headIndex: buf.getHeadIndex(),
+          });
+        }
+      }
+      frozenSnapshotsRef.current = snapshots;
+    } else {
+      frozenSnapshotsRef.current = null;
+    }
+  }, [isPaused, activeSignals]);
+
+  const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (ignoreScrollEvent.current) {
+      ignoreScrollEvent.current = false;
+      return;
+    }
+    isScrolling.current = true;
+    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+    scrollTimeout.current = setTimeout(() => {
+      isScrolling.current = false;
+    }, 100);
+
+    const maxScroll = e.currentTarget.scrollWidth - e.currentTarget.clientWidth;
+    if (maxScroll > 0) {
+      panXRef.current = Math.max(0, Math.min(1.0, 1.0 - e.currentTarget.scrollLeft / maxScroll));
+    } else {
+      panXRef.current = 0;
+    }
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    if (e.button === 0 && !e.shiftKey) {
+      panningRef.current = { isDown: true, startX: e.clientX, startPan: panXRef.current };
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    }
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (panningRef.current.isDown && canvasRef.current) {
+      const dx = e.clientX - panningRef.current.startX;
+      const panDelta = dx / canvasRef.current.width / zoomXRef.current;
+      panXRef.current = Math.max(0, Math.min(1.0, panningRef.current.startPan + panDelta));
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    let wasClick = false;
+    if (panningRef.current.isDown) {
+      panningRef.current.isDown = false;
+      const target = e.target as HTMLElement;
+      if (target.hasPointerCapture && target.hasPointerCapture(e.pointerId)) {
+        target.releasePointerCapture(e.pointerId);
+      }
+      if (Math.abs(e.clientX - panningRef.current.startX) < 5) {
+        wasClick = true;
+      }
+    } else if (Math.abs(e.clientX - (panningRef.current.startX || e.clientX)) < 5) {
+      wasClick = true;
+    }
+
+    if (wasClick) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (rect) {
+        setCursorX(e.clientX - rect.left);
+      }
+    }
+  };
+
+  const onWheel = (e: React.WheelEvent) => {
+    if (e.deltaY !== 0) {
+      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+      zoomXRef.current = Math.max(1.0, Math.min(10.0, zoomXRef.current * zoomFactor));
+    }
+  };
+
+  if (!isOpen) {
+    return (
+      <div className="telemetry-dashboard-wrapper">
+        <button className="telemetry-toggle-btn" onClick={() => setIsOpen(true)}>
+          <span style={{ marginRight: '8px' }}>📊</span> Logic Analyzer
+        </button>
+      </div>
+    );
+  }
+
+  const allSignals = TelemetryRegistry.getInstance().getAllRegisteredIds();
+  const groups: Record<string, string[]> = {};
+  allSignals.forEach((id) => {
+    const group = TelemetryRegistry.getInstance().getDefinition(id)?.group || 'Other';
+    if (!groups[group]) groups[group] = [];
+    groups[group].push(id);
+  });
+
+  const toggleSignal = (id: string) => {
+    if (activeSignals.includes(id)) {
+      setActiveSignals(activeSignals.filter((s) => s !== id));
+    } else {
+      setActiveSignals([...activeSignals, id]);
+    }
+  };
+
+  const setPreset = (preset: string) => {
+    if (preset === 'perf') setActiveSignals(['engine.framerate', 'webgpu.renderms']);
+    if (preset === 'fsm')
+      setActiveSignals(['engine.fsm', 'engine.budget.current', 'engine.sa.skipDepth']);
+    if (preset === 'workers')
+      setActiveSignals([
+        'workers.dispatchedJobId',
+        'workers.activeJobId',
+        'workers.pendingJobCount',
+      ]);
+  };
+
+  return (
+    <div className="telemetry-dashboard-wrapper">
+      <div className="telemetry-dashboard" style={{ height: `${panelHeight}px` }}>
+        <div
+          className="telemetry-resize-handle"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            resizeRef.current.isResizing = true;
+            document.body.style.cursor = 'ns-resize';
+          }}
+        />
+        <div className="telemetry-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => setIsSidebarVisible(!isSidebarVisible)}
+              style={{ fontSize: '14px', padding: '2px 8px' }}
+              title="Toggle Signal Tree"
+            >
+              {isSidebarVisible ? '◀' : '▶'}
+            </button>
+            <h3>GTKWave Telemetry Analyzer</h3>
+          </div>
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+            {cursorX !== null && <button onClick={() => setCursorX(null)}>CLEAR CURSOR</button>}
+            <button
+              onClick={() => setIsPaused(!isPaused)}
+              style={{ color: isPaused ? '#ef4444' : '#3b82f6' }}
+            >
+              {isPaused ? '▶ RESUME LIVE' : '⏸ FREEZE CAPTURE'}
+            </button>
+            <button onClick={() => setIsOpen(false)}>✕</button>
+          </div>
+        </div>
+
+        <div className="telemetry-body">
+          {/* Signal Search Tree */}
+          {isSidebarVisible && (
+            <div className="telemetry-sidebar">
+              <div className="telemetry-sidebar-group">
+                <div className="telemetry-sidebar-group-title">Presets</div>
+                <div className="telemetry-sidebar-item" onDoubleClick={() => setPreset('perf')}>
+                  Performance
+                </div>
+                <div className="telemetry-sidebar-item" onDoubleClick={() => setPreset('fsm')}>
+                  FSM Debug
+                </div>
+                <div className="telemetry-sidebar-item" onDoubleClick={() => setPreset('workers')}>
+                  Workers
+                </div>
+              </div>
+
+              {Object.keys(groups)
+                .sort()
+                .map((group) => (
+                  <div key={group} className="telemetry-sidebar-group">
+                    <div className="telemetry-sidebar-group-title">{group}</div>
+                    {groups[group].map((s) => {
+                      const isActive = activeSignals.includes(s);
+                      return (
+                        <div
+                          key={s}
+                          className={`telemetry-sidebar-item ${isActive ? 'active' : ''}`}
+                          onDoubleClick={() => toggleSignal(s)}
+                        >
+                          {TelemetryRegistry.getInstance().getDefinition(s)?.label || s}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+            </div>
+          )}
+
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <div className="telemetry-workspace" style={{ flex: 1 }}>
+              <div className="telemetry-workspace-scroll-container">
+                {/* Readout Column Aligned with Canvas Lanes */}
+                <div className="telemetry-values-col">
+                  <div style={{ height: '20px', borderBottom: '1px solid #333' }}></div>
+                  {activeSignals.map((id, idx) => {
+                    const def = TelemetryRegistry.getInstance().getDefinition(id);
+                    const val = displayValues[id];
+                    const displayVal =
+                      def?.type === 'enum' && def.enumValues && val !== undefined && val !== null
+                        ? def.enumValues[val] || val.toString()
+                        : typeof val === 'number'
+                          ? Number.isInteger(val)
+                            ? val.toString()
+                            : val.toFixed(2)
+                          : typeof val === 'string'
+                            ? val
+                            : '0';
+                    const color = COLORS[idx % COLORS.length];
+
+                    return (
+                      <div
+                        key={`readout-${id}`}
+                        className="telemetry-signal-row"
+                        draggable
+                        onDragStart={(e) => {
+                          setDraggedIdx(idx);
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          if (draggedIdx === null || draggedIdx === idx) return;
+                          const newSignals = [...activeSignals];
+                          const item = newSignals.splice(draggedIdx, 1)[0];
+                          newSignals.splice(idx, 0, item);
+                          setActiveSignals(newSignals);
+                          setDraggedIdx(idx);
+                        }}
+                        onDragEnd={() => setDraggedIdx(null)}
+                        style={{
+                          height: '60px',
+                          borderLeft: `4px solid ${color}`,
+                          opacity: draggedIdx === idx ? 0.3 : 1,
+                          cursor: 'grab',
+                        }}
+                      >
+                        <button
+                          className="telemetry-signal-remove"
+                          onClick={() => toggleSignal(id)}
+                          onPointerDown={(e) => e.stopPropagation()}
+                        >
+                          ✕
+                        </button>
+                        <div className="telemetry-signal-name" title={def?.label || id}>
+                          <div style={{ fontWeight: 'bold' }}>{def?.label || id}</div>
+                          <div style={{ fontSize: '10px', opacity: 0.6 }}>
+                            {def?.type || 'analog'}
+                          </div>
+                        </div>
+                        <div className="telemetry-signal-val" style={{ color: color }}>
+                          {displayVal}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div
+                  className="telemetry-canvas-container"
+                  ref={containerRef}
+                  onPointerDown={onPointerDown}
+                  onPointerMove={onPointerMove}
+                  onPointerUp={onPointerUp}
+                  onPointerCancel={onPointerUp}
+                  onWheel={onWheel}
+                >
+                  <canvas ref={canvasRef} className="telemetry-canvas" />
+                </div>
+              </div>
+            </div>
+
+            {/* Scrollbar Dock */}
+            <div style={{ height: '12px', background: '#111', display: 'flex' }}>
+              <div style={{ width: '250px', flexShrink: 0, borderRight: '1px solid #333' }}></div>
+              <div
+                ref={scrollContainerRef}
+                onScroll={onScroll}
+                className="telemetry-h-scrollbar"
+                style={{ flex: 1, overflowX: 'auto', overflowY: 'hidden' }}
+              >
+                <div ref={scrollInnerRef} style={{ height: '1px' }}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
