@@ -97,3 +97,4 @@
 ## Phase 16: State Machine Formalization
 
 - [x] [Task 052: Formalize Temporal State Machine & Pipeline Contract](tasks/completed/052-formalize-temporal-fsm.md)
+- [x] [Task 053: Refactor Math Accumulation Shader](tasks/completed/053-refactor-math-accum.md)

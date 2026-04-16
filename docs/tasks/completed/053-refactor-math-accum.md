@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 053: Refactor Math Accumulation Shader
