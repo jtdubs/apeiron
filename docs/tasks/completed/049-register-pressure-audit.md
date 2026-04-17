@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 049: Register Pressure Audit & Checkpoint Compression
@@ -27,6 +27,6 @@ Audit and minimize the live variable count (Vector General Purpose Register pres
 
 ## Verification Steps
 
-- [ ] Measure execution bounds during `DEEPENING` State. The goal is an observable drop in average ms-per-kernel or an observable capability to raise the `stepLimit` budget per frame without blowing the 16.6ms threshold.
-- [ ] Render headless mathematical tests to guarantee identical pixel limits for deep zoom boundaries.
-- [ ] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
+- [x] Measure execution bounds during `DEEPENING` State. The goal is an observable drop in average ms-per-kernel or an observable capability to raise the `stepLimit` budget per frame without blowing the 16.6ms threshold.
+- [x] Render headless mathematical tests to guarantee identical pixel limits for deep zoom boundaries.
+- [x] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?

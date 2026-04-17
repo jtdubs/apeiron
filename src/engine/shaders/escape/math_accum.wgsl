@@ -1,13 +1,6 @@
 // #import "./generated/layout.wgsl"
 // #import "./generated/layout_accessors.wgsl"
 
-struct CheckpointState {
-  zx: f32, zy: f32,
-  der_x: f32, der_y: f32,
-  iter: f32, tia_sum: f32,
-  dz_x: f32, dz_y: f32,
-};
-
 @id(0) override fractal_exponent: f32 = 2.0;
 @id(1) override use_perturbation: f32 = 1.0;
 
@@ -182,7 +175,7 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
     let mag_sq = x * x + y * y;
     if (!(mag_sq <= 4.0)) {
       let ret = get_escape_data(iter, x, y, der_x, der_y, 1.0, tia_sum);
-      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
+      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
       return ret;
     }
     
@@ -193,10 +186,12 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
     var new_der_y = step_res.w;
     
     let cur_z_mag = length(vec2<f32>(new_x, new_y));
-    let n_mag = pow(prev_z_mag, d);
-    let den = n_mag + c_mag - abs(n_mag - c_mag);
-    if (den > 0.0) {
-       tia_sum += (cur_z_mag - abs(n_mag - c_mag)) / den;
+    if (camera.coloring_mode > 0.5) {
+      let n_mag = pow(prev_z_mag, d);
+      let den = n_mag + c_mag - abs(n_mag - c_mag);
+      if (den > 0.0) {
+         tia_sum += (cur_z_mag - abs(n_mag - c_mag)) / den;
+      }
     }
     prev_z_mag = cur_z_mag;
     
@@ -217,7 +212,7 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
     let dz = vec2<f32>(x - check_z.x, y - check_z.y);
     if (dot(dz, dz) < 1e-20) {
       let ret = vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
-      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
+      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
       return ret;
     }
     
@@ -231,11 +226,11 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
   
   if (iter >= max_iterations) {
       let ret = vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
-      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
+      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
       return ret;
   }
   
-  checkpoint[pixel_idx] = CheckpointState(x, y, der_x, der_y, iter, tia_sum, 0.0, 0.0);
+  checkpoint[pixel_idx] = CheckpointState(x, y, der_x, der_y, iter, tia_sum);
   completion_flag[0] = 0u;
   return vec4<f32>(-2.0, 0.0, 0.0, 0.0); // Sentinel
 }
@@ -244,7 +239,7 @@ fn calculate_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, max_i
   if (fractal_exponent == 2.0 && start_z.x == 0.0 && start_z.y == 0.0) {
     if (is_interior_analytic(start_c.x, start_c.y)) {
       let ret = vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
-      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
+      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
       return ret;
     }
   }
@@ -351,7 +346,7 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
         let cur_mag = dz.x * dz.x + dz.y * dz.y;
         if (cur_mag > 1000000.0) {
             let ret = vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
-            checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
+            checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
             return BlaResult(dz, der, iter, prev_z_mag, true, ret, true);
         }
         let ref_final_node = get_orbit_node(ref_offset + u32(iter) * ORBIT_STRIDE);
@@ -361,7 +356,7 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
         
         if (point_mag > 4.0) {
             let ret = get_escape_data(iter, final_x, final_y, der.x, der.y, 0.0, tia_sum);
-            checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
+            checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
             return BlaResult(dz, der, iter, prev_z_mag, true, ret, true);
         }
         
@@ -403,8 +398,8 @@ fn init_perturbation_state(delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u
   // 1. Progressive Rendering Checkpoint Resumption.
   // Resumes previous execution states from the G-Buffer instead of initializing brand new deltas.
   if (camera.load_checkpoint > 0.5 && checkpoint[pixel_idx].iter > 0.0) {
-      dz.x = checkpoint[pixel_idx].dz_x;
-      dz.y = checkpoint[pixel_idx].dz_y;
+      dz.x = checkpoint[pixel_idx].zx;
+      dz.y = checkpoint[pixel_idx].zy;
       iter = checkpoint[pixel_idx].iter;
       der.x = checkpoint[pixel_idx].der_x;
       der.y = checkpoint[pixel_idx].der_y;
@@ -436,7 +431,7 @@ fn init_perturbation_state(delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u
       
       if (initial_x * initial_x + initial_y * initial_y > 4.0) {
          let ret = get_escape_data(iter, initial_x, initial_y, der.x, der.y, 1.0, tia_sum);
-         checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
+         checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
          return PerturbationInit(dz, der, iter, prev_z_mag, tia_sum, true, ret);
       }
   } else {
@@ -446,7 +441,7 @@ fn init_perturbation_state(delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u
      prev_z_mag = length(vec2<f32>(initial_x, initial_y));
      if (!(initial_x * initial_x + initial_y * initial_y <= 4.0)) {
         let ret = get_escape_data(iter, initial_x, initial_y, der.x, der.y, 1.0, tia_sum);
-        checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
+        checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
         return PerturbationInit(dz, der, iter, prev_z_mag, tia_sum, true, ret);
      }
   }
@@ -463,7 +458,7 @@ fn init_perturbation_state(delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u
 fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u32, max_iterations: f32, ref_cycle: f32, ref_escaped_iter: f32, pixel_idx: u32) -> vec4<f32> {
   if (ref_cycle == 1.0 && delta_c.x == 0.0 && delta_c.y == 0.0 && delta_z.x == 0.0 && delta_z.y == 0.0) {
      let ret = vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
-      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
+      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
       return ret;
   }
   
@@ -541,10 +536,12 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     let cur_y = next_zy + dz.y;
     
     let cur_z_mag = length(vec2<f32>(cur_x, cur_y));
-    let n_mag = pow(prev_z_mag, d);
-    let den = n_mag + c_mag - abs(n_mag - c_mag);
-    if (den > 0.0) {
-       tia_sum += (cur_z_mag - abs(n_mag - c_mag)) / den;
+    if (camera.coloring_mode > 0.5) {
+      let n_mag = pow(prev_z_mag, d);
+      let den = n_mag + c_mag - abs(n_mag - c_mag);
+      if (den > 0.0) {
+         tia_sum += (cur_z_mag - abs(n_mag - c_mag)) / den;
+      }
     }
     prev_z_mag = cur_z_mag;
     
@@ -553,7 +550,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     // Prevent GPU NaN bombs by ensuring bailout catches Invalid calculations
     if (!(cur_mag <= 4.0)) {
       let ret = get_escape_data(iter, cur_x, cur_y, der_x, der_y, 2.0, tia_sum);
-      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
+      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
       return ret;
     }
     
@@ -567,11 +564,11 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
   
   if (iter >= max_iterations) {
       let ret = vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
-      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
+      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
       return ret;
   }
   
-  checkpoint[pixel_idx] = CheckpointState(0.0, 0.0, der_x, der_y, iter, tia_sum, dz.x, dz.y);
+  checkpoint[pixel_idx] = CheckpointState(dz.x, dz.y, der_x, der_y, iter, tia_sum);
   completion_flag[0] = 0u;
   return vec4<f32>(-2.0, 0.0, 0.0, 0.0);
 }

@@ -295,7 +295,7 @@ export class PassManager {
 
     if (this.checkpointBuffer) this.checkpointBuffer.destroy();
     this.checkpointBuffer = this.device.createBuffer({
-      size: this.width * this.height * 32, // 32 bytes per pixel
+      size: this.width * this.height * 24, // 24 bytes per pixel
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
