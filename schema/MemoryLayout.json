@@ -1,0 +1,99 @@
+{
+  "constants": {
+    "ORBIT_STRIDE": { "value": 8, "type": "u32" },
+    "META_STRIDE": { "value": 8, "type": "u32" },
+    "BLA_LEVELS": { "value": 16, "type": "u32" },
+    "BLA_NODE_STRIDE": { "value": 8, "type": "u32" }
+  },
+  "structs": {
+    "ReferenceOrbitNode": {
+      "description": "Stores mathematical state of reference orbits for perturbation",
+      "fields": [
+        { "name": "x", "type": "f32" },
+        { "name": "y", "type": "f32" },
+        { "name": "ar", "type": "f32" },
+        { "name": "ai", "type": "f32" },
+        { "name": "br", "type": "f32" },
+        { "name": "bi", "type": "f32" },
+        { "name": "cr", "type": "f32" },
+        { "name": "ci", "type": "f32" }
+      ]
+    },
+    "OrbitMetadata": {
+      "fields": [
+        { "name": "cycle_found", "type": "f32" },
+        { "name": "cycle_der_r", "type": "f32" },
+        { "name": "cycle_der_i", "type": "f32" },
+        { "name": "escaped_iter", "type": "f32" },
+        { "name": "abs_zr", "type": "f32" },
+        { "name": "abs_zi", "type": "f32" },
+        { "name": "abs_cr", "type": "f32" },
+        { "name": "abs_ci", "type": "f32" }
+      ]
+    },
+    "BLANode": {
+      "fields": [
+        { "name": "ar", "type": "f32" },
+        { "name": "ai", "type": "f32" },
+        { "name": "br", "type": "f32" },
+        { "name": "bi", "type": "f32" },
+        { "name": "err", "type": "f32" },
+        { "name": "len", "type": "f32" },
+        { "name": "pad1", "type": "f32" },
+        { "name": "pad2", "type": "f32" }
+      ]
+    },
+    "CameraParams": {
+      "fields": [
+        { "name": "zr", "type": "f32" },
+        { "name": "zi", "type": "f32" },
+        { "name": "cr", "type": "f32" },
+        { "name": "ci", "type": "f32" },
+        { "name": "scale", "type": "f32" },
+        { "name": "aspect", "type": "f32" },
+        { "name": "compute_max_iter", "type": "f32" },
+        { "name": "slice_angle", "type": "f32" },
+        { "name": "use_perturbation", "type": "f32" },
+        { "name": "ref_max_iter", "type": "f32" },
+        { "name": "exponent", "type": "f32" },
+        { "name": "coloring_mode", "type": "f32" },
+        { "name": "jitter_x", "type": "f32" },
+        { "name": "jitter_y", "type": "f32" },
+        { "name": "blend_weight", "type": "f32" },
+        { "name": "render_scale", "type": "f32" },
+        { "name": "step_limit", "type": "f32" },
+        { "name": "load_checkpoint", "type": "f32" },
+        { "name": "debug_view_mode", "type": "f32" },
+        { "name": "canvas_width", "type": "f32" },
+        { "name": "skip_iter", "type": "f32" },
+        { "name": "pad1", "type": "f32" },
+        { "name": "pad2", "type": "f32" },
+        { "name": "pad3", "type": "f32" }
+      ]
+    },
+    "ResolveUniforms": {
+      "fields": [
+        { "name": "a", "type": "vec4<f32>" },
+        { "name": "b", "type": "vec4<f32>" },
+        { "name": "c", "type": "vec4<f32>" },
+        { "name": "d", "type": "vec4<f32>" },
+        { "name": "max_iter", "type": "f32" },
+        { "name": "light_azimuth", "type": "f32" },
+        { "name": "light_elevation", "type": "f32" },
+        { "name": "diffuse", "type": "f32" },
+        { "name": "shininess", "type": "f32" },
+        { "name": "height_scale", "type": "f32" },
+        { "name": "ambient", "type": "f32" },
+        { "name": "coloring_mode", "type": "f32" },
+        { "name": "color_density", "type": "f32" },
+        { "name": "color_phase", "type": "f32" },
+        { "name": "surface_mode", "type": "f32" },
+        { "name": "surface_param_a", "type": "f32" },
+        { "name": "surface_param_b", "type": "f32" },
+        { "name": "palette_max_iter", "type": "f32" },
+        { "name": "pad1", "type": "f32" },
+        { "name": "pad2", "type": "f32" }
+      ]
+    }
+  }
+}

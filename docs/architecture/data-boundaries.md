@@ -12,10 +12,10 @@ Because we operate in these three realms, hardcoded byte offsets and magic numbe
 
 To prevent misaligned byte-reads or WebGPU validation crashes, all cross-boundary structures must be derived from a Single Source of Truth.
 
-The `src/engine/generated/MemoryLayout.ts` file acts as the ultimate schema.
+The `schema/MemoryLayout.json` file acts as the ultimate data structure schema. The `scripts/compileLayoutSchema.js` generator transforms this file into the language-specific targets:
 
-- **Rust**: Uses `wasm-bindgen` and strictly defined structures decorated with `#[repr(C)]`.
-- **TypeScript**: Consumes auto-generated offset mappings and `Float32Array`/`Uint32Array` overlays to build ArrayBuffers matching the Rust C-schemas.
+- **Rust**: Uses `wasm-bindgen` and strictly defined structures generated at `rust-math/src/generated/layout.rs`.
+- **TypeScript**: Consumes auto-generated offset mappings at `src/engine/generated/MemoryLayout.ts` to build ArrayBuffers matching the Rust C-schemas.
 - **WebGPU**: The compute shader bindings map exactly to the TS ArrayBuffer structures using `std140` or `std430` layout rules.
 
 ## Rule 1: No Arbitrary Alignment
