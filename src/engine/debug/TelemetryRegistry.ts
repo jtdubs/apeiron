@@ -113,7 +113,7 @@ export class TelemetryRegistry {
    * Resets the transient bitmask at the start of the render frame loop.
    */
   public beginFrame(): void {
-    this.transientFlags.fill(0);
+    // Left for backward compatibility, flags are now cleared after commitFrame
   }
 
   /**
@@ -152,6 +152,10 @@ export class TelemetryRegistry {
         }
       }
     }
+
+    // Clear transients after the frame is committed so that any async events
+    // firing between frames are safely captured and not swallowed.
+    this.transientFlags.fill(0);
   }
 
   public getBuffer(id: string): RingBuffer | undefined {

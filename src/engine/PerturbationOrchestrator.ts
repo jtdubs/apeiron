@@ -19,6 +19,7 @@ export class PerturbationOrchestrator {
   private timeoutId: number | null = null;
   private logTimeoutId: number | null = null;
   private unsubStore: () => void;
+  private jobSequenceCounter = 0;
 
   private channels: {
     dispatched: TelemetryChannel;
@@ -33,14 +34,14 @@ export class PerturbationOrchestrator {
         id: 'workers.dispatchedJobId',
         label: 'Job Dispatched',
         group: 'Workers',
-        type: 'digital',
-        retention: 'lapse',
+        type: 'enum',
+        retention: 'latch',
       }),
       active: reg.register({
         id: 'workers.activeJobId',
         label: 'Active Job ID',
         group: 'Workers',
-        type: 'digital',
+        type: 'enum',
         retention: 'latch',
       }),
       pending: reg.register({
@@ -62,6 +63,10 @@ export class PerturbationOrchestrator {
     this.worker.onmessage = this.handleWorkerMessage.bind(this);
     this.unsubStore = viewportStore.subscribe(this.handleStoreChange.bind(this));
   }
+
+  private lastDeltaCr = 0;
+  private lastDeltaCi = 0;
+  private lastZoom = 0;
 
   private dispatchPendingWork() {
     if (this.pendingWorkerJob) {
@@ -137,7 +142,7 @@ export class PerturbationOrchestrator {
     }
   }
 
-  private handleStoreChange(state: ViewportState, prevState: ViewportState) {
+  private handleStoreChange(state: ViewportState) {
     if (this.logTimeoutId) window.clearTimeout(this.logTimeoutId);
     this.logTimeoutId = window.setTimeout(() => {
       console.log(
@@ -148,10 +153,14 @@ export class PerturbationOrchestrator {
     // Compute new orbits dynamically if deep zooming
     if (state.zoom < 1e-4) {
       if (
-        state.deltaCr !== prevState.deltaCr ||
-        state.deltaCi !== prevState.deltaCi ||
-        state.zoom !== prevState.zoom
+        state.deltaCr !== this.lastDeltaCr ||
+        state.deltaCi !== this.lastDeltaCi ||
+        state.zoom !== this.lastZoom
       ) {
+        this.lastDeltaCr = state.deltaCr;
+        this.lastDeltaCi = state.deltaCi;
+        this.lastZoom = state.zoom;
+
         if (this.timeoutId) window.clearTimeout(this.timeoutId);
         this.timeoutId = window.setTimeout(() => {
           const absZr = (parseFloat(state.anchorZr) + state.deltaZr).toString();
@@ -159,8 +168,10 @@ export class PerturbationOrchestrator {
           const absCr = (parseFloat(state.anchorCr) + state.deltaCr).toString();
           const absCi = (parseFloat(state.anchorCi) + state.deltaCi).toString();
 
+          this.jobSequenceCounter++;
+
           const job: WorkerJob = {
-            id: performance.now(),
+            id: this.jobSequenceCounter,
             absZr,
             absZi,
             absCr,
