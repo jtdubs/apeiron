@@ -1,14 +1,24 @@
+/// <reference types="@webgpu/types" />
 import type { RenderState } from '../src/ui/stores/renderStore.ts';
 import { PassManager } from '../src/engine/PassManager.ts';
-import type { RenderFrameDescriptor } from '../src/engine/RenderFrameDescriptor.ts';
-import { CameraParams, packCameraParams } from '../src/engine/generated/MemoryLayout.ts';
+import type {
+  RenderFrameDescriptor,
+  MathContext,
+  ExecutionCommand,
+} from '../src/engine/RenderFrameDescriptor.ts';
+import type { CameraParams } from '../src/engine/generated/MemoryLayout.ts';
+import { packCameraParams } from '../src/engine/generated/MemoryLayout.ts';
 
 export class WebGPUTestHarness {
-  constructor(
-    private device: GPUDevice,
-    private mathShaderCode: string,
-    private resolveShaderCode: string,
-  ) {}
+  private device: GPUDevice;
+  private mathShaderCode: string;
+  private resolveShaderCode: string;
+
+  constructor(device: GPUDevice, mathShaderCode: string, resolveShaderCode: string) {
+    this.device = device;
+    this.mathShaderCode = mathShaderCode;
+    this.resolveShaderCode = resolveShaderCode;
+  }
 
   public async executeTestCompute(
     input: Float32Array,
@@ -234,13 +244,20 @@ export class TestRenderSession {
   private targetTexture: GPUTexture;
   private targetView: GPUTextureView;
 
+  private device: GPUDevice;
+  private width: number;
+  private height: number;
+
   constructor(
-    private device: GPUDevice,
-    private width: number,
-    private height: number,
+    device: GPUDevice,
+    width: number,
+    height: number,
     mathShaderCode: string,
     resolveShaderCode: string,
   ) {
+    this.device = device;
+    this.width = width;
+    this.height = height;
     const renderFormat: GPUTextureFormat = 'rgba8unorm';
     this.pm = new PassManager(
       device,
@@ -275,6 +292,7 @@ export class TestRenderSession {
         sliceAngle: 0,
         exponent: 2,
         refOrbits: null,
+        skipIter: 0,
         debugViewMode: 0,
         ...options.context,
       },

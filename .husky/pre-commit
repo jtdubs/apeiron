@@ -1,4 +1,3 @@
 npx tsc -b
 npx lint-staged
-npm run test:engine
-npm run test:ui
+npm run test

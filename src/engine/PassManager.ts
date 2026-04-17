@@ -408,7 +408,11 @@ export class PassManager {
       canvas_width: width,
       skip_iter: desc.context.skipIter,
     });
-    this.device.queue.writeBuffer(this.accumPass.uniformsBuffer, 0, cameraData);
+    this.device.queue.writeBuffer(
+      this.accumPass.uniformsBuffer,
+      0,
+      cameraData.buffer as ArrayBuffer,
+    );
 
     // ── Palette/resolve uniforms (only on theme change) ──────────────────────
     const themeVersion = desc.theme?.themeVersion ?? -1;
@@ -461,19 +465,23 @@ export class PassManager {
           palette_max_iter: desc.context.paletteMaxIter,
         });
       }
-      this.device.queue.writeBuffer(this.presentPass.paletteUniformsBuffer, 0, paletteData);
+      this.device.queue.writeBuffer(
+        this.presentPass.paletteUniformsBuffer,
+        0,
+        paletteData.buffer as ArrayBuffer,
+      );
     }
     // Keep paletteMaxIter in sync even when theme version hasn't changed
     // (e.g. refOrbits length changed but theme stayed the same).
     this.device.queue.writeBuffer(
       this.presentPass.paletteUniformsBuffer,
       64,
-      new Float32Array([paletteMaxIter]),
+      new Float32Array([paletteMaxIter]).buffer as ArrayBuffer,
     );
     this.device.queue.writeBuffer(
       this.presentPass.paletteUniformsBuffer,
       124,
-      new Float32Array([desc.context.paletteMaxIter]),
+      new Float32Array([desc.context.paletteMaxIter]).buffer as ArrayBuffer,
     );
 
     // Write render_scale to its dedicated uniform buffer (group 0, binding 1 of the resolve pass).
@@ -481,7 +489,7 @@ export class PassManager {
     this.device.queue.writeBuffer(
       this.presentPass.renderScaleBuffer,
       0,
-      new Float32Array([desc.command.renderScale]),
+      new Float32Array([desc.command.renderScale]).buffer as ArrayBuffer,
     );
 
     // ── GPU command submission ───────────────────────────────────────────────
