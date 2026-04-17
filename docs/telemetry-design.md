@@ -2,109 +2,90 @@
 
 ## 1. Problem Statement
 
-The current debugging HUD located inside `ApeironViewport.tsx` suffers from several architectural and usability issues:
+The telemetry subsystem provides critical visibility into the mathematically intensive rendering core. However, an unmanaged telemetry approach introduces severe architectural flaws:
 
-1. **Flickering & Readability:** It updates purely instantaneous values every frame, making it impossible to read volatile metrics like GPU pass times or FSM iteration budgets unless the system is perfectly cold.
-2. **Tight Coupling:** The React component manually interrogates `ProgressiveRenderScheduler`, `PerturbationOrchestrator`, and `ApeironEngine` instances. This violates separation of concerns.
-3. **Rigidity:** Adding a single new property requires expanding custom strings inside the `requestAnimationFrame` loop and modifying the DOM `innerHTML`.
-4. **Lack of Historical Context:** There is no ability to detect transient spikes, memory leaks over time, or WebWorker queuing issues because we do not track time-series data.
+1. **Temporal Drift:** Independent event streams (e.g., worker message callbacks vs `requestAnimationFrame` vs WebGPU callbacks) arrive asynchronously. If metrics are pushed independently, the timeline tears, making it impossible to correlate causality (e.g., did worker latency spike _before_ or _after_ the FSM transitioned?).
+2. **Hot-Path Overhead:** Doing `Map.set("engine.fps", val)` or triggering `setInterval` tracing closures thousands of times across various components introduces significant string-mapping latency, unnecessary GC pressure, and polling overhead right when the engine needs all available resources to draw the frame.
+3. **Implicit State:** If a producer stops pushing a metric (e.g., worker queue empties), does the UI render `0`, hold the last value indefinitely, or draw empty space? These implicit rules cause false readings in analysis.
 
-## 2. Proposed Architecture
+## 2. Lockstep Frame-Series Architecture
 
-To solve this while adhering strictly to Apeiron's "Zero React in Hot Paths" mandate, the telemetry system should be built as a standalone subsystem split into a **Data Layer** (Registry) and a **Visualization Layer** (Canvas Overlay).
+To solve this while adhering strictly to Apeiron's "Zero React in Hot Paths" mandate, the telemetry system is built as a highly structured, lockstep subsystem governed globally by the main render loop.
 
 ### 2.1 The Data Layer: `TelemetryRegistry`
 
-We will introduce a globally accessible (or engine-injected) `TelemetryRegistry`. It acts as a PubSub/Storage mechanism that owns high-performance **Ring Buffers**.
+The registry acts as a centralized struct-of-arrays manager. Instead of async event pushing, all telemetry strictly advances at the `requestAnimationFrame` boundary.
 
 ```typescript
-type SignalType = 'analog' | 'digital' | 'text';
+type SignalType = 'analog' | 'digital' | 'text' | 'enum';
+type RetentionPolicy = 'latch' | 'lapse';
 
 interface MetricDefinition {
   id: string; // e.g. "engine.framerate"
   label: string; // e.g. "Overall FPS"
-  group: string; // e.g. "Performance", "WebGPU", "Workers"
+  group: string; // e.g. "Performance"
   type: SignalType;
-  smoothingAlpha?: number; // Configurable EMA smoothing factor for text readouts
-  minBound?: number; // For time-series: fixed bottom of graph (e.g., 0)
-  maxBound?: number; // For time-series: fixed top of graph
+  retention: RetentionPolicy;
+  lapseValue?: number; // Value to use when metric is not set (defaults to NaN)
+  smoothingAlpha?: number; // Configurable EMA smoothing factor
 }
 
-// Conceptual Interface
-class TelemetryRegistry {
-  public register(def: MetricDefinition): void;
-
-  // Fire-and-forget push from anywhere in the codebase
-  public push(id: string, value: number | string): void;
-
-  // Read access for the visualizer
-  public getBuffer(id: string): RingBuffer;
-  public getLatest(id: string): number | string;
+export interface TelemetryChannel {
+  /** High performance zero-allocation memory write */
+  set: (value: number) => void;
 }
 ```
 
-### 2.2 Producer Integration (Extensibility)
+### 2.2 Retention Semantics: Latch vs Lapse
 
-Instead of the Viewport "Pulling" data, the Engine components "Push" data to the Registry as a side effect of their normal operation:
+Because we operate in lockstep, every signal must emit exactly _one_ value per frame. How we handle components that _don't_ emit data during a frame defines our semantics:
 
-- `IterationBudgetController`: Pushes `engine.budget.current` whenever it is evaluated.
-- `PerturbationOrchestrator`: Calculates Rust WASM round-trip time and pushes `workers.latency`. It also pushes `workers.pendingJobCount`.
-- `ProgressiveRenderScheduler`: Pushes the current FSM execution state as an enumeration (Interact vs Accumulate).
-- `ApeironEngine`: Uses WebGPU timestamp queries or `performance.now()` to push `webgpu.renderms`.
+- **Lapse (Event/Transient):** Used for instantaneous occurrences. If the producer doesn't call `.set()` this frame, the value defaults to `lapseValue` (usually `NaN`, which the UI renders as a break in the line, or `0` for an instantaneous trigger).
+  - _Example: `workers.dispatchedJobId` occurs exactly on the frame the worker is dispatched._
+- **Latch (Stateful/Carry-Over):** Used for continuous states. If the producer doesn't call `.set()` this frame, the registry automatically carries over the value from the previous frame.
+  - _Example: `workers.activeJobId` stays latched to the ID of the rendering orbit until the job resolves, or `engine.fsm` mode remains in `INTERACT`._
 
-### 2.3 The Visualization Layer: Real UI Integration
+### 2.3 Memory-Mapped Closures (Zero Allocations)
 
-Because the **Data Layer** safely buffers the metrics out of the hot path, we do not have to inherently cripple our UI development. We can achieve a fully featured, "real UI" integration using standard React components while preserving FSM performance.
+To completely eliminate `Map` string lookups and GC allocations on the hot path, `reg.register()` returns a dedicated `TelemetryChannel` closure.
 
-1. **Throttled React Polling for Text/Layouts:** The React UI (e.g., `<TelemetryDashboard />`) can use a `useInterval` hook (or throttled subscriptions) to poll the latest smoothed values at a human-readable pace (e.g., 4 to 10 FPS). This allows us to build standard, beautiful React components for the menus, grids, and values without thrashing the DOM at 60 FPS.
-2. **Logic-Analyzer Style Drawing for Sparklines:** The small, localized `<canvas>` refs inside standard React layouts will draw high-density buffers in two distinct styles, modeled after simulation analyzer platforms like GTKWave:
-   - **Analog Waveforms:** For continuous, time-varying values (e.g., FPS, GPU ms). Rendered as traditional connected line or area graphs.
-   - **Digital Waveforms:** For discrete values (booleans, enums like the FSM `INTERACT` vs `ACCUMULATING` state). Rendered as non-interpolating step-functions (flat sustained lines that snap instantly to the new value on state changes), optionally filled with distinct state-colors.
-3. **Temporal Correlation:** By explicitly supporting both formats, developers can visually stack the timeline. A transient spike in the "Analog" webworker backlog can be visually aligned perfectly against the "Digital" moment the Panning Engine state snapped.
+Internally, the `TelemetryRegistry` maintains two flat memory regions:
 
-### 2.4 Dev Experience & UI Aesthetics
+1. `Float64Array`: Contains the active values collected this frame via index bounds.
+2. `Uint8Array`: A bitmask tracking which metrics were explicitly set this frame.
 
-- **Visual Aesthetic:** The system matches Apeiron's premium look: blurred dark backgrounds, clear text, and distinct, vibrant signal lines.
-- **Dynamic Signal Selection:** Instead of rigid categorized tabs that prevent cross-domain correlation, the UI provides a searchable tree or list of all registered data points. Developers can selectively "Add to View", assembling a custom dashboard of waveforms tailored entirely to their specific debugging task (e.g., tracking a spike in `webgpu.renderms` directly alongside `engine.fsm` state).
-- **View Presets:** To accelerate common debugging workflows, the system will support pre-configured presets (e.g., "Performance Base", "FSM Deep Dive", "Worker Triage") that instantly populate the viewer with highly correlated metric groups.
+When an engine component executes, it uses the closure to directly index and write the value into memory (`this.activeTransients[idx] = val; this.transientFlags[idx] = 1;`). It contains absolutely zero branching or string lookup logic.
 
-### 2.5 Time Base & Trace Capture
+### 2.4 The Execution Boundary
+
+The main `ApeironViewport` drives the registry explicitly around its FSM tick:
+
+```typescript
+// 1. Reset the bitmask and prepare for accumulation
+registry.beginFrame();
+
+// 2. Drive the FSM. Any component might write metrics here.
+const command = scheduler.update(...);
+engine.renderFrame(...);
+
+// 3. Unpack bitmasks, apply Latch/Lapse policies, and push values into the RingBuffer history.
+registry.commitFrame();
+```
+
+## 3. The Visualization Layer: DX & GTKWave
+
+1. **Throttled React Polling:** The React UI (`<TelemetryDashboard />`) uses `useInterval` hooks to poll string-based EMA readouts to prevent 60FPS DOM thrashing.
+2. **Logic-Analyzer Drawing:** Short-circuited `<canvas>` rendering overlays high-density buffers similar to simulation analyzers like GTKWave:
+   - **Analog Waveforms:** Traditional continuous interpolation.
+   - **Digital Waveforms:** Non-interpolating step functions. Lines jump instantaneously without sloped connections, rendering state changes like `engine.fsm` perfectly vertically.
+3. **Time-Base Scrubbing:** The dashboard supports horizontal scroll wheel navigation to pan perfectly backwards in time across the buffer history, freezing trace capture automatically.
+
+### 3.1 Time Base, Scrubbing & Trace Capture
 
 Taking inspiration from hardware oscilloscopes and logic analyzers, continuous 60fps data feeds can quickly overwrite transient events. The telemetry UI must provide time-axis controls to analyze the Ring Buffer history:
 
 1. **Pause / Trace Capture:** A toggle that "Freezes" the UI. This temporarily detaches the `TelemetryRenderer` from the live head of the Ring Buffer, freezing the historical window on the screen for analysis, while the engine safely continues computing underneath.
 2. **Zoom and Pan:** While the trace is captured/paused, developers can zoom in (scaling the X-axis) to inspect an individual 16ms frame boundary, and pan left/right across the captured buffer to find perfectly aligned digital state changes and analog spikes.
-3. **Oscilloscope Triggers:** Support for programmatic triggers (e.g., "Pause trace automatically when `webgpu.renderms > 25ms`" or "when `engine.fsm` leaves `ACCUMULATING`"). This allows the developer to catch rare edge-case bugs without needing superhuman reflexes.
+3. **Oscilloscope Triggers (Planned):** Support for programmatic triggers (e.g., "Pause trace automatically when `webgpu.renderms > 25ms`" or "when `engine.fsm` leaves `ACCUMULATING`"). This allows the developer to catch rare edge-case bugs without needing superhuman reflexes to manually slam the pause button.
 
-## 3. Recommended Metric Candidates
-
-We can incrementally track anything with this architecture. Initial targets:
-
-**System & Engine:**
-
-- Overall FPS
-- GPU Frame Time ($\Delta$t)
-- Canvas resolution scale (adaptive scaling tracking)
-
-**WebGPU Pipelines:**
-
-- Accumulator Pass (ms) - Time required for the heavy Math Compute pass.
-- Resolve Pass (ms) - Time required for the 60fps lighting/presentation Shader.
-
-**WebWorkers & Parallelism:**
-
-- Pending Jobs in queue
-- Round-trip Latency against the Rust WASM module
-
-**Engine FSM (ProgressiveRenderScheduler):**
-
-- `yieldIterLimit` (The dynamic PID budget constraint)
-- SA Skip Depth vs Total Iterations required for a pixel fragment
-- Current Render Phase (INTERACT, DEEPENING, ACCUMULATING)
-
-## 4. Implementation Phasing
-
-1. **Phase 1:** Build the `RingBuffer` and `TelemetryRegistry` primitives. Integrate them into `initEngine.ts` or as a top-level singleton.
-2. **Phase 2:** Instrument the existing classes to push to the registry, decoupling them.
-3. **Phase 3:** Write `TelemetryRenderer.ts` (Canvas 2D API) to natively draw EMA text and basic sparklines.
-4. **Phase 4:** Wrap the renderer in a pretty `ApeironTelemetryUI.tsx` floating glassmorphic container and replace the old `hudRef` approach in `ApeironViewport`.
+By synchronizing `latch`/`lapse` data on explicit `commitFrame` boundaries, the UI visualizes perfect temporal correlations (e.g., aligning an analog latency graph seamlessly underneath a digital FSM enum trace) guaranteeing absolute causality tracking.
