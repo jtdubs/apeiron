@@ -32,9 +32,22 @@ export const TelemetryDashboard: React.FC = () => {
   const zoomXRef = useRef(1.0);
   const panXRef = useRef(0.0);
   const [cursorAge, setCursorAge] = useState<number | null>(null);
+  const STORAGE_KEY = 'apeiron_telemetry_signals';
   const [activeSignals, setActiveSignals] = useState<string[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        // fallback
+      }
+    }
     return ['engine.framerate', 'webgpu.renderms', 'engine.fsm'];
   });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(activeSignals));
+  }, [activeSignals]);
 
   const [displayValues, setDisplayValues] = useState<Record<string, number>>({});
   const frozenSnapshotsRef = useRef<Map<string, IBufferSnapshot> | null>(null);
@@ -388,6 +401,41 @@ export const TelemetryDashboard: React.FC = () => {
       ]);
   };
 
+  const exportTrace = () => {
+    const reg = TelemetryRegistry.getInstance();
+    const ids = reg.getAllRegisteredIds();
+    if (ids.length === 0) return;
+
+    // All metrics share the same lockstep capacity, so the first buffer safely represents the system's runtime
+    const maxCount = reg.getBuffer(ids[0])?.getCount() || 0;
+
+    if (maxCount === 0) return;
+
+    // Walk backwards from oldest age to newest age so the array is chronological
+    const frames = [];
+    for (let age = maxCount - 1; age >= 0; age--) {
+      const frameData: Record<string, number> = {};
+      let hasData = false;
+      for (const id of ids) {
+        const buf = reg.getBuffer(id);
+        if (buf && age < buf.getCount()) {
+          const phys = (buf.getHeadIndex() - 1 - age + buf.getCapacity()) % buf.getCapacity();
+          frameData[id] = buf.getRawBuffer()[phys];
+          hasData = true;
+        }
+      }
+      if (hasData) frames.push(frameData);
+    }
+
+    const blob = new Blob([JSON.stringify(frames, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `apeiron_telemetry_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="telemetry-dashboard-wrapper">
       <div className="telemetry-dashboard" style={{ height: `${panelHeight}px` }}>
@@ -460,17 +508,57 @@ export const TelemetryDashboard: React.FC = () => {
             <button
               onClick={() => setIsPaused(!isPaused)}
               style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '30px',
+                height: '30px',
+                padding: 0,
                 color: isPaused ? '#ef4444' : '#3b82f6',
                 fontSize: '20px',
-                padding: '2px 8px',
               }}
               title={isPaused ? 'Resume Live Capture' : 'Freeze Capture'}
             >
               {isPaused ? '⏺' : '⏸'}
             </button>
             <button
+              onClick={exportTrace}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '30px',
+                height: '30px',
+                padding: 0,
+              }}
+              title="Export JSON Trace"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </button>
+            <button
               onClick={() => setIsOpen(false)}
-              style={{ fontSize: '20px', padding: '2px 8px' }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '30px',
+                height: '30px',
+                padding: 0,
+                fontSize: '20px',
+              }}
               title="Close Telemetry Dashboard"
             >
               ✕

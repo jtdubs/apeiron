@@ -56,11 +56,13 @@ export class TelemetryRegistry {
     TelemetryRegistry.instance = new TelemetryRegistry();
   }
 
+  public static readonly HISTORY_CAPACITY = 600;
+
   /**
    * Defines a metric and returns a lightweight closure that writes directly to contiguous memory,
-   * completely avoiding Map lookups on the hot path.
+   * completely avoiding Map lookups on the hot path. All channels run perfectly in lockstep.
    */
-  public register(def: MetricDefinition, capacity: number = 600): TelemetryChannel {
+  public register(def: MetricDefinition): TelemetryChannel {
     if (this.metrics.has(def.id)) {
       const idx = this.idToIndex.get(def.id)!;
       return {
@@ -75,7 +77,10 @@ export class TelemetryRegistry {
     this.idToIndex.set(def.id, index);
     this.indexToDef.set(index, def);
 
-    const internalData: InternalChannelData = { buffer: new RingBuffer(capacity), ema: 0 };
+    const internalData: InternalChannelData = {
+      buffer: new RingBuffer(TelemetryRegistry.HISTORY_CAPACITY),
+      ema: 0,
+    };
 
     this.metrics.set(def.id, def);
     this.channels.set(def.id, internalData);
