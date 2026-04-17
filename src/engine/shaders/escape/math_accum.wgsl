@@ -309,7 +309,13 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
                 if (target_err < 1e20) {
                     let max_delta_sq = max(dz_len_sq, dc_len_sq);
                     let err_factor = target_err * max_delta_sq;
-                    if (err_factor < 1e-9) {
+                    
+                    // The error scaling must maintain a proportional ratio to max_delta_sq itself.
+                    // A static `target_err < 1e-6` bound ensures visual fidelity is absolutely 
+                    // invariant to the viewport zoom level without artificially throttling deep skips.
+                    let dynamic_tolerance = 1e-6 * max_delta_sq;
+                    
+                    if (err_factor < dynamic_tolerance) {
                         let ar = bla_node.ar; let ai = bla_node.ai;
                         let br = bla_node.br; let bi = bla_node.bi;
                         
