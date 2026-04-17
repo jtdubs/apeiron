@@ -4,7 +4,7 @@ import { renderStore, THEMES } from '../stores/renderStore';
 import { viewportStore } from '../stores/viewportStore';
 import { ScrubbableNumber } from './ScrubbableNumber';
 
-export const ApeironSettingsPanel: React.FC = () => {
+export const ApeironSettingsPanel: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
   const state = useStore(renderStore);
   const viewportState = useStore(viewportStore);
 
@@ -289,35 +289,24 @@ export const ApeironSettingsPanel: React.FC = () => {
           </>
         )}
       </div>
-
-      <div className="hud-settings-section">
-        <div className="hud-settings-label">Debug</div>
-
-        <div className="hud-settings-label">Debug View Mode</div>
-        <select
-          value={viewportState.debugViewMode}
-          onChange={(e) => viewportState.setDebugViewMode(Number(e.target.value))}
-          className="hud-settings-select"
-          style={{ marginBottom: 12 }}
-        >
-          <option value={0}>None</option>
-          <option value={1}>Show Limit Cycles</option>
-          <option value={2}>Show Checkpoints</option>
-          <option value={3}>Show BLA Nodes</option>
-          <option value={4}>Interpolation Strain</option>
-        </select>
-
-        <div className="hud-settings-flex-row">
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={state.showPerfHUD}
-              onChange={(e) => state.setShowPerfHUD(e.target.checked)}
-            />
-            <span>Show GPU Frame Time</span>
-          </label>
-        </div>
-      </div>
+      <button
+        style={{
+          width: '100%',
+          padding: '8px',
+          background: '#3b82f6',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer',
+        }}
+        onClick={() => {
+          viewportState.setIsTelemetryOpen(!viewportState.isTelemetryOpen);
+          onClose?.();
+        }}
+      >
+        <span style={{ marginRight: '8px' }}>📊</span>{' '}
+        {viewportState.isTelemetryOpen ? 'Close Telemetry' : 'Open Telemetry'}
+      </button>
     </div>
   );
 };

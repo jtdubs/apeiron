@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import { viewportStore } from '../stores/viewportStore';
@@ -352,6 +352,18 @@ export const ApeironHUD: React.FC = () => {
   const [isMobileExpanded, setIsMobileExpanded] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F10') {
+        e.preventDefault();
+        const state = viewportStore.getState();
+        state.setIsTelemetryOpen(!state.isTelemetryOpen);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <div className={`hud-container ${isMobileExpanded ? 'is-expanded' : ''}`}>
       <div className="hud-panel">
@@ -380,7 +392,7 @@ export const ApeironHUD: React.FC = () => {
         </div>
       </div>
 
-      {showSettings && <ApeironSettingsPanel />}
+      {showSettings && <ApeironSettingsPanel onClose={() => setShowSettings(false)} />}
     </div>
   );
 };

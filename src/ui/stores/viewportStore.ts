@@ -32,10 +32,12 @@ export interface ViewportState {
   refOrbits: Float64Array | null;
   interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST';
   debugViewMode: number;
+  isTelemetryOpen: boolean;
 
   setRefOrbits: (orbits: Float64Array | null) => void;
   setInteractionState: (state: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST') => void;
   setDebugViewMode: (mode: number) => void;
+  setIsTelemetryOpen: (isOpen: boolean) => void;
   setAnchorsAndDeltas: (
     azr: string,
     azi: string,
@@ -70,10 +72,12 @@ export const viewportStore = createStore<ViewportState>((set) => ({
   refOrbits: null,
   interactionState: 'STATIC',
   debugViewMode: 0,
+  isTelemetryOpen: false,
 
   setRefOrbits: (orbits) => set({ refOrbits: orbits }),
   setInteractionState: (interactionState) => set({ interactionState }),
   setDebugViewMode: (debugViewMode) => set({ debugViewMode }),
+  setIsTelemetryOpen: (isTelemetryOpen) => set({ isTelemetryOpen }),
 
   setAnchorsAndDeltas: (azr, azi, acr, aci, dzr, dzi, dcr, dci, zoom, sliceAngle, exponent) =>
     set({

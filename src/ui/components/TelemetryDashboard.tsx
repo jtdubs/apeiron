@@ -1,4 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
+import { useStore } from 'zustand';
+import { viewportStore } from '../stores/viewportStore';
 import { TelemetryRegistry } from '../../engine/debug/TelemetryRegistry';
 import { TelemetryRenderer, type IBufferSnapshot } from '../../engine/debug/TelemetryRenderer';
 import './TelemetryDashboard.css';
@@ -19,7 +21,9 @@ export const TelemetryDashboard: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollInnerRef = useRef<HTMLDivElement>(null);
 
-  const [isOpen, setIsOpen] = useState(false);
+  const viewportState = useStore(viewportStore);
+  const isOpen = viewportState.isTelemetryOpen;
+  const setIsOpen = viewportState.setIsTelemetryOpen;
   const [isPaused, setIsPaused] = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
@@ -310,13 +314,7 @@ export const TelemetryDashboard: React.FC = () => {
   };
 
   if (!isOpen) {
-    return (
-      <div className="telemetry-dashboard-wrapper">
-        <button className="telemetry-toggle-btn" onClick={() => setIsOpen(true)}>
-          <span style={{ marginRight: '8px' }}>📊</span> Logic Analyzer
-        </button>
-      </div>
-    );
+    return null;
   }
 
   const allSignals = TelemetryRegistry.getInstance().getAllRegisteredIds();
@@ -405,12 +403,30 @@ export const TelemetryDashboard: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               onClick={() => setIsSidebarVisible(!isSidebarVisible)}
-              style={{ fontSize: '14px', padding: '2px 8px' }}
+              style={{ fontSize: '20px', padding: '2px 8px' }}
               title="Toggle Signal Tree"
             >
-              {isSidebarVisible ? '◀' : '▶'}
+              ☰
             </button>
-            <h3>Telemetry</h3>
+            <h3 style={{ margin: 0, paddingRight: '16px' }}>Telemetry</h3>
+            <select
+              value={viewportState.debugViewMode}
+              onChange={(e) => viewportState.setDebugViewMode(Number(e.target.value))}
+              style={{
+                background: '#222',
+                color: '#fff',
+                border: '1px solid #444',
+                borderRadius: '4px',
+                padding: '2px 8px',
+                fontSize: '12px',
+              }}
+            >
+              <option value={0}>No Shader Overlay</option>
+              <option value={1}>Show Limit Cycles</option>
+              <option value={2}>Show Checkpoints</option>
+              <option value={3}>Show BLA Nodes</option>
+              <option value={4}>Interpolation Strain</option>
+            </select>
           </div>
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
             {cursorAge !== null && (
@@ -443,11 +459,22 @@ export const TelemetryDashboard: React.FC = () => {
             )}
             <button
               onClick={() => setIsPaused(!isPaused)}
-              style={{ color: isPaused ? '#ef4444' : '#3b82f6' }}
+              style={{
+                color: isPaused ? '#ef4444' : '#3b82f6',
+                fontSize: '20px',
+                padding: '2px 8px',
+              }}
+              title={isPaused ? 'Resume Live Capture' : 'Freeze Capture'}
             >
-              {isPaused ? '▶ RESUME LIVE' : '⏸ FREEZE CAPTURE'}
+              {isPaused ? '⏺' : '⏸'}
             </button>
-            <button onClick={() => setIsOpen(false)}>✕</button>
+            <button
+              onClick={() => setIsOpen(false)}
+              style={{ fontSize: '20px', padding: '2px 8px' }}
+              title="Close Telemetry Dashboard"
+            >
+              ✕
+            </button>
           </div>
         </div>
 

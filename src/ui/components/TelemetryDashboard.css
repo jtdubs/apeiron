@@ -66,6 +66,8 @@
   padding: 6px 16px;
   background: #111;
   border-bottom: 1px solid #333;
+  height: 42px;
+  box-sizing: border-box;
 }
 
 .telemetry-header h3 {
