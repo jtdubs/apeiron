@@ -60,8 +60,10 @@ export class RenderOrchestrator {
     const renderDpr = window.devicePixelRatio || 1;
 
     // Reset controllers on state transition
+    const targetIter = Math.max(150, Math.floor(state.paletteMaxIter * 0.33));
+
     if (!isInteracting && this.wasInteracting) {
-      this.adrs.reset();
+      this.adrs.reset(targetIter);
       // Optional future: seed budget with ADRS performance insight
       this.budget.reset();
     }
@@ -72,7 +74,7 @@ export class RenderOrchestrator {
     let stepLimit = 1000;
 
     if (isInteracting) {
-      const adrsState = this.adrs.update(gpuMs);
+      const adrsState = this.adrs.update(gpuMs, targetIter);
       snapshotRenderScale = adrsState.renderScale / renderDpr;
       interactMaxIterOverride = adrsState.effectiveMaxIter;
 
