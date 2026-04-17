@@ -10,8 +10,8 @@ Bind the dynamic camera view parameters (Center X, Center Y, and Scale/Zoom) str
 
 ## Relevant Design Docs
 
-- [Frontend Design](../frontend-design.md)
-- [Rendering Engine Design](../rendering-engine-design.md)
+- [Frontend Design](../../design/frontend.md)
+- [Rendering Engine Design](../../design/rendering-engine.md)
 
 ## Requirements
 

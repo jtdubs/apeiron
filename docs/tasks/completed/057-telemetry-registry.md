@@ -10,8 +10,8 @@ Build the foundational, zero-overhead Data Layer for the telemetry system, imple
 
 ## Relevant Design Docs
 
-- [Telemetry Design](../telemetry-design.md)
-- [Apeiron Best Practices](../best-practices.md)
+- [Telemetry Design](../../design/telemetry.md)
+- [Apeiron Best Practices](../../process/best-practices.md)
 
 ## Requirements
 
@@ -31,5 +31,5 @@ Build the foundational, zero-overhead Data Layer for the telemetry system, imple
 
 - [ ] Write Node/Deno tests proving RingBuffer handles rollover without losing the array reference or causing memory leaks.
 - [ ] Write unit tests validating that EMA math averages correctly over consecutive `push` calls.
-- [ ] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/best-practices.md`?
-- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/telemetry-design.md` before closing this task.
+- [ ] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
+- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/telemetry.md` before closing this task.

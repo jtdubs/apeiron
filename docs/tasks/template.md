@@ -11,7 +11,7 @@ status: open
 ## Relevant Design Docs
 
 - [Link out to math-backend-design.md, architecture.md, etc. if applicable]
-- [Apeiron Best Practices](../best-practices.md) (Standard boundary/testing rules apply)
+- [Apeiron Best Practices](../process/best-practices.md) (Standard boundary/testing rules apply)
 
 ## Requirements
 
@@ -28,5 +28,5 @@ status: open
 
 - [ ] [Verification Step 1: Specifically how we test this (preferably data/headless tests)]
 - [ ] [Verification Step 2]
-- [ ] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/best-practices.md`?
-- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/[relevant-design].md` and `docs/requirements.md` before closing this task.
+- [ ] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
+- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/[relevant-design].md` and `docs/product/requirements.md` before closing this task.

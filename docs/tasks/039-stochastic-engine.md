@@ -10,7 +10,7 @@ Build a purely explicit massive compute-atomic pipeline inside the WebGPU archit
 
 ## Relevant Design Docs
 
-- [docs/rendering-engine-design.md](../rendering-engine-design.md)
+- [docs/design/rendering-engine.md](../design/rendering-engine.md)
 
 ## Requirements
 

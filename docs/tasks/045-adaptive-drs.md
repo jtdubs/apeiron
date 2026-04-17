@@ -13,8 +13,8 @@ frame budget under all conditions, including extreme interior coverage.
 
 ## Relevant Design Docs
 
-- [docs/progressive-rendering-design.md](../progressive-rendering-design.md)
-- [docs/rendering-engine-design.md](../rendering-engine-design.md)
+- [docs/design/progressive-rendering.md](../design/progressive-rendering.md)
+- [docs/design/rendering-engine.md](../design/rendering-engine.md)
 
 ## Prerequisites
 
@@ -118,6 +118,6 @@ True Adaptive DRS reacts to _measured_ GPU frame time rather than a fixed heuris
 - [ ] STATIC accumulation is not affected: `renderScale` always returns to `1.0` and `maxIter` to
       `state.maxIter` when `interactionState === 'STATIC'`.
 - [ ] `lastMathPassMs === -1` (degraded telemetry) does not crash or change ADRS state.
-- [ ] **Documentation Sync:** Update `docs/progressive-rendering-design.md` Section 2 to document
-      ADRS replacing the static DRS policy. Update `docs/requirements.md` if new constraints are
+- [ ] **Documentation Sync:** Update `docs/design/progressive-rendering.md` Section 2 to document
+      ADRS replacing the static DRS policy. Update `docs/product/requirements.md` if new constraints are
       introduced.

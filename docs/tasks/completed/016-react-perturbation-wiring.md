@@ -10,8 +10,8 @@ Bridge the gap between the React UI controls and the newly implemented Rust Web 
 
 ## Relevant Design Docs
 
-- `docs/system-architecture.md`
-- `docs/rendering-engine-design.md`
+- `docs/architecture/system.md`
+- `docs/design/rendering-engine.md`
 
 ## Requirements
 

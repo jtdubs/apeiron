@@ -10,8 +10,8 @@ Extend the engine to support transmitting arbitrary mathematical geometry, inter
 
 ## Relevant Design Docs
 
-- [UI Design](../ui-design.md)
-- [Rendering Engine Design](../rendering-engine-design.md)
+- [UI Design](../../design/ui.md)
+- [Rendering Engine Design](../../design/rendering-engine.md)
 
 ## Requirements
 

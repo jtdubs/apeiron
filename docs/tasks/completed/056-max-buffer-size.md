@@ -10,7 +10,7 @@ Fix a WebGPU initialization crashing error that occurs when rendering Apeiron in
 
 ## Relevant Design Docs
 
-- [Apeiron Best Practices](../best-practices.md) (Standard boundary/testing rules apply)
+- [Apeiron Best Practices](../../process/best-practices.md) (Standard boundary/testing rules apply)
 
 ## Requirements
 

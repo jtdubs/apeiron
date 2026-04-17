@@ -10,8 +10,8 @@ Build the Node/Deno orchestration script capable of seamlessly executing the com
 
 ## Relevant Design Docs
 
-- [Test Plan & Debugging Methodology](../test-plan.md)
-- [Development Guide](../development.md)
+- [Test Plan & Debugging Methodology](../../process/test-plan.md)
+- [Development Guide](../../process/development.md)
 
 ## Requirements
 
@@ -33,4 +33,4 @@ Build the Node/Deno orchestration script capable of seamlessly executing the com
 - [ ] Command `npm run test:engine` executes strictly headlessly.
 - [ ] The test demonstrates passing equivalence for basic arithmetic validation mapping.
 - [ ] The runner outputs definitive failure if mathematical tolerance diverges intentionally.
-- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/test-plan.md` before closing this task.
+- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/process/test-plan.md` before closing this task.

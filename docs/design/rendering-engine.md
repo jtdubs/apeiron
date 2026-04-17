@@ -35,8 +35,9 @@ To avoid an explosion of complexity across disparate math modes, the Engine main
 ### 1.5 Interior Early-Out Defenses
 
 To prevent rendering bottlenecks caused by dense fractal interior locations that never escape their iteration loop, the f32 GPU mathematical loops use twin termination heuristics:
+
 - **Analytic Checks (O(1)):** For unmodified views of the c-plane Mandelbrot set ($d=2$, $Z_0=(0,0)$), points are instantly evaluated against bounding formulas of the main cardioid and period-2 continuous bulb.
-- **Cycle Detection (Brent's Algorithm):** Because arbitrary 4D rotations (slice angles) and exotic polynomial powers inherently alter mathematical boundaries, static analytic checks are systematically disabled in these modes. We use Brent's Cycle Algorithm inline ($O(1)$ spacial cost, $\epsilon < 10^{-20}$ bound threshold) to detect repeating loops and arbitrarily trap cyclic limits regardless of slicing domains. (*Note: The equivalent mechanism for the perturbation deep-zoom path lives in the reference cycle detectors outlined in the backend specifications.*)
+- **Cycle Detection (Brent's Algorithm):** Because arbitrary 4D rotations (slice angles) and exotic polynomial powers inherently alter mathematical boundaries, static analytic checks are systematically disabled in these modes. We use Brent's Cycle Algorithm inline ($O(1)$ spacial cost, $\epsilon < 10^{-20}$ bound threshold) to detect repeating loops and arbitrarily trap cyclic limits regardless of slicing domains. (_Note: The equivalent mechanism for the perturbation deep-zoom path lives in the reference cycle detectors outlined in the backend specifications._)
 
 ### 1.6 Spatial History Cache (Mipmapping)
 

@@ -10,7 +10,7 @@ Extend the existing mathematical WebGPU fragment logic inside the G-Buffer proce
 
 ## Relevant Design Docs
 
-- [docs/rendering-engine-design.md](../rendering-engine-design.md)
+- [docs/design/rendering-engine.md](../design/rendering-engine.md)
 
 ## Requirements
 

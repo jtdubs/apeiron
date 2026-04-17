@@ -10,8 +10,8 @@ Extract the implicit boolean logic and progressive iteration counters currently 
 
 ## Relevant Design Docs
 
-- [State Machine Architecture](../state-machine-architecture.md)
-- [Progressive Rendering Design](../progressive-rendering-design.md)
+- [State Machine Architecture](../../architecture/state-machine.md)
+- [Progressive Rendering Design](../../design/progressive-rendering.md)
 
 ## Requirements
 
@@ -36,4 +36,4 @@ Extract the implicit boolean logic and progressive iteration counters currently 
 - [ ] Pan continuous validation: Ensure the FSM reliably snaps to `INVALIDATED/INTERACT`, wiping accumulation arrays to avoid smearing the image during drag actions.
 - [ ] Sleep Test: Rest the view for 2+ seconds and verify WebGPU telemetry drops to zero-load indicating `RESOLVED` success.
 - [ ] Headless Run: Execute `npm run test` ensuring that Data Unit Tests for `math_accum.wgsl` accurately pass with the refactored uniform pipelines.
-- [ ] **Documentation Sync:** Confirm modifications match the newly established parameters within `docs/state-machine-architecture.md`.
+- [ ] **Documentation Sync:** Confirm modifications match the newly established parameters within `docs/architecture/state-machine.md`.

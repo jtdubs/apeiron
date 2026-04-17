@@ -10,7 +10,7 @@ Implement Taylor Series Approximation mathematical models into the `math-core` e
 
 ## Relevant Design Docs
 
-- [docs/math-backend-design.md](../math-backend-design.md)
+- [docs/design/math-backend.md](../../design/math-backend.md)
 
 ## Requirements
 

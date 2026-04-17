@@ -10,7 +10,7 @@ Eliminate the excessive user-interaction round-trip latency during mouse draggin
 
 ## Relevant Design Docs
 
-- `docs/rendering-engine-design.md`
+- `docs/design/rendering-engine.md`
 
 ## Requirements
 
@@ -29,4 +29,4 @@ Eliminate the excessive user-interaction round-trip latency during mouse draggin
 
 - [ ] Confirm no React Developer Tools flamegraph "yellow blocks" or full tree re-renders originate from `ApeironHUD` while dragging on the canvas.
 - [ ] Verify that Mobile Canvas performance returns to visually real-time parity under physical testing, without clipping.
-- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/rendering-engine-design.md` before closing this task.
+- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/rendering-engine.md` before closing this task.

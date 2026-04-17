@@ -10,9 +10,9 @@ Decomplexify `src/engine/shaders/escape/math_accum.wgsl` by extracting inline co
 
 ## Relevant Design Docs
 
-- [Math Backend Design](../math-backend-design.md)
-- [State Machine Architecture](../state-machine-architecture.md)
-- [Test Plan](../test-plan.md)
+- [Math Backend Design](../../design/math-backend.md)
+- [State Machine Architecture](../../architecture/state-machine.md)
+- [Test Plan](../../process/test-plan.md)
 
 ## Requirements
 

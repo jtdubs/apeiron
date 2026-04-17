@@ -10,9 +10,9 @@ Update the UI state, the Rust math execution, and the WebGPU parameter buffers t
 
 ## Relevant Design Docs
 
-- [Math Backend Design](../math-backend-design.md)
-- [Rendering Engine Design](../rendering-engine-design.md)
-- [Frontend Design](../frontend-design.md)
+- [Math Backend Design](../../design/math-backend.md)
+- [Rendering Engine Design](../../design/rendering-engine.md)
+- [Frontend Design](../../design/frontend.md)
 
 ## Requirements
 

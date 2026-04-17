@@ -10,9 +10,9 @@ Fully detach the per-frame computational budget from the mathematical outcomes (
 
 ## Relevant Design Docs
 
-- [Progressive Rendering Design](../progressive-rendering-design.md)
-- [State Machine Architecture](../state-machine-architecture.md)
-- [Apeiron Best Practices](../best-practices.md)
+- [Progressive Rendering Design](../../design/progressive-rendering.md)
+- [State Machine Architecture](../../architecture/state-machine.md)
+- [Apeiron Best Practices](../../process/best-practices.md)
 
 ## Requirements
 
@@ -35,5 +35,5 @@ Fully detach the per-frame computational budget from the mathematical outcomes (
 - [x] Ensure `IterationBudgetController.spec.ts` accurately tests the PID scaling pathways and edge-case extreme latencies.
 - [x] Provide tests showing that chunked and singular passes across the math shaders generate matching states when boundaries split.
 - [x] Ensure `ACCUMULATING` state fires securely ONLY once the `completion_flag` returns `0`.
-- [x] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/best-practices.md`?
-- [x] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/[relevant-design].md` and `docs/requirements.md` before closing this task.
+- [x] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
+- [x] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/[relevant-design].md` and `docs/product/requirements.md` before closing this task.

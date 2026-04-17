@@ -10,8 +10,8 @@ Investigate and fix a rendering issue where zooming past 1e-4 results in a solid
 
 ## Relevant Design Docs
 
-- [Math Backend Design](docs/math-backend-design.md)
-- [Rendering Engine Design](docs/rendering-engine-design.md)
+- [Math Backend Design](../../design/math-backend.md)
+- [Rendering Engine Design](../../design/rendering-engine.md)
 
 ## Requirements
 

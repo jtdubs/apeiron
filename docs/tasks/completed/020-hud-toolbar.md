@@ -10,7 +10,7 @@ Bring over the main HUD bar from the legacy `frac` codebase to provide a great v
 
 ## Relevant Design Docs
 
-- `docs/requirements.md`
+- `docs/product/requirements.md`
 
 ## Requirements
 

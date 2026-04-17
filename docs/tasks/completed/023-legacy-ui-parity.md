@@ -10,7 +10,7 @@ Adopt and refine rendering configuration concepts from the legacy `frac` project
 
 ## Relevant Design Docs
 
-- `docs/rendering-engine-design.md`
+- `docs/design/rendering-engine.md`
 
 ## Requirements
 

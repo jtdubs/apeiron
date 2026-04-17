@@ -15,8 +15,8 @@ transitions back to STATIC.
 
 ## Relevant Design Docs
 
-- [docs/progressive-rendering-design.md](../progressive-rendering-design.md)
-- [docs/rendering-engine-design.md](../rendering-engine-design.md)
+- [docs/design/progressive-rendering.md](../../design/progressive-rendering.md)
+- [docs/design/rendering-engine.md](../../design/rendering-engine.md)
 
 ## Background
 
@@ -140,5 +140,5 @@ Neither deficiency is visible in the current code without measurement infrastruc
       of interior coverage.
 - [x] Confirm `TimestampQuery` gracefully degrades: disable the feature flag and verify no errors
       and `lastMathPassMs === -1`.
-- [x] **Documentation Sync:** Update `docs/progressive-rendering-design.md` to document the
+- [x] **Documentation Sync:** Update `docs/design/progressive-rendering.md` to document the
       zoom-proportional interactive `maxIter` fraction policy and the telemetry architecture.

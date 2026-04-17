@@ -10,7 +10,7 @@ Implement the Temporal Supersampling (multi-frame ping-pong accumulation) pipeli
 
 ## Relevant Design Docs
 
-- [Progressive Rendering & Performance Design](../progressive-rendering-design.md)
+- [Progressive Rendering & Performance Design](../../design/progressive-rendering.md)
 
 ## Requirements
 
@@ -29,4 +29,4 @@ Implement the Temporal Supersampling (multi-frame ping-pong accumulation) pipeli
 - [ ] Headlessly test the WebGPU shader to ensure that applying the sub-pixel uniform changes the iteration boundaries logically.
 - [ ] Observe visually that stationary rendering progressively refines anti-aliased detail over 64+ frames.
 - [ ] Observe visually that panning abruptly resets the accumulation buffer to raw 1-sample logic without frame dropping.
-- [ ] **Documentation Sync:** Ensure the final implementation matches `docs/progressive-rendering-design.md`.
+- [ ] **Documentation Sync:** Ensure the final implementation matches `docs/design/progressive-rendering.md`.

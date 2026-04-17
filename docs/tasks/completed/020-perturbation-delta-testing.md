@@ -10,8 +10,8 @@ Identify and fix the critical gap in the headless test suite where automated reg
 
 ## Relevant Design Docs
 
-- `docs/test-plan.md`
-- `docs/math-backend-design.md`
+- `docs/process/test-plan.md`
+- `docs/design/math-backend.md`
 
 ## Requirements
 
@@ -30,4 +30,4 @@ Identify and fix the critical gap in the headless test suite where automated reg
 
 - [x] Modify `executeTestCompute` to support testing `delta_c != 0`.
 - [x] Run `npm run test:engine` and observe whether it now captures the regression/divergence on deep zoom patches.
-- [x] **Documentation Sync:** Update `docs/test-plan.md` to note that perturbation assertions require proxy validation at scaled pixel offsets, not just single analytical anchor points.
+- [x] **Documentation Sync:** Update `docs/process/test-plan.md` to note that perturbation assertions require proxy validation at scaled pixel offsets, not just single analytical anchor points.

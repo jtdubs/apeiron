@@ -10,8 +10,8 @@ Drive the WebGPU camera uniform map interactively utilizing physical mouse wheel
 
 ## Relevant Design Docs
 
-- [Frontend Design](../frontend-design.md)
-- [Rendering Engine Design](../rendering-engine-design.md)
+- [Frontend Design](../../design/frontend.md)
+- [Rendering Engine Design](../../design/rendering-engine.md)
 
 ## Requirements
 

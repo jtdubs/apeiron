@@ -10,8 +10,8 @@ Strengthen our testing safety-net by implementing robust Node WebGPU polyfills a
 
 ## Relevant Design Docs
 
-- [Test Plan](../test-plan.md)
-- [Rendering Engine Design](../rendering-engine-design.md)
+- [Test Plan](../../process/test-plan.md)
+- [Rendering Engine Design](../../design/rendering-engine.md)
 
 ## Requirements
 

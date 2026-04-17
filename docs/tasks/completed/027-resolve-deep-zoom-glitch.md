@@ -10,9 +10,9 @@ Fix the mathematics and precision pipeline for deep zooms beyond `zoom < 1e-4`, 
 
 ## Relevant Design Docs
 
-- `docs/math-backend-design.md`
-- `docs/rendering-engine-design.md`
-- `docs/test-plan.md`
+- `docs/design/math-backend.md`
+- `docs/design/rendering-engine.md`
+- `docs/process/test-plan.md`
 
 ## Requirements
 
@@ -31,4 +31,4 @@ Fix the mathematics and precision pipeline for deep zooms beyond `zoom < 1e-4`, 
 
 - [ ] Execute `npm run test:engine` and confirm the generated cluster traces correctly compare bounds accurately well below `1e-15` precisions against actual mathematically-derived matrices computed physically by the standalone WebWorker cache.
 - [ ] Render a local development scene at sizes deeper than `zoom = 1e-6` and verify detail remains critically sharp across all boundaries and deep transitions do not yield black voids.
-- [ ] **Documentation Sync:** Confirm all mathematical and test architectural implementations remain accurately documented inside `docs/rendering-engine-design.md` and `docs/test-plan.md`.
+- [ ] **Documentation Sync:** Confirm all mathematical and test architectural implementations remain accurately documented inside `docs/design/rendering-engine.md` and `docs/process/test-plan.md`.

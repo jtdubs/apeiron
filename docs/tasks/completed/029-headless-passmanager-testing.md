@@ -10,8 +10,8 @@ Refactor the `PassManager` to support offscreen headless rendering without a DOM
 
 ## Relevant Design Docs
 
-- [Test Plan](../test-plan.md)
-- [Rendering Engine Design](../rendering-engine-design.md)
+- [Test Plan](../../process/test-plan.md)
+- [Rendering Engine Design](../../design/rendering-engine.md)
 
 ## Requirements
 
@@ -34,4 +34,4 @@ Refactor the `PassManager` to support offscreen headless rendering without a DOM
 - [x] Ensure `run-headless.ts` successfully triggers `PassManager` pipeline across Deno.
 - [x] Confirm an explicit assertion checks presentation output for full-screen `NaN`-correlated colors (e.g., Magenta).
 - [x] Verify existing frontend UI works as intended with the decoupled Canvas parameters.
-- [x] **Documentation Sync:** Update `docs/test-plan.md` to reflect that UI/Presentation layer integrations are now validated natively via headless GPU runs.
+- [x] **Documentation Sync:** Update `docs/process/test-plan.md` to reflect that UI/Presentation layer integrations are now validated natively via headless GPU runs.

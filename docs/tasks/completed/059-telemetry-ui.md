@@ -10,7 +10,7 @@ Build the "Real UI Integration" described in the telemetry design, introducing a
 
 ## Relevant Design Docs
 
-- [Telemetry Design](../telemetry-design.md)
+- [Telemetry Design](../../design/telemetry.md)
 
 ## Requirements
 

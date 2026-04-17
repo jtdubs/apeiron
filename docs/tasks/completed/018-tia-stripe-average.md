@@ -10,7 +10,7 @@ Introduce Triangle Inequality Average (TIA) logic into the G-Buffer accumulation
 
 ## Relevant Design Docs
 
-- `docs/rendering-engine-design.md`
+- `docs/design/rendering-engine.md`
 
 ## Requirements
 

@@ -10,7 +10,7 @@ Update the React presentation layer to expose all of the new aesthetic features 
 
 ## Relevant Design Docs
 
-- `docs/requirements.md`
+- `docs/product/requirements.md`
 
 ## Requirements
 

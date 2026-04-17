@@ -10,8 +10,8 @@ Break apart the monolithic WebGPU `initEngine.ts` orchestration layer into `Accu
 
 ## Relevant Design Docs
 
-- `docs/rendering-engine-design.md`
-- `docs/code-layout.md`
+- `docs/design/rendering-engine.md`
+- `docs/process/code-layout.md`
 
 ## Requirements
 
@@ -33,4 +33,4 @@ Break apart the monolithic WebGPU `initEngine.ts` orchestration layer into `Accu
 - [ ] WebGPU runs at 60fps without crashing after class delegation is implemented.
 - [ ] UI Settings Panel renders visually identical to its previous inline-styled state.
 - [ ] `npm run test:engine` succeeds and headless regressions still perfectly match without breaking WebGPU bind groups.
-- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/[relevant-design].md` and `docs/requirements.md` before closing this task.
+- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/[relevant-design].md` and `docs/product/requirements.md` before closing this task.

@@ -10,7 +10,7 @@ Decouple the WebGPU testing harness from the production `initEngine` code and mo
 
 ## Relevant Design Docs
 
-- `docs/test-plan.md`
+- `docs/process/test-plan.md`
 
 ## Requirements
 
@@ -30,4 +30,4 @@ Decouple the WebGPU testing harness from the production `initEngine` code and mo
 
 - [ ] Run `npm run test:engine` and verify Deno's test runner outputs passing checks for all headless cases.
 - [ ] Verify `npm run dev` and standard compilation (`npm run build`) still function without `initEngine`'s test methods.
-- [ ] **Documentation Sync:** Ensure `package.json` updates and script usages match the `docs/test-plan.md` instructions.
+- [ ] **Documentation Sync:** Ensure `package.json` updates and script usages match the `docs/process/test-plan.md` instructions.
