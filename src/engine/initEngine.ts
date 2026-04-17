@@ -9,6 +9,7 @@ export interface ApeironEngine {
   renderFrame: (desc: RenderFrameDescriptor) => void;
   resize: () => void;
   getMathPassMs: () => number;
+  isIterationTargetMet: () => boolean;
 }
 
 export async function initEngine(
@@ -95,6 +96,10 @@ export async function initEngine(
     return passManager ? passManager.lastMathPassMs : -1;
   };
 
+  const isIterationTargetMet = () => {
+    return passManager ? passManager.isIterationTargetMet : false;
+  };
+
   return {
     device,
     adapter,
@@ -103,5 +108,6 @@ export async function initEngine(
     renderFrame,
     resize,
     getMathPassMs,
+    isIterationTargetMet,
   };
 }

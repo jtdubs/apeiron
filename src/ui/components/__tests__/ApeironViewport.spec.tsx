@@ -14,6 +14,7 @@ const { renderFrameMock, initEngineMock } = vi.hoisted(() => {
       renderFrame: renderFrameMock,
       resize: vi.fn(),
       getMathPassMs: vi.fn().mockReturnValue(14),
+      isIterationTargetMet: vi.fn().mockReturnValue(true),
     }),
   };
 });
@@ -72,7 +73,7 @@ describe('ApeironViewport Orchestration', () => {
       zoom: 1.5,
       sliceAngle: 0,
       exponent: 2.0,
-      maxIter: 150,
+      paletteMaxIter: 150,
       refOrbits: null,
     });
   });

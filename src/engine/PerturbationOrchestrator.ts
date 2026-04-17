@@ -8,7 +8,7 @@ export interface WorkerJob {
   absCr: string;
   absCi: string;
   exponent: number;
-  maxIter: number;
+  paletteMaxIter: number;
 }
 
 export class PerturbationOrchestrator {
@@ -83,7 +83,7 @@ export class PerturbationOrchestrator {
         id: this.currentWorkerJob.id,
         type: 'COMPUTE',
         casesJson,
-        maxIterations: this.currentWorkerJob.maxIter,
+        paletteMaxIter: this.currentWorkerJob.paletteMaxIter,
       });
 
       this.channels.dispatched.set(this.currentWorkerJob.id);
@@ -166,7 +166,7 @@ export class PerturbationOrchestrator {
             absCr,
             absCi,
             exponent: state.exponent,
-            maxIter: state.maxIter,
+            paletteMaxIter: state.paletteMaxIter,
           };
 
           this.pendingWorkerJob = job;

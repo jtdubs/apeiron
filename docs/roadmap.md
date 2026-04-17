@@ -108,3 +108,7 @@
 - [x] [Task 058: Telemetry Data Integration (Producers)](tasks/completed/058-telemetry-integration.md)
 - [x] [Task 059: Telemetry UI (GTKWave Analyzer)](tasks/completed/059-telemetry-ui.md)
 - [x] [Task 060: Frame-Series Telemetry Refactoring](tasks/completed/060-frame-series-telemetry.md)
+
+## Phase 18: Engine Decoupling
+
+- [x] [Task 061: Decouple Frame Budget from Execution](tasks/completed/061-decouple-frame-budget.md)

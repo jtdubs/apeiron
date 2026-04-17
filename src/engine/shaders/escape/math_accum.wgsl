@@ -163,8 +163,8 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
   }
   
   // Synchronizes iterator bounds with the ProgressiveRenderScheduler to allow
-  // temporal supersampling and checkpoint yielding for interactive framerates.
-  let target_iter = min(max_iterations, iter + camera.yield_iter_limit);
+  let target_steps = camera.step_limit;
+  var steps = 0.0;
   let d = camera.exponent;
   var prev_z_mag = length(vec2<f32>(x, y));
   let c_mag = length(start_c);
@@ -175,7 +175,7 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
   var check_lam: f32 = 1.0;
   var check_mu: f32 = 1.0;
 
-  while (iter < target_iter) {
+  while (iter < max_iterations && steps < target_steps) {
     let mag_sq = x * x + y * y;
     if (!(mag_sq <= 4.0)) {
       let ret = get_escape_data(iter, x, y, der_x, der_y, 1.0, tia_sum);
@@ -209,6 +209,7 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
     der_x = new_der_x;
     der_y = new_der_y;
     iter += 1.0;
+    steps += 1.0;
     
     let dz = vec2<f32>(x - check_z.x, y - check_z.y);
     if (dot(dz, dz) < 1e-20) {
@@ -232,6 +233,7 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
   }
   
   checkpoint[pixel_idx] = CheckpointState(x, y, der_x, der_y, iter, tia_sum, 0.0, 0.0);
+  completion_flag[0] = 0u;
   return vec4<f32>(-2.0, 0.0, 0.0, 0.0); // Sentinel
 }
 
@@ -251,6 +253,7 @@ fn calculate_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, max_i
 @group(0) @binding(3) var<storage, read> ref_orbits: array<vec2<u32>>;
 @group(0) @binding(4) var readTex: texture_2d<f32>;
 @group(0) @binding(5) var<storage, read_write> checkpoint: array<CheckpointState>;
+@group(0) @binding(6) var<storage, read_write> completion_flag: array<u32>;
 
 fn unpack_f64_to_f32(raw: vec2<u32>) -> f32 {
     let low = raw.x;
@@ -477,11 +480,12 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
 
   // Synchronizes iterator bounds with the ProgressiveRenderScheduler to allow
   // temporal supersampling and checkpoint yielding for interactive framerates.
-  let target_iter = min(max_iterations, iter + camera.yield_iter_limit);
+  let target_steps = camera.step_limit;
+  var steps = 0.0;
 
-  while (iter < target_iter) {
+  while (iter < max_iterations && steps < target_steps) {
     if (camera.exponent == 2.0) {
-        let bla_res = advance_via_bla(dz, vec2<f32>(der_x, der_y), delta_c, start_c, iter, target_iter, ref_offset, ref_escaped_iter, max_iterations, pixel_idx, tia_sum);
+        let bla_res = advance_via_bla(dz, vec2<f32>(der_x, der_y), delta_c, start_c, iter, max_iterations, ref_offset, ref_escaped_iter, max_iterations, pixel_idx, tia_sum);
         if (bla_res.advanced) {
             if (bla_res.escaped) {
                 return bla_res.escape_data;
@@ -491,6 +495,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
             der_y = bla_res.der.y;
             iter = bla_res.iter;
             prev_z_mag = bla_res.prev_z_mag;
+            steps += 1.0;
             continue;
         }
     }
@@ -550,6 +555,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     }
     
     iter += 1.0;
+    steps += 1.0;
     
     if (iter >= ref_escaped_iter && ref_escaped_iter < max_iterations) {
       return continue_mandelbrot_iterations(vec2<f32>(cur_x, cur_y), start_c, iter, max_iterations, der_x, der_y, tia_sum, pixel_idx);
@@ -563,6 +569,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
   }
   
   checkpoint[pixel_idx] = CheckpointState(0.0, 0.0, der_x, der_y, iter, tia_sum, dz.x, dz.y);
+  completion_flag[0] = 0u;
   return vec4<f32>(-2.0, 0.0, 0.0, 0.0);
 }
 
@@ -577,13 +584,13 @@ fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32
      // If we are resuming a previously paused progressive pixel (`load_checkpoint` is active),
      // AND the paused pixel had already iterated deeply past the *reference orbit's* escape point,
      // we can no longer perturb! We must forcefully push the pixel into the standard fallback engine to finish.
-     if (camera.load_checkpoint > 0.5 && checkpoint[pixel_idx].iter > 0.0 && checkpoint[pixel_idx].iter >= ref_escaped_iter && ref_escaped_iter < camera.max_iter) {
-         return continue_mandelbrot_iterations(vec2<f32>(0.0,0.0), start_c, 0.0, camera.max_iter, 1.0, 0.0, 0.0, pixel_idx);
+     if (camera.load_checkpoint > 0.5 && checkpoint[pixel_idx].iter > 0.0 && checkpoint[pixel_idx].iter >= ref_escaped_iter && ref_escaped_iter < camera.compute_max_iter) {
+         return continue_mandelbrot_iterations(vec2<f32>(0.0,0.0), start_c, 0.0, camera.compute_max_iter, 1.0, 0.0, 0.0, pixel_idx);
      }
      
      return calculate_perturbation(start_z, start_c, delta_z, delta_c, ref_offset, camera.ref_max_iter, cycle, ref_escaped_iter, pixel_idx);
   } else {
-     return calculate_mandelbrot_iterations(start_z, start_c, camera.max_iter, pixel_idx);
+     return calculate_mandelbrot_iterations(start_z, start_c, camera.compute_max_iter, pixel_idx);
   }
 }
 
@@ -771,7 +778,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   
   if (camera.debug_view_mode > 0.5) {
       if (camera.debug_view_mode == 1.0) {
-          let is_limit = select(0.0, 1.0, ret.x >= camera.max_iter);
+          let is_limit = select(0.0, 1.0, ret.x >= camera.compute_max_iter);
           output_color = vec4<f32>(is_limit, 0.0, 1.0 - is_limit, 1.0);
       } else if (camera.debug_view_mode == 2.0) {
           var col = vec3<f32>(0.2, 0.2, 0.2);
@@ -779,7 +786,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
           else if (cp.iter < 0.0) { col = vec3<f32>(1.0, 0.0, 0.0); }
           output_color = vec4<f32>(col, 1.0);
       } else if (camera.debug_view_mode == 3.0) {
-          let skip_ratio = clamp(camera.skip_iter / camera.max_iter, 0.0, 1.0);
+          let skip_ratio = clamp(camera.skip_iter / camera.compute_max_iter, 0.0, 1.0);
           output_color = vec4<f32>(skip_ratio, 0.5, 1.0 - skip_ratio, 1.0);
       } else if (camera.debug_view_mode == 4.0) {
           let strain = clamp(ret.y * camera.scale * 100.0, 0.0, 1.0);
@@ -795,7 +802,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
           if (camera.blend_weight > 0.0) {
               return textureLoad(readTex, coord, 0);
           } else {
-              return vec4<f32>(camera.max_iter, 0.0, 0.0, 0.0);
+              return vec4<f32>(camera.compute_max_iter, 0.0, 0.0, 0.0);
           }
       }
   }

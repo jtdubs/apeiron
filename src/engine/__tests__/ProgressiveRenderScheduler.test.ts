@@ -9,8 +9,8 @@ function createMockContext(overrides?: Partial<MathContext>): MathContext {
     cr: -0.8,
     ci: 0.156,
     zoom: 1.5,
-    maxIter: 200,
-    trueMaxIter: 200,
+    computeMaxIter: 200,
+    paletteMaxIter: 200,
     sliceAngle: 0,
     exponent: 2,
     refOrbits: null,
@@ -38,60 +38,59 @@ describe('ProgressiveRenderScheduler', () => {
 
   it('handles INVALIDATED state gracefully (geometry changed)', () => {
     const initialContext = createMockContext();
-    const command1 = scheduler.update(initialContext, false, 0, 0, 1.0, 1920, 1080, 10);
+    const command1 = scheduler.update(initialContext, false, 0, 0, 1.0, 1920, 1080, 10, false);
     // Should be a fresh start
     expect(command1?.loadCheckpoint).toBe(false);
     expect(command1?.clearCheckpoint).toBe(false);
 
-    scheduler.notifySliceComplete(command1!);
+    scheduler.notifySliceComplete();
 
     // Now invalidate it by changing the context
     const mutatedContext = createMockContext({ zoom: 1.0 });
-    const command2 = scheduler.update(mutatedContext, false, 0, 0, 1.0, 1920, 1080, 10);
+    const command2 = scheduler.update(mutatedContext, false, 0, 0, 1.0, 1920, 1080, 10, false);
 
     // It should reset the counters
     expect(scheduler.getAccumulationCount()).toBe(0);
-    expect(scheduler.getDeepeningTotalIter()).toBe(0);
+    expect(scheduler.getIsDeepening()).toBe(true);
     expect(command2?.loadCheckpoint).toBe(false);
   });
 
   it('handles INTERACT safe frame locking', () => {
     const ctx = createMockContext();
-    const commandInteract = scheduler.update(ctx, true, 0, 0, 0.5, 1920, 1080, 10);
+    const commandInteract = scheduler.update(ctx, true, 0, 0, 0.5, 1920, 1080, 10, false);
     expect(commandInteract?.blendWeight).toBe(0.0);
     expect(commandInteract?.renderScale).toBe(0.5);
 
-    scheduler.notifySliceComplete(commandInteract!);
+    scheduler.notifySliceComplete();
 
     // Even if it completes a slice, if it's still interacting next frame, it resets!
-    scheduler.update(ctx, true, 0, 0, 0.5, 1920, 1080, 10);
+    scheduler.update(ctx, true, 0, 0, 0.5, 1920, 1080, 10, false);
     expect(scheduler.getAccumulationCount()).toBe(0);
   });
 
   it('progresses correctly through DEEPENING and ACCUMULATING', () => {
     // Fake a high maxIter to force deepening
-    const ctx = createMockContext({ maxIter: 500, trueMaxIter: 500 });
+    const ctx = createMockContext({ computeMaxIter: 500, paletteMaxIter: 500 });
 
     // Pass 1: DEEPENING (starts fresh)
-    const cmd1 = scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, 50); // fast ms to give high budget but not 500
+    const cmd1 = scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, 50, false); // fast ms to give high budget but not 500
     expect(cmd1?.loadCheckpoint).toBe(false);
 
-    scheduler.notifySliceComplete(cmd1!);
-    expect(scheduler.getDeepeningTotalIter()).toBeGreaterThan(0);
+    scheduler.notifySliceComplete();
+    expect(scheduler.getIsDeepening()).toBe(true);
     expect(scheduler.getAccumulationCount()).toBe(0);
 
     // Pass 2: DEEPENING resumes
-    const cmd2 = scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, 50);
+    const cmd2 = scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, 50, false);
     expect(cmd2?.loadCheckpoint).toBe(true);
 
     // We manually advance deepening so it reaches final
     // We manually advance deepening so it reaches final
     // modify scheduler internals if we could, but let's just loop until final slice
-    let cmdX = cmd2;
     while (scheduler.getPipelineMode(false) === 'DEEPENING') {
-      scheduler.notifySliceComplete(cmdX!);
+      scheduler.notifySliceComplete();
       if (scheduler.getPipelineMode(false) === 'ACCUMULATING') break;
-      cmdX = scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, -1);
+      scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, -1, true); // send isTargetMet=true
     }
 
     expect(scheduler.getPipelineMode(false)).toBe('ACCUMULATING');
@@ -100,8 +99,8 @@ describe('ProgressiveRenderScheduler', () => {
     expect(scheduler.getAccumulationCount()).toBe(1);
 
     // Pass: ACCUMULATING cycle 1, slice 1
-    const cmdAccum = scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, 10);
+    const cmdAccum = scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, 10, true);
     expect(cmdAccum?.clearCheckpoint).toBe(true);
-    expect(cmdAccum?.blendWeight).toBe(0.5); // 1 / (1 + 1)
+    expect(cmdAccum?.blendWeight).toBeCloseTo(0.3333333333333333); // 1 / (2 + 1)
   });
 });

@@ -91,7 +91,7 @@ Deno.test('WGSL Layer 2 Flavor D - Core Polynomial Arithmetic', async () => {
   const inputVectors = new Float32Array([2.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
 
   const pRes = await harness.executeUnitTest('unit_test_polynomial', inputVectors, {
-    cameraData: { max_iter: 100.0, exponent: 2.0 },
+    cameraData: { compute_max_iter: 100.0, exponent: 2.0 },
   });
 
   // d=2.0 polynomial: complex_add(complex_sq(z), c)
@@ -138,7 +138,7 @@ Deno.test('WGSL Layer 2 Flavor D - Temporal State Machine Continuation', async (
 
   // Execute unit test_state_resume with `yieldIterLimit` = 2, loadCheckpoint = true
   const cRes = await harness.executeUnitTest('unit_test_state_resume', inputVectors, {
-    cameraData: { max_iter: 100.0, exponent: 2.0, yield_iter_limit: 2.0, load_checkpoint: 1.0 },
+    cameraData: { compute_max_iter: 100.0, exponent: 2.0, step_limit: 2.0, load_checkpoint: 1.0 },
   });
 
   // The shader executes: `continue_mandelbrot_iterations` where `target_iter` will be iter(10) + yield(2) = 12

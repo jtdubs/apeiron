@@ -234,6 +234,7 @@ export const ApeironViewport: React.FC = () => {
             canvas?.width ?? 1,
             canvas?.height ?? 1,
             engine.getMathPassMs(),
+            engine.isIterationTargetMet(),
           );
 
           if (!command) {
@@ -244,7 +245,7 @@ export const ApeironViewport: React.FC = () => {
 
           engine.renderFrame({ context, command, theme });
 
-          scheduler.notifySliceComplete(command);
+          scheduler.notifySliceComplete();
 
           const ms = engine.getMathPassMs();
           if (ms !== -1) {

@@ -60,11 +60,11 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   } else {
     var t: f32;
     if (params.coloring_mode > 1.5) {
-      t = floor(iter) / params.true_max_iter; // Banded
+      t = floor(iter) / params.palette_max_iter; // Banded
     } else if (params.coloring_mode > 0.5) {
       t = iter; // TIA is directly bounded
     } else {
-      t = iter / params.true_max_iter; // Continuous
+      t = iter / params.palette_max_iter; // Continuous
     }
     
     // We scale t slightly so colors cycle nicely

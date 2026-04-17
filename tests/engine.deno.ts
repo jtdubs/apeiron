@@ -287,9 +287,10 @@ Deno.test('Fuzzy Match Tolerance Checker (against Ground Truth)', async () => {
   }
 });
 
-Deno.test(
-  'Validating derivative stability under Deep Zoom (No Magenta Glitch) (maxIter > 128)',
-  async () => {
+Deno.test({
+  name: 'Validating derivative stability under Deep Zoom (No Magenta Glitch) (maxIter > 128)',
+  sanitizeOps: false,
+  async fn() {
     const state = await initSharedState();
     if (!state) return;
 
@@ -325,124 +326,132 @@ Deno.test(
       throw new Error('Full-screen Magenta Glitch Detected');
     }
   },
-);
-
-Deno.test('Validating Progressive Rendering Temporal Accumulation (Ping-Pong Buffer)', async () => {
-  const state = await initSharedState();
-  if (!state) return;
-
-  const { harness } = state;
-  const width = 2;
-  const height = 2;
-  const j1 = { jitterX: 0.1, jitterY: -0.1 };
-  const j2 = { jitterX: -0.2, jitterY: 0.3 };
-
-  // Frame A: first render, blendWeight=0.0 (replace prev)
-  const sessionA = harness.createSession(width, height);
-  sessionA.renderFrame(
-    0.0,
-    0.0,
-    -1.748,
-    0.0,
-    1.0,
-    100,
-    0.0,
-    2.0,
-    0.0, // blendWeight: first frame, replace
-    j1.jitterX,
-    j1.jitterY,
-  );
-  const frameA = await sessionA.readGBuffer();
-  sessionA.destroy();
-
-  // Frame B: first render in a fresh session, blendWeight=0.0
-  const sessionB = harness.createSession(width, height);
-  sessionB.renderFrame(
-    0.0,
-    0.0,
-    -1.748,
-    0.0,
-    1.0,
-    100,
-    0.0,
-    2.0,
-    0.0, // blendWeight: first frame, replace
-    j2.jitterX,
-    j2.jitterY,
-  );
-  const frameB = await sessionB.readGBuffer();
-  sessionB.destroy();
-
-  // Accumulated session: first frame replaces, second blends at 0.5 → result = (frameA + frameB) / 2
-  const sessionAccum = harness.createSession(width, height);
-  sessionAccum.renderFrame(
-    0.0,
-    0.0,
-    -1.748,
-    0.0,
-    1.0,
-    100,
-    0.0,
-    2.0,
-    0.0, // blendWeight: first frame, replace
-    j1.jitterX,
-    j1.jitterY,
-  );
-  sessionAccum.renderFrame(
-    0.0,
-    0.0,
-    -1.748,
-    0.0,
-    1.0,
-    100,
-    0.0,
-    2.0,
-    0.5, // blendWeight: 1/2 → mix(prev, curr, 0.5) = mathematical mean
-    j2.jitterX,
-    j2.jitterY,
-  );
-  const accumAB = await sessionAccum.readGBuffer();
-  sessionAccum.destroy();
-
-  let accumPassed = true;
-  for (let i = 0; i < frameA.length; i++) {
-    const expectedMathMean = (frameA[i] + frameB[i]) / 2.0;
-    const diff = Math.abs(accumAB[i] - expectedMathMean);
-    if (diff > 1e-4) {
-      console.error(
-        `❌ FAIL: Temporal Accumulation mismatched at float array index ${i}. Expected: ${expectedMathMean}, Got: ${accumAB[i]}`,
-      );
-      accumPassed = false;
-    }
-  }
-  if (!accumPassed)
-    throw new Error('Temporal Accumulation failed exact mathematical mean evaluation.');
 });
 
-Deno.test('Validating Inner-Fractal Black Hole Accumulation Stability', async () => {
-  const state = await initSharedState();
-  if (!state) return;
+Deno.test({
+  name: 'Validating Progressive Rendering Temporal Accumulation (Ping-Pong Buffer)',
+  sanitizeOps: false,
+  async fn() {
+    const state = await initSharedState();
+    if (!state) return;
 
-  const { harness } = state;
-  const width = 1;
-  const height = 1;
-  const session = harness.createSession(width, height);
-  // accumulationCount goes 1..64; blendWeight = 0.0 for first, 1/N for N-th
-  for (let i = 1; i <= 64; i++) {
-    const blendWeight = i === 1 ? 0.0 : 1.0 / i;
-    session.renderFrame(0.0, 0.0, 0.0, 0.0, 1.0, 100, 0.0, 2.0, blendWeight, 0.1, -0.1);
-  }
-  const blackHoleAccum = await session.readResolved();
-  session.destroy();
+    const { harness } = state;
+    const width = 2;
+    const height = 2;
+    const j1 = { jitterX: 0.1, jitterY: -0.1 };
+    const j2 = { jitterX: -0.2, jitterY: 0.3 };
 
-  const r = blackHoleAccum[0];
-  const g = blackHoleAccum[1];
-  const b = blackHoleAccum[2];
-  const a = blackHoleAccum[3];
+    // Frame A: first render, blendWeight=0.0 (replace prev)
+    const sessionA = harness.createSession(width, height);
+    sessionA.renderFrame(
+      0.0,
+      0.0,
+      -1.748,
+      0.0,
+      1.0,
+      100,
+      0.0,
+      2.0,
+      0.0, // blendWeight: first frame, replace
+      j1.jitterX,
+      j1.jitterY,
+    );
+    const frameA = await sessionA.readGBuffer();
+    sessionA.destroy();
 
-  if (r !== 0 || g !== 0 || b !== 0 || a !== 255) {
-    throw new Error(`Inner Fractal black hole accumulation failed: rgba(${r}, ${g}, ${b}, ${a})`);
-  }
+    // Frame B: first render in a fresh session, blendWeight=0.0
+    const sessionB = harness.createSession(width, height);
+    sessionB.renderFrame(
+      0.0,
+      0.0,
+      -1.748,
+      0.0,
+      1.0,
+      100,
+      0.0,
+      2.0,
+      0.0, // blendWeight: first frame, replace
+      j2.jitterX,
+      j2.jitterY,
+    );
+    const frameB = await sessionB.readGBuffer();
+    sessionB.destroy();
+
+    // Accumulated session: first frame replaces, second blends at 0.5 → result = (frameA + frameB) / 2
+    const sessionAccum = harness.createSession(width, height);
+    sessionAccum.renderFrame(
+      0.0,
+      0.0,
+      -1.748,
+      0.0,
+      1.0,
+      100,
+      0.0,
+      2.0,
+      0.0, // blendWeight: first frame, replace
+      j1.jitterX,
+      j1.jitterY,
+    );
+    sessionAccum.renderFrame(
+      0.0,
+      0.0,
+      -1.748,
+      0.0,
+      1.0,
+      100,
+      0.0,
+      2.0,
+      0.5, // blendWeight: 1/2 → mix(prev, curr, 0.5) = mathematical mean
+      j2.jitterX,
+      j2.jitterY,
+    );
+    const accumAB = await sessionAccum.readGBuffer();
+    sessionAccum.destroy();
+
+    let accumPassed = true;
+    for (let i = 0; i < frameA.length; i++) {
+      const expectedMathMean = (frameA[i] + frameB[i]) / 2.0;
+      const diff = Math.abs(accumAB[i] - expectedMathMean);
+      if (diff > 1e-4) {
+        console.error(
+          `❌ FAIL: Temporal Accumulation mismatched at float array index ${i}. Expected: ${expectedMathMean}, Got: ${accumAB[i]}`,
+        );
+        accumPassed = false;
+      }
+    }
+    if (!accumPassed)
+      throw new Error('Temporal Accumulation failed exact mathematical mean evaluation.');
+  },
+});
+
+Deno.test({
+  name: 'Validating Inner-Fractal Black Hole Accumulation Stability',
+  sanitizeOps: false,
+  async fn() {
+    const state = await initSharedState();
+    if (!state) return;
+
+    const { harness } = state;
+    const width = 1;
+    const height = 1;
+    const session = harness.createSession(width, height);
+    // accumulationCount goes 1..64; blendWeight = 0.0 for first, 1/N for N-th
+    for (let i = 1; i <= 64; i++) {
+      const blendWeight = i === 1 ? 0.0 : 1.0 / i;
+      session.renderFrame(0.0, 0.0, 0.0, 0.0, 1.0, 100, 0.0, 2.0, blendWeight, 0.1, -0.1);
+    }
+    const blackHoleAccum = await session.readResolved();
+    session.destroy();
+
+    const r = blackHoleAccum[0];
+    const g = blackHoleAccum[1];
+    const b = blackHoleAccum[2];
+    const a = blackHoleAccum[3];
+
+    if (r !== 0 || g !== 0 || b !== 0 || a !== 255) {
+      throw new Error(`Inner Fractal black hole accumulation failed: rgba(${r}, ${g}, ${b}, ${a})`);
+    }
+  },
 });
 
 Deno.test('Validating f32 Analytic and Brent Interior Early-Outs', async () => {
@@ -528,7 +537,6 @@ Deno.test('Validating Series Approximation Skip Iteration Algebraic Jump', async
     100, // maxIter
     true, // usePerturbation
     2.0, // exponent
-    0.0, // skipIter
   );
 
   // Next we arbitrarily skip 20 iterations.
@@ -539,7 +547,6 @@ Deno.test('Validating Series Approximation Skip Iteration Algebraic Jump', async
     100,
     true,
     2.0,
-    20.0, // skipIter
   );
 
   const standardIter = standardRes[0];
@@ -557,48 +564,52 @@ Deno.test('Validating Series Approximation Skip Iteration Algebraic Jump', async
   }
 });
 
-Deno.test('Validating Iteration Yield Fallback to Interior', async () => {
-  const state = await initSharedState();
-  if (!state) return;
+Deno.test({
+  name: 'Validating Iteration Yield Fallback to Interior',
+  sanitizeOps: false,
+  async fn() {
+    const state = await initSharedState();
+    if (!state) return;
 
-  const { harness } = state;
-  const width = 1;
-  const height = 1;
+    const { harness } = state;
+    const width = 1;
+    const height = 1;
 
-  // We choose an exterior point that takes EXACTLY ~53 iterations to escape according to ground truth.
-  // We cap the yield limit at 20. The math MUST yield and safely map to the interior color (maxIter 100),
-  // rather than rendering an arbitrary base-zero gradient flash.
-  const session = harness.createSession(width, height);
-  session.renderFrame(
-    0.0,
-    0.0,
-    -1.748,
-    0.0,
-    1.0, // zoom
-    100, // maxIter
-    0.0, // angle
-    2.0, // exp
-    0.0, // blendWeight
-    0.0, // jitterX
-    0.0, // jitterY
-    undefined, // refOrbits
-    undefined, // theme
-    20, // yieldIterLimit!
-  );
-
-  const yieldData = await session.readResolved();
-  session.destroy();
-
-  const r = yieldData[0];
-  const g = yieldData[1];
-  const b = yieldData[2];
-  const a = yieldData[3];
-
-  if (r !== 0 || g !== 0 || b !== 0 || a !== 255) {
-    throw new Error(
-      `Yield Fallback glitch detected! Expected solid black interior mapping, got rgba(${r}, ${g}, ${b}, ${a}). This usually means unfinished pixels are rendering as false exterior escapes (e.g. magenta).`,
+    // We choose an exterior point that takes EXACTLY ~53 iterations to escape according to ground truth.
+    // We cap the yield limit at 20. The math MUST yield and safely map to the interior color (maxIter 100),
+    // rather than rendering an arbitrary base-zero gradient flash.
+    const session = harness.createSession(width, height);
+    session.renderFrame(
+      0.0,
+      0.0,
+      -1.748,
+      0.0,
+      1.0, // zoom
+      100, // maxIter
+      0.0, // angle
+      2.0, // exp
+      0.0, // blendWeight
+      0.0, // jitterX
+      0.0, // jitterY
+      undefined, // refOrbits
+      undefined, // theme
+      20, // yieldIterLimit!
     );
-  }
+
+    const yieldData = await session.readResolved();
+    session.destroy();
+
+    const r = yieldData[0];
+    const g = yieldData[1];
+    const b = yieldData[2];
+    const a = yieldData[3];
+
+    if (r !== 0 || g !== 0 || b !== 0 || a !== 255) {
+      throw new Error(
+        `Yield Fallback glitch detected! Expected solid black interior mapping, got rgba(${r}, ${g}, ${b}, ${a}). This usually means unfinished pixels are rendering as false exterior escapes (e.g. magenta).`,
+      );
+    }
+  },
 });
 
 Deno.test('Validating Bit-Perfect Regression Match', async () => {

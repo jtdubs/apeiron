@@ -1,10 +1,5 @@
 import type { RenderFrameDescriptor } from './RenderFrameDescriptor';
-import {
-  META_STRIDE,
-  FLOATS_PER_ITER,
-  packCameraParams,
-  packResolveUniforms,
-} from './generated/MemoryLayout';
+import { packCameraParams, packResolveUniforms } from './generated/MemoryLayout';
 
 // ─── AccumulationPass ────────────────────────────────────────────────────────
 
@@ -50,6 +45,7 @@ export class AccumulationPass {
     activeRefOrbitsBuffer: GPUBuffer | null,
     prevFrameView: GPUTextureView,
     checkpointBuffer: GPUBuffer,
+    completionFlagBuffer: GPUBuffer,
   ): GPUBindGroup {
     return this.device.createBindGroup({
       layout: this.mathPipeline.getBindGroupLayout(0),
@@ -63,6 +59,7 @@ export class AccumulationPass {
         },
         { binding: 4, resource: prevFrameView },
         { binding: 5, resource: { buffer: checkpointBuffer } },
+        { binding: 6, resource: { buffer: completionFlagBuffer } },
       ],
     });
   }
@@ -223,8 +220,18 @@ export class PassManager {
   private isQueryReady = true;
   private _lastMathPassMs = -1;
 
+  private completionFlagBuffer: GPUBuffer | null = null;
+  private completionStagingBuffer: GPUBuffer | null = null;
+  private _isIterationTargetMet = false;
+  private _isCompletionQueryPending = false;
+  public latestMapPromise: Promise<void> | null = null;
+
   public get lastMathPassMs(): number {
     return this._lastMathPassMs;
+  }
+
+  public get isIterationTargetMet(): boolean {
+    return this._isIterationTargetMet;
   }
 
   constructor(
@@ -287,6 +294,18 @@ export class PassManager {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
+    if (this.completionFlagBuffer) this.completionFlagBuffer.destroy();
+    this.completionFlagBuffer = this.device.createBuffer({
+      size: 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+
+    if (this.completionStagingBuffer) this.completionStagingBuffer.destroy();
+    this.completionStagingBuffer = this.device.createBuffer({
+      size: 4,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+
     this.pingPongTargetIsB = false;
   }
 
@@ -347,9 +366,11 @@ export class PassManager {
     // we skip the camState string-diff and always upload the current values.
     const actualRefMaxIter =
       this.hasValidActiveRefOrbits && desc.context.refOrbits
-        ? (desc.context.refOrbits.length - META_STRIDE) / FLOATS_PER_ITER
-        : desc.context.maxIter;
-    const paletteMaxIter = this.hasValidActiveRefOrbits ? actualRefMaxIter : desc.context.maxIter;
+        ? (desc.context.refOrbits.length - 8) / 8 // META_STRIDE / FLOATS_PER_ITER
+        : desc.context.computeMaxIter;
+    const paletteMaxIter = this.hasValidActiveRefOrbits
+      ? actualRefMaxIter
+      : desc.context.computeMaxIter;
 
     const usePerturbationAllowed = desc.theme?.precisionMode !== 'f32';
     const usePerturbation = this.hasValidActiveRefOrbits && usePerturbationAllowed ? 1.0 : 0.0;
@@ -361,7 +382,7 @@ export class PassManager {
       ci: desc.context.ci,
       scale: desc.context.zoom,
       aspect: aspectRatio,
-      max_iter: desc.context.maxIter,
+      compute_max_iter: desc.context.computeMaxIter,
       slice_angle: desc.context.sliceAngle,
       use_perturbation: usePerturbation,
       ref_max_iter: actualRefMaxIter,
@@ -376,7 +397,7 @@ export class PassManager {
       jitter_y: desc.command.jitterY,
       blend_weight: desc.command.blendWeight,
       render_scale: desc.command.renderScale,
-      yield_iter_limit: desc.command.yieldIterLimit,
+      step_limit: desc.command.stepLimit,
       load_checkpoint: desc.command.loadCheckpoint ? 1.0 : 0.0,
       debug_view_mode: desc.context.debugViewMode,
       canvas_width: width,
@@ -393,7 +414,7 @@ export class PassManager {
       if (!desc.theme) {
         paletteData = new Float32Array(32);
         paletteData[12] = paletteMaxIter;
-        paletteData[31] = desc.context.trueMaxIter;
+        paletteData[31] = desc.context.paletteMaxIter;
       } else {
         const t = desc.theme;
         let surfaceParamA = 1.0;
@@ -432,7 +453,7 @@ export class PassManager {
                   : 1.0,
           surface_param_a: surfaceParamA,
           surface_param_b: surfaceParamB,
-          true_max_iter: desc.context.trueMaxIter,
+          palette_max_iter: desc.context.paletteMaxIter,
         });
       }
       this.device.queue.writeBuffer(this.presentPass.paletteUniformsBuffer, 0, paletteData);
@@ -447,7 +468,7 @@ export class PassManager {
     this.device.queue.writeBuffer(
       this.presentPass.paletteUniformsBuffer,
       124,
-      new Float32Array([desc.context.trueMaxIter]),
+      new Float32Array([desc.context.paletteMaxIter]),
     );
 
     // Write render_scale to its dedicated uniform buffer (group 0, binding 1 of the resolve pass).
@@ -478,7 +499,12 @@ export class PassManager {
       this.activeRefOrbitsBuffer,
       readTex!.createView(),
       this.checkpointBuffer!,
+      this.completionFlagBuffer!,
     );
+
+    // Initialize completion flag to 1 (true) before the pass
+    this.device.queue.writeBuffer(this.completionFlagBuffer!, 0, new Uint32Array([1]));
+
     this.accumPass.execute(
       commandEncoder,
       writeTex!.createView(),
@@ -487,6 +513,14 @@ export class PassManager {
       renderHeight,
       queryActive,
       this.querySet,
+    );
+
+    commandEncoder.copyBufferToBuffer(
+      this.completionFlagBuffer!,
+      0,
+      this.completionStagingBuffer!,
+      0,
+      4,
     );
 
     if (queryActive) {
@@ -522,6 +556,31 @@ export class PassManager {
         })
         .catch(() => {
           this.isQueryReady = true;
+        });
+    }
+
+    if (!this._isCompletionQueryPending) {
+      this._isCompletionQueryPending = true;
+      this.device.queue
+        .onSubmittedWorkDone()
+        .then(() => {
+          if (this.completionStagingBuffer!.mapState === 'unmapped') {
+            this.latestMapPromise = this.completionStagingBuffer!.mapAsync(GPUMapMode.READ)
+              .then(() => {
+                const arr = new Uint32Array(this.completionStagingBuffer!.getMappedRange());
+                this._isIterationTargetMet = arr[0] === 1;
+                this.completionStagingBuffer!.unmap();
+                this._isCompletionQueryPending = false;
+              })
+              .catch(() => {
+                this._isCompletionQueryPending = false;
+              });
+          } else {
+            this._isCompletionQueryPending = false;
+          }
+        })
+        .catch(() => {
+          this._isCompletionQueryPending = false;
         });
     }
   }

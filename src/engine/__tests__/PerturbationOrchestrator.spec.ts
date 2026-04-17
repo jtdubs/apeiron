@@ -61,7 +61,7 @@ describe('PerturbationOrchestrator', () => {
         deltaCi: 0.0,
         deltaZr: 0.0,
         deltaZi: 0.0,
-        maxIter: 500,
+        paletteMaxIter: 500,
         exponent: 2,
       } as unknown as ViewportState;
 
@@ -87,7 +87,7 @@ describe('PerturbationOrchestrator', () => {
     // Check payload
     const payload = mockWorker.postMessage.mock.calls[0][0];
     expect(payload.type).toBe('COMPUTE');
-    expect(payload.maxIterations).toBe(500);
+    expect(payload.paletteMaxIter).toBe(500);
     const parsed = JSON.parse(payload.casesJson)[0];
     expect(parsed.cr).toBe('-0.7'); // -1.0 + 0.3
   });
@@ -104,7 +104,7 @@ describe('PerturbationOrchestrator', () => {
         deltaCi: 0.0,
         deltaZr: 0.0,
         deltaZi: 0.0,
-        maxIter: 500,
+        paletteMaxIter: 500,
         exponent: 2,
       } as unknown as ViewportState;
       // First pan
@@ -164,7 +164,7 @@ describe('PerturbationOrchestrator', () => {
         deltaCi: 0.0,
         deltaZr: 0.0,
         deltaZi: 0.0,
-        maxIter: 500,
+        paletteMaxIter: 500,
         exponent: 2,
       } as unknown as ViewportState;
 

@@ -37,19 +37,20 @@ export function buildMathContext(
   const interactFloor = calculateMaxIter(1.0);
   const effectiveMaxIter = isInteracting
     ? Math.min(
-        state.maxIter,
-        Math.max(interactFloor, Math.floor(state.maxIter * INTERACT_ITER_FRACTION)) + skipIter,
+        state.paletteMaxIter,
+        Math.max(interactFloor, Math.floor(state.paletteMaxIter * INTERACT_ITER_FRACTION)) +
+          skipIter,
       )
-    : state.maxIter;
+    : state.paletteMaxIter;
 
   return {
     zr,
     zi,
     cr,
     ci,
+    computeMaxIter: effectiveMaxIter,
+    paletteMaxIter: state.paletteMaxIter,
     zoom: state.zoom,
-    maxIter: effectiveMaxIter,
-    trueMaxIter: state.maxIter,
     sliceAngle: state.sliceAngle,
     exponent: state.exponent,
     refOrbits: state.refOrbits,

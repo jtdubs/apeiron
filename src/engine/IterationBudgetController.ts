@@ -1,40 +1,33 @@
 export class IterationBudgetController {
   private targetMs: number;
   private currentBudget: number;
-  private consecutiveFastFrames: number;
 
   constructor(targetMs: number = 14) {
     this.targetMs = targetMs;
     this.currentBudget = 1000;
-    this.consecutiveFastFrames = 0;
   }
 
   /**
-   * Updates the budget based on the latest GPU frame time.
-   * Decreases trigger on any spiked slice. Increases ONLY trigger
-   * on fast `isFirstSlice` passes to avoid Coastline divergence traps.
+   * Updates the budget smoothly based on the latest GPU frame time.
+   * Utilizes a low-pass discrete proportional filter to lock smoothly
+   * onto the target framerate without oscillating and causing edge flickering.
    */
-  update(gpuMs: number, isFirstSlice: boolean): number {
-    const spikeThreshold = this.targetMs * 1.1;
+  update(gpuMs: number): number {
+    // Determine the safe threshold we want to gracefully hover exactly at
+    const safeTargetMs = this.targetMs * 0.95;
 
-    if (gpuMs > spikeThreshold) {
-      this.currentBudget = Math.max(100, this.currentBudget - 1500);
-      this.consecutiveFastFrames = 0;
-    } else {
-      if (isFirstSlice) {
-        if (gpuMs < this.targetMs) {
-          this.consecutiveFastFrames++;
-          if (this.consecutiveFastFrames >= 3) {
-            this.currentBudget = Math.min(5000, this.currentBudget + 500);
-            this.consecutiveFastFrames = 0;
-          }
-        } else {
-          this.consecutiveFastFrames = 0;
-        }
-      }
-    }
+    // Extrapolate the ideal budget using a linear proportionality assumption
+    const ratio = safeTargetMs / Math.max(1.0, gpuMs);
+    const idealBudget = this.currentBudget * ratio;
 
-    return this.currentBudget;
+    // Smoothly interpolate towards the ideal budget (Low-pass filter) to eliminate flapping.
+    // If it's a massive spike (> 1.5x target), react slightly faster to prevent locked freezes
+    const smoothing = gpuMs > this.targetMs * 1.5 ? 0.5 : 0.8;
+
+    this.currentBudget = this.currentBudget * smoothing + idealBudget * (1.0 - smoothing);
+    this.currentBudget = Math.max(100, Math.min(5000, this.currentBudget));
+
+    return Math.floor(this.currentBudget);
   }
 
   /**
@@ -43,10 +36,9 @@ export class IterationBudgetController {
    */
   reset(): void {
     this.currentBudget = 1000;
-    this.consecutiveFastFrames = 0;
   }
 
   getBudget(): number {
-    return this.currentBudget;
+    return Math.floor(this.currentBudget);
   }
 }

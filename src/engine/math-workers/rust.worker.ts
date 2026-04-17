@@ -4,7 +4,7 @@ export type WorkerInputMessage = {
   id: number;
   type: 'COMPUTE';
   casesJson: string;
-  maxIterations: number;
+  paletteMaxIter: number;
 };
 
 export type WorkerOutputMessage = {
@@ -16,7 +16,7 @@ export type WorkerOutputMessage = {
 let wasmInit: Promise<unknown> | null = null;
 
 self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
-  const { id, type, casesJson, maxIterations } = e.data;
+  const { id, type, casesJson, paletteMaxIter } = e.data;
 
   if (type === 'COMPUTE') {
     if (!wasmInit) {
@@ -25,7 +25,7 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     await wasmInit;
 
     const t0 = performance.now();
-    const resultData = compute_mandelbrot(casesJson, maxIterations);
+    const resultData = compute_mandelbrot(casesJson, paletteMaxIter);
     const t1 = performance.now();
     console.log(`[math-core] BLA Tree & Orbit Array compiled in ${(t1 - t0).toFixed(2)}ms`);
 

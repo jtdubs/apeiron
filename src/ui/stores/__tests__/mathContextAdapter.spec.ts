@@ -29,7 +29,7 @@ describe('mathContextAdapter', () => {
       sliceAngle: 0,
       zoom: 1.0,
       exponent: 2,
-      maxIter: 500,
+      paletteMaxIter: 500,
       refOrbits: null,
       interactionState: 'STATIC',
     };
@@ -47,10 +47,9 @@ describe('mathContextAdapter', () => {
     expect(ctx.zr).toBeCloseTo(0.1);
     expect(ctx.zi).toBeCloseTo(0.1);
     expect(ctx.cr).toBeCloseTo(-0.9); // -1.0 + 0.1
-    expect(ctx.ci).toBeCloseTo(0.6); // 0.5 + 0.1
-
-    expect(ctx.trueMaxIter).toBe(500);
-    expect(ctx.maxIter).toBe(500); // Because STATIC
+    expect(ctx.ci).toBeCloseTo(0.6);
+    expect(ctx.paletteMaxIter).toBe(500);
+    expect(ctx.computeMaxIter).toBe(500); // Because STATIC
     expect(ctx.skipIter).toBe(0);
   });
 
@@ -73,22 +72,22 @@ describe('mathContextAdapter', () => {
 
   it('applies interaction throttling appropriately', () => {
     mockState.interactionState = 'INTERACT_SAFE';
-    mockState.maxIter = 1000;
+    mockState.paletteMaxIter = 1000;
 
     const interactFloor = calculateMaxIter(1.0); // e.g. 150
     const expectedYield = Math.max(interactFloor, Math.floor(1000 * 0.33)); // 330
 
     const ctx = buildMathContext(mockState, mockTheme, 1920, 1080);
 
-    expect(ctx.trueMaxIter).toBe(1000);
-    expect(ctx.maxIter).toBe(expectedYield);
+    expect(ctx.paletteMaxIter).toBe(1000);
+    expect(ctx.computeMaxIter).toBe(expectedYield);
   });
 
   it('factors skipIter into the throttle budget when in interacting perturbation', () => {
     mockState.interactionState = 'INTERACT_SAFE';
     mockState.refOrbits = new Float64Array(10);
     mockTheme.precisionMode = 'perturbation';
-    mockState.maxIter = 1000;
+    mockState.paletteMaxIter = 1000;
     vi.mocked(calculateSkipIter).mockReturnValue(200);
 
     const interactFloor = calculateMaxIter(1.0); // e.g. 150
@@ -98,7 +97,7 @@ describe('mathContextAdapter', () => {
     const ctx = buildMathContext(mockState, mockTheme, 1920, 1080);
 
     // Clamped budget calculation
-    expect(ctx.trueMaxIter).toBe(1000);
-    expect(ctx.maxIter).toBe(Math.min(1000, expectedYield));
+    expect(ctx.paletteMaxIter).toBe(1000);
+    expect(ctx.computeMaxIter).toBe(Math.min(1000, expectedYield));
   });
 });

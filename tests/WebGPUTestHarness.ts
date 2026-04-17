@@ -16,7 +16,6 @@ export class WebGPUTestHarness {
     maxIter: number = 100,
     usePerturbation: boolean = true,
     exponent: number = 2.0,
-    skipIter: number = 0.0,
   ): Promise<Float32Array> {
     return this.executeUnitTest(
       'main_compute',
@@ -27,12 +26,12 @@ export class WebGPUTestHarness {
           aspect: 1.0,
           render_scale: 1.0,
           canvas_width: 1.0,
-          yield_iter_limit: maxIter,
+          step_limit: maxIter,
           ref_max_iter: maxIter,
-          max_iter: maxIter,
+          compute_max_iter: maxIter,
           use_perturbation: usePerturbation ? 1.0 : 0.0,
           exponent: exponent,
-          skip_iter: skipIter,
+          skip_iter: 0.0,
         },
         refOrbits: refOrbits,
       },
@@ -90,11 +89,11 @@ export class WebGPUTestHarness {
     const cameraFallback: CameraParams = {
       scale: 1.0,
       aspect: 1.0,
-      max_iter: 100.0,
+      compute_max_iter: 100.0,
       ref_max_iter: 100.0,
       exponent: 2.0,
       render_scale: 1.0,
-      yield_iter_limit: 100.0,
+      step_limit: 100.0,
       canvas_width: 1.0,
     };
 
@@ -159,6 +158,12 @@ export class WebGPUTestHarness {
       );
     }
 
+    const completionFlagBuffer = this.device.createBuffer({
+      size: 16,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    this.device.queue.writeBuffer(completionFlagBuffer, 0, new Uint32Array([1]));
+
     const entries: GPUBindGroupEntry[] = [
       { binding: 1, resource: { buffer: inputStorageBuffer } },
       { binding: 2, resource: { buffer: outputStorageBuffer } },
@@ -170,6 +175,7 @@ export class WebGPUTestHarness {
     } else if (entryPoint === 'unit_test_state_resume') {
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
       entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
+      entries.push({ binding: 6, resource: { buffer: completionFlagBuffer } });
     } else if (entryPoint === 'unit_test_sa_init' || entryPoint === 'unit_test_bla_advance') {
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
       entries.push({ binding: 3, resource: { buffer: refOrbitsActualBuffer } });
@@ -178,6 +184,7 @@ export class WebGPUTestHarness {
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
       entries.push({ binding: 3, resource: { buffer: refOrbitsActualBuffer } });
       entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
+      entries.push({ binding: 6, resource: { buffer: completionFlagBuffer } });
     }
 
     const bindGroup = this.device.createBindGroup({
@@ -205,6 +212,7 @@ export class WebGPUTestHarness {
     stagingBuffer.destroy();
     cameraTestBuffer.destroy();
     checkpointBuffer.destroy();
+    completionFlagBuffer.destroy();
     refOrbitsActualBuffer.destroy();
 
     return result;
@@ -273,19 +281,19 @@ export class TestRenderSession {
         cr,
         ci,
         zoom,
-        maxIter,
-        trueMaxIter: maxIter,
+        computeMaxIter: maxIter,
+        paletteMaxIter: maxIter,
         sliceAngle,
         exponent,
         refOrbits: refOrbits ?? null,
-        skipIter: 0,
+        debugViewMode: 0,
       },
       command: {
         renderScale: 1.0,
         blendWeight,
         jitterX,
         jitterY,
-        yieldIterLimit: yieldIterLimit ?? maxIter,
+        stepLimit: yieldIterLimit ?? maxIter,
         loadCheckpoint: false,
         advancePingPong: true,
         clearCheckpoint: true,
@@ -329,6 +337,9 @@ export class TestRenderSession {
   }
 
   public async readResolved(): Promise<Uint8Array> {
+    if (this.pm.latestMapPromise) {
+      await this.pm.latestMapPromise;
+    }
     const buffer = await this.readTextureBytes(this.targetTexture, 4);
     return new Uint8Array(buffer);
   }
@@ -336,6 +347,10 @@ export class TestRenderSession {
   public async readGBuffer(): Promise<Float32Array> {
     // Flush the queue to ensure pm.render commands are fully submitted
     this.device.queue.submit([]);
+
+    if (this.pm.latestMapPromise) {
+      await this.pm.latestMapPromise;
+    }
 
     const gBuffer = this.pm.getActiveGBuffer();
     if (!gBuffer) throw new Error('No active G-Buffer');

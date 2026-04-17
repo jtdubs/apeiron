@@ -10,8 +10,8 @@ export interface MathContext {
   cr: number;
   ci: number;
   zoom: number;
-  maxIter: number; // The interactive/effective max iteration cap
-  trueMaxIter: number; // The target static max iteration cap (used for consistent palette mapping)
+  computeMaxIter: number; // The interactive/effective max iteration cap
+  paletteMaxIter: number; // The target static max iteration cap (used for consistent palette mapping)
   sliceAngle: number;
   exponent: number;
   refOrbits: Float64Array | null;
@@ -26,8 +26,8 @@ export interface ExecutionCommand {
   /** 1.0 = full native resolution (STATIC). <1.0 = DRS sub-rect (INTERACT). */
   renderScale: number;
 
-  /** Max iterations to compute this frame slice (clamped by IterationBudgetController) */
-  yieldIterLimit: number;
+  /** Max step executions to compute in this frame slice (clamped by IterationBudgetController) */
+  stepLimit: number;
   /** 1.0 = load struct from checkpoint; 0.0 = clear & start fresh. (Always 1.0 after cycle 1 starts) */
   loadCheckpoint: boolean;
   /** If true, flip the ping-pong buffer before running the math pass (only once per cycle). */

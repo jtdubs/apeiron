@@ -9,8 +9,8 @@ export function contextsEqual(a: MathContext, b: MathContext): boolean {
     a.cr === b.cr &&
     a.ci === b.ci &&
     a.zoom === b.zoom &&
-    a.trueMaxIter === b.trueMaxIter &&
-    a.sliceAngle === b.sliceAngle &&
+    a.computeMaxIter === b.computeMaxIter &&
+    a.paletteMaxIter === b.paletteMaxIter &&
     a.exponent === b.exponent &&
     a.refOrbits === b.refOrbits &&
     a.skipIter === b.skipIter
@@ -19,7 +19,8 @@ export function contextsEqual(a: MathContext, b: MathContext): boolean {
 
 export class ProgressiveRenderScheduler {
   private accumulationCount = 0;
-  private deepeningTotalIter = 0;
+  private isDeepening = true;
+  private isFirstSlice = true;
   private budgetController = new IterationBudgetController(14);
   private cycleJitterX = 0;
   private cycleJitterY = 0;
@@ -30,14 +31,14 @@ export class ProgressiveRenderScheduler {
     renderscale: TelemetryChannel;
     saSkip: TelemetryChannel;
     zoom: TelemetryChannel;
-    maxIter: TelemetryChannel;
+    computeMaxIter: TelemetryChannel;
     exponent: TelemetryChannel;
     sliceAngle: TelemetryChannel;
     zr: TelemetryChannel;
     zi: TelemetryChannel;
     cr: TelemetryChannel;
     ci: TelemetryChannel;
-    yieldIter: TelemetryChannel;
+    stepLimit: TelemetryChannel;
     loadCheckpoint: TelemetryChannel;
     advancePingPong: TelemetryChannel;
     clearCheckpoint: TelemetryChannel;
@@ -94,8 +95,8 @@ export class ProgressiveRenderScheduler {
         type: 'analog',
         retention: 'latch',
       }),
-      maxIter: reg.register({
-        id: 'math.maxIter',
+      computeMaxIter: reg.register({
+        id: 'math.computeMaxIter',
         label: 'Requested Max Iter',
         group: 'Math',
         type: 'analog',
@@ -144,9 +145,9 @@ export class ProgressiveRenderScheduler {
         retention: 'latch',
       }),
 
-      yieldIter: reg.register({
-        id: 'cmd.yieldIter',
-        label: 'Yield Iter Limit',
+      stepLimit: reg.register({
+        id: 'cmd.stepLimit',
+        label: 'Step Limit',
         group: 'Execution',
         type: 'analog',
         retention: 'lapse',
@@ -200,8 +201,8 @@ export class ProgressiveRenderScheduler {
     return this.accumulationCount;
   }
 
-  public getDeepeningTotalIter(): number {
-    return this.deepeningTotalIter;
+  public getIsDeepening(): boolean {
+    return this.isDeepening;
   }
 
   public getBudget(): number {
@@ -217,6 +218,7 @@ export class ProgressiveRenderScheduler {
     canvasWidth: number,
     canvasHeight: number,
     mathPassMs: number,
+    isTargetMet: boolean,
   ): ExecutionCommand | null {
     let invalidated = false;
 
@@ -234,9 +236,17 @@ export class ProgressiveRenderScheduler {
 
     if (invalidated || isInteracting) {
       this.accumulationCount = 0;
-      this.deepeningTotalIter = 0;
+      this.isDeepening = true;
+      this.isFirstSlice = true;
       this.cycleJitterX = 0;
       this.cycleJitterY = 0;
+    } else if (isTargetMet && this.isDeepening) {
+      this.isDeepening = false;
+      this.accumulationCount++;
+      this.isFirstSlice = true;
+    } else if (!this.isDeepening) {
+      this.accumulationCount++;
+      this.isFirstSlice = true;
     }
 
     if (!isInteracting && this.accumulationCount >= this.MAX_ACCUM_FRAMES) {
@@ -244,19 +254,16 @@ export class ProgressiveRenderScheduler {
       return null; // RESOLVED state
     }
 
-    const isFirstSlice = this.deepeningTotalIter === 0;
-    const rawBudget = this.budgetController.update(
-      mathPassMs !== -1 ? mathPassMs : 14,
-      isFirstSlice,
-    );
+    const isFirstSliceVal = this.isFirstSlice;
+    const rawBudget = this.budgetController.update(mathPassMs !== -1 ? mathPassMs : 14);
 
-    const yieldIterLimit = Math.min(context.maxIter - this.deepeningTotalIter, rawBudget);
+    const stepLimit = rawBudget; // Detached from iterations completely
 
-    const advancePingPong = isFirstSlice;
-    const clearCheckpoint = isFirstSlice && this.accumulationCount > 0;
+    const advancePingPong = isFirstSliceVal;
+    const clearCheckpoint = isFirstSliceVal && this.accumulationCount > 0;
 
     const blendWeight = this.accumulationCount > 0 ? 1.0 / (this.accumulationCount + 1) : 0.0;
-    const loadCheckpoint = this.accumulationCount > 0 || this.deepeningTotalIter > 0;
+    const loadCheckpoint = this.accumulationCount > 0 || !isFirstSliceVal;
 
     if (advancePingPong && !isInteracting && this.accumulationCount > 0) {
       this.cycleJitterX = (Math.random() - 0.5) * (2.0 / canvasWidth);
@@ -270,7 +277,7 @@ export class ProgressiveRenderScheduler {
 
     const command: ExecutionCommand = {
       renderScale: snapshotRenderScale,
-      yieldIterLimit,
+      stepLimit,
       loadCheckpoint,
       advancePingPong,
       clearCheckpoint,
@@ -288,7 +295,7 @@ export class ProgressiveRenderScheduler {
     this.channels.saSkip.set(context.skipIter);
 
     this.channels.zoom.set(context.zoom);
-    this.channels.maxIter.set(context.maxIter);
+    this.channels.computeMaxIter.set(context.computeMaxIter);
     this.channels.exponent.set(context.exponent);
     this.channels.sliceAngle.set(context.sliceAngle);
     this.channels.zr.set(context.zr);
@@ -296,7 +303,7 @@ export class ProgressiveRenderScheduler {
     this.channels.cr.set(context.cr);
     this.channels.ci.set(context.ci);
 
-    this.channels.yieldIter.set(command.yieldIterLimit);
+    this.channels.stepLimit.set(command.stepLimit);
     this.channels.loadCheckpoint.set(command.loadCheckpoint ? 1 : 0);
     this.channels.advancePingPong.set(command.advancePingPong ? 1 : 0);
     this.channels.clearCheckpoint.set(command.clearCheckpoint ? 1 : 0);
@@ -304,20 +311,16 @@ export class ProgressiveRenderScheduler {
     this.channels.jitterX.set(command.jitterX);
     this.channels.jitterY.set(command.jitterY);
 
+    this.isFirstSlice = false;
+
     return command;
   }
 
   public getPipelineMode(isInteracting: boolean): 'INTERACT' | 'ACCUMULATING' | 'DEEPENING' {
     if (isInteracting) return 'INTERACT';
-    if (this.accumulationCount > 0 && this.deepeningTotalIter === 0) return 'ACCUMULATING';
+    if (!this.isDeepening) return 'ACCUMULATING';
     return 'DEEPENING';
   }
 
-  public notifySliceComplete(command: ExecutionCommand) {
-    this.deepeningTotalIter += command.yieldIterLimit;
-    if (this.deepeningTotalIter >= this.lastContext!.maxIter) {
-      this.deepeningTotalIter = 0;
-      this.accumulationCount++;
-    }
-  }
+  public notifySliceComplete() {}
 }

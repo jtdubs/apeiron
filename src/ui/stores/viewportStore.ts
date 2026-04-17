@@ -28,7 +28,7 @@ export interface ViewportState {
   sliceAngle: number;
   zoom: number;
   exponent: number;
-  maxIter: number;
+  paletteMaxIter: number;
   refOrbits: Float64Array | null;
   interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST';
   debugViewMode: number;
@@ -68,7 +68,7 @@ export const viewportStore = createStore<ViewportState>((set) => ({
   sliceAngle: 0.0,
   zoom: 1.5,
   exponent: 2.0,
-  maxIter: calculateMaxIter(1.5),
+  paletteMaxIter: calculateMaxIter(1.5),
   refOrbits: null,
   interactionState: 'STATIC',
   debugViewMode: 0,
@@ -92,7 +92,7 @@ export const viewportStore = createStore<ViewportState>((set) => ({
       zoom,
       sliceAngle,
       exponent,
-      maxIter: calculateMaxIter(zoom),
+      paletteMaxIter: calculateMaxIter(zoom),
     }),
 
   updateViewport: (deltaX, deltaY, deltaZoom, deltaAngle) =>
@@ -121,7 +121,7 @@ export const viewportStore = createStore<ViewportState>((set) => ({
         deltaCi: state.deltaCi + deltaY * cosTheta,
         sliceAngle: newAngle,
         zoom: newZoom,
-        maxIter: calculateMaxIter(newZoom),
+        paletteMaxIter: calculateMaxIter(newZoom),
       };
     }),
 }));
