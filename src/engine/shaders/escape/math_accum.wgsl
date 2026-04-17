@@ -772,13 +772,13 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
       }
       
       // Still allow yielding to not flash black holes
-      if (ret.x < -1.0 && camera.blend_weight > 0.0) {
+      if (ret.x < -1.0) {
           textureStore(g_buffer_out, coord, textureLoad(readTex, coord, 0));
           return;
       }
   } else {
       // Progressive Frame Accumulation
-      if (ret.x < -1.0 && camera.blend_weight > 0.0) {
+      if (ret.x < -1.0) {
           textureStore(g_buffer_out, coord, textureLoad(readTex, coord, 0));
           return;
       }
