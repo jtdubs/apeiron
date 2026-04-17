@@ -16,49 +16,61 @@ const createMockDevice = () => {
     queue: {
       writeBuffer: vi.fn(),
     },
-    createComputePipeline: vi.fn().mockImplementation(() => ({ getBindGroupLayout: vi.fn() })),
+    createComputePipelineAsync: vi
+      .fn()
+      .mockImplementation(() => Promise.resolve({ getBindGroupLayout: vi.fn() })),
     createBindGroup: vi.fn(),
   } as unknown as GPUDevice;
 };
 
 describe('AccumulationPass Pipeline Caching', () => {
-  it('creates a compute pipeline when fetched with new constants', () => {
+  it('creates a compute pipeline when fetched with new constants', async () => {
     const device = createMockDevice();
     const pass = new AccumulationPass(device, 'mock code');
 
-    pass.getPipeline(2.0, 1.0);
+    expect(pass.getPipeline(2.0, 1.0, 0.0)).toBeNull();
 
-    expect(device.createComputePipeline).toHaveBeenCalledTimes(1);
-    expect(device.createComputePipeline).toHaveBeenCalledWith({
+    expect(device.createComputePipelineAsync).toHaveBeenCalledTimes(1);
+    expect(device.createComputePipelineAsync).toHaveBeenCalledWith({
       layout: 'auto',
       compute: {
         module: expect.anything(),
         entryPoint: 'main_compute',
-        constants: { 0: 2.0, 1: 1.0 },
+        constants: { 0: 2.0, 1: 1.0, 2: 0.0 },
       },
     });
   });
 
-  it('returns a cached pipeline when fetched repeatedly with the same constants', () => {
+  it('returns a cached pipeline when fetched repeatedly with the same constants', async () => {
     const device = createMockDevice();
     const pass = new AccumulationPass(device, 'mock code');
 
-    const pipeline1 = pass.getPipeline(2.0, 0.0);
-    const pipeline2 = pass.getPipeline(2.0, 0.0);
+    pass.getPipeline(2.0, 0.0, 0.0);
+    await Promise.resolve(); // Flush microtasks to allow promise to resolve
 
+    const pipeline1 = pass.getPipeline(2.0, 0.0, 0.0);
+    const pipeline2 = pass.getPipeline(2.0, 0.0, 0.0);
+
+    expect(pipeline1).toBeTruthy();
     expect(pipeline1).toBe(pipeline2);
-    expect(device.createComputePipeline).toHaveBeenCalledTimes(1);
+    expect(device.createComputePipelineAsync).toHaveBeenCalledTimes(1);
   });
 
-  it('creates distinct pipelines for different constants without bleeding', () => {
+  it('creates distinct pipelines for different constants without bleeding', async () => {
     const device = createMockDevice();
     const pass = new AccumulationPass(device, 'mock code');
 
-    const pipeline1 = pass.getPipeline(2.0, 1.0);
-    const pipeline2 = pass.getPipeline(3.0, 1.0);
-    const pipeline3 = pass.getPipeline(2.0, 0.0);
+    pass.getPipeline(2.0, 1.0, 0.0);
+    pass.getPipeline(3.0, 1.0, 0.0);
+    pass.getPipeline(2.0, 0.0, 0.0);
 
-    expect(device.createComputePipeline).toHaveBeenCalledTimes(3);
+    await Promise.resolve();
+
+    const pipeline1 = pass.getPipeline(2.0, 1.0, 0.0);
+    const pipeline2 = pass.getPipeline(3.0, 1.0, 0.0);
+    const pipeline3 = pass.getPipeline(2.0, 0.0, 0.0);
+
+    expect(device.createComputePipelineAsync).toHaveBeenCalledTimes(3);
     expect(pipeline1).not.toBe(pipeline2);
     expect(pipeline1).not.toBe(pipeline3);
   });

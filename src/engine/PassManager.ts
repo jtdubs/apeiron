@@ -11,7 +11,7 @@ import {
 export class AccumulationPass {
   private device: GPUDevice;
   private mathModule: GPUShaderModule;
-  private pipelineCache: Map<string, GPUComputePipeline>;
+  private pipelineCache: Map<string, GPUComputePipeline | Promise<GPUComputePipeline>>;
   public uniformsBuffer: GPUBuffer;
   private dummyRefOrbitsBuffer: GPUBuffer;
 
@@ -32,11 +32,31 @@ export class AccumulationPass {
     device.queue.writeBuffer(this.dummyRefOrbitsBuffer, 0, new Float32Array([0.0, 0.0, 0.0, 0.0]));
   }
 
-  public getPipeline(exponent: number, usePerturbation: number): GPUComputePipeline {
-    const key = `${exponent}_${usePerturbation}`;
-    let pipeline = this.pipelineCache.get(key);
-    if (!pipeline) {
-      pipeline = this.device.createComputePipeline({
+  public initBackgroundCache() {
+    for (let exp = 1; exp <= 8; exp++) {
+      for (const pert of [0.0, 1.0]) {
+        for (const col of [0.0, 1.0, 2.0]) {
+          this.getPipeline(exp, pert, col);
+        }
+      }
+    }
+  }
+
+  public getPipeline(
+    exponent: number,
+    usePerturbation: number,
+    coloringMode: number,
+  ): GPUComputePipeline | null {
+    const key = `${exponent}_${usePerturbation}_${coloringMode}`;
+    const cached = this.pipelineCache.get(key);
+
+    if (cached) {
+      if (cached instanceof Promise) return null;
+      return cached;
+    }
+
+    const promise = this.device
+      .createComputePipelineAsync({
         layout: 'auto',
         compute: {
           module: this.mathModule,
@@ -44,12 +64,22 @@ export class AccumulationPass {
           constants: {
             0: exponent,
             1: usePerturbation,
+            2: coloringMode,
           },
         },
+      })
+      .then((pipeline) => {
+        this.pipelineCache.set(key, pipeline);
+        return pipeline;
+      })
+      .catch((err) => {
+        console.error('Pipeline compilation failed:', err);
+        this.pipelineCache.delete(key);
+        throw err;
       });
-      this.pipelineCache.set(key, pipeline);
-    }
-    return pipeline;
+
+    this.pipelineCache.set(key, promise);
+    return null;
   }
 
   public getBindGroup(
@@ -249,6 +279,8 @@ export class PassManager {
     this.height = height;
 
     this.accumPass = new AccumulationPass(device, mathShaderCode);
+    this.accumPass.initBackgroundCache();
+
     this.presentPass = new PresentationPass(device, resolveShaderCode, canvasFormat);
 
     if (device.features.has('timestamp-query')) {
@@ -390,12 +422,7 @@ export class PassManager {
       compute_max_iter: desc.context.computeMaxIter,
       slice_angle: desc.context.sliceAngle,
       ref_max_iter: actualRefMaxIter,
-      coloring_mode:
-        desc.theme?.coloringMode === 'stripe'
-          ? 1.0
-          : desc.theme?.coloringMode === 'banded'
-            ? 2.0
-            : 0.0,
+      pad_c: 0.0,
       jitter_x: desc.command.jitterX,
       jitter_y: desc.command.jitterY,
       blend_weight: desc.command.blendWeight,
@@ -495,6 +522,27 @@ export class PassManager {
     // ── GPU command submission ───────────────────────────────────────────────
     const commandEncoder = this.device.createCommandEncoder();
 
+    const coloringModeConst =
+      desc.theme?.coloringMode === 'stripe'
+        ? 1.0
+        : desc.theme?.coloringMode === 'banded'
+          ? 2.0
+          : 0.0;
+    const accumPipeline = this.accumPass.getPipeline(
+      desc.context.exponent,
+      usePerturbation,
+      coloringModeConst,
+    );
+
+    if (!accumPipeline) {
+      // Pipeline is still compiling async, yield accumulation to prevent stutter
+      const latestTex = this.pingPongTargetIsB ? this.gBufferTextureB : this.gBufferTextureA;
+      const resolveBindGroup0 = this.presentPass.getBindGroup0(latestTex!.createView());
+      this.presentPass.execute(commandEncoder, targetView, resolveBindGroup0);
+      this.device.queue.submit([commandEncoder.finish()]);
+      return;
+    }
+
     if (desc.command.clearCheckpoint && this.checkpointBuffer) {
       commandEncoder.clearBuffer(this.checkpointBuffer);
       this._isIterationTargetMet = false;
@@ -508,8 +556,6 @@ export class PassManager {
     }
     const writeTex = this.pingPongTargetIsB ? this.gBufferTextureB : this.gBufferTextureA;
     const readTex = this.pingPongTargetIsB ? this.gBufferTextureA : this.gBufferTextureB;
-
-    const accumPipeline = this.accumPass.getPipeline(desc.context.exponent, usePerturbation);
 
     const accumBindGroup = this.accumPass.getBindGroup(
       accumPipeline,

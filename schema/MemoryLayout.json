@@ -56,7 +56,7 @@
         { "name": "pad_a", "type": "f32" },
         { "name": "ref_max_iter", "type": "f32" },
         { "name": "pad_b", "type": "f32" },
-        { "name": "coloring_mode", "type": "f32" },
+        { "name": "pad_c", "type": "f32" },
         { "name": "jitter_x", "type": "f32" },
         { "name": "jitter_y", "type": "f32" },
         { "name": "blend_weight", "type": "f32" },

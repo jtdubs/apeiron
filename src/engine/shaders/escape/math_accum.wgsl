@@ -3,6 +3,7 @@
 
 @id(0) override fractal_exponent: f32 = 2.0;
 @id(1) override use_perturbation: f32 = 1.0;
+@id(2) override coloring_mode: f32 = 0.0;
 
 @group(0) @binding(0) var<uniform> camera: CameraParams;
 
@@ -115,7 +116,7 @@ fn get_escape_data(iter: f32, zx: f32, zy: f32, der_x: f32, der_y: f32, offset: 
   // Triangle Inequality Average (TIA) / Stripe Average Rendering.
   // Instead of smoothing by logarithmic potential (smooth_iter), if coloring_mode is enabled,
   // we yield the normalized bounded mathematical integrals accumulated during polynomial looping.
-  if (camera.coloring_mode > 0.5) {
+  if (coloring_mode > 0.5) {
      let exact_iter = max(1.0, iter + offset);
      ret_x = tia_sum / exact_iter;
   }
@@ -186,7 +187,7 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
     var new_der_y = step_res.w;
     
     let cur_z_mag = length(vec2<f32>(new_x, new_y));
-    if (camera.coloring_mode > 0.5) {
+    if (coloring_mode > 0.5) {
       let n_mag = pow(prev_z_mag, d);
       let den = n_mag + c_mag - abs(n_mag - c_mag);
       if (den > 0.0) {
@@ -536,7 +537,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     let cur_y = next_zy + dz.y;
     
     let cur_z_mag = length(vec2<f32>(cur_x, cur_y));
-    if (camera.coloring_mode > 0.5) {
+    if (coloring_mode > 0.5) {
       let n_mag = pow(prev_z_mag, d);
       let den = n_mag + c_mag - abs(n_mag - c_mag);
       if (den > 0.0) {
