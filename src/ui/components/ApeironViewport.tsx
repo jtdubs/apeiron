@@ -245,8 +245,6 @@ export const ApeironViewport: React.FC = () => {
 
           engine.renderFrame({ context, command, theme });
 
-          scheduler.notifySliceComplete();
-
           const ms = engine.getMathPassMs();
           if (ms !== -1) {
             devChannels.renderms.set(ms);

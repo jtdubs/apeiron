@@ -1,5 +1,10 @@
 import type { RenderFrameDescriptor } from './RenderFrameDescriptor';
-import { packCameraParams, packResolveUniforms } from './generated/MemoryLayout';
+import {
+  META_STRIDE,
+  FLOATS_PER_ITER,
+  packCameraParams,
+  packResolveUniforms,
+} from './generated/MemoryLayout';
 
 // ─── AccumulationPass ────────────────────────────────────────────────────────
 
@@ -366,7 +371,7 @@ export class PassManager {
     // we skip the camState string-diff and always upload the current values.
     const actualRefMaxIter =
       this.hasValidActiveRefOrbits && desc.context.refOrbits
-        ? (desc.context.refOrbits.length - 8) / 8 // META_STRIDE / FLOATS_PER_ITER
+        ? (desc.context.refOrbits.length - META_STRIDE) / FLOATS_PER_ITER
         : desc.context.computeMaxIter;
     const paletteMaxIter = this.hasValidActiveRefOrbits
       ? actualRefMaxIter

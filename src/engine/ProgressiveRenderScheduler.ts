@@ -318,9 +318,7 @@ export class ProgressiveRenderScheduler {
 
   public getPipelineMode(isInteracting: boolean): 'INTERACT' | 'ACCUMULATING' | 'DEEPENING' {
     if (isInteracting) return 'INTERACT';
-    if (!this.isDeepening) return 'ACCUMULATING';
-    return 'DEEPENING';
+    if (this.isDeepening) return 'DEEPENING';
+    return 'ACCUMULATING';
   }
-
-  public notifySliceComplete() {}
 }

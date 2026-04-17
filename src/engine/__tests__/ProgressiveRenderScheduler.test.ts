@@ -43,8 +43,6 @@ describe('ProgressiveRenderScheduler', () => {
     expect(command1?.loadCheckpoint).toBe(false);
     expect(command1?.clearCheckpoint).toBe(false);
 
-    scheduler.notifySliceComplete();
-
     // Now invalidate it by changing the context
     const mutatedContext = createMockContext({ zoom: 1.0 });
     const command2 = scheduler.update(mutatedContext, false, 0, 0, 1.0, 1920, 1080, 10, false);
@@ -61,8 +59,6 @@ describe('ProgressiveRenderScheduler', () => {
     expect(commandInteract?.blendWeight).toBe(0.0);
     expect(commandInteract?.renderScale).toBe(0.5);
 
-    scheduler.notifySliceComplete();
-
     // Even if it completes a slice, if it's still interacting next frame, it resets!
     scheduler.update(ctx, true, 0, 0, 0.5, 1920, 1080, 10, false);
     expect(scheduler.getAccumulationCount()).toBe(0);
@@ -76,7 +72,6 @@ describe('ProgressiveRenderScheduler', () => {
     const cmd1 = scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, 50, false); // fast ms to give high budget but not 500
     expect(cmd1?.loadCheckpoint).toBe(false);
 
-    scheduler.notifySliceComplete();
     expect(scheduler.getIsDeepening()).toBe(true);
     expect(scheduler.getAccumulationCount()).toBe(0);
 
@@ -88,7 +83,6 @@ describe('ProgressiveRenderScheduler', () => {
     // We manually advance deepening so it reaches final
     // modify scheduler internals if we could, but let's just loop until final slice
     while (scheduler.getPipelineMode(false) === 'DEEPENING') {
-      scheduler.notifySliceComplete();
       if (scheduler.getPipelineMode(false) === 'ACCUMULATING') break;
       scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, -1, true); // send isTargetMet=true
     }
