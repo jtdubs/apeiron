@@ -43,16 +43,18 @@ glitches, you are explicitly required to review the `docs/math-backend-design.md
 
 ## 4. Task Lifecycle Protocol
 
-- **Creation**: When a new feature or task is defined, you MUST create a new task markdown file in `docs/tasks/` matching the format of `docs/tasks/template.md`. The task must include clearly defined Objectives, Links to Design Docs, Requirements, an Implementation Plan, and Verification Steps.
-- **Execution**: To find the next available task, consult the active Phase in `docs/roadmap.md`. When beginning a task defined in `docs/tasks/`, always comprehensively review the `.md` file for acceptance criteria and related architectural documentation.
-- **Completion**: When a task's implementation is finalized and verified, you MUST do four things:
-  1. Change `status: open` to `status: closed` in the YAML frontmatter of the specific
-     `docs/tasks/*.md` file.
-  2. Change the empty bracket `[ ]` to a checked bracket `[x]` in the master `docs/roadmap.md` file
-     to reflect progress.
-  3. Move the completed task file into the `docs/tasks/completed/` directory to maintain a clean
-     active workspace while preserving historical context.
-  4. Create a task-scoped `git commit` incorporating all file changes pertinent to that specific task, keeping the repository history clean and incremental.
+For complex features, adhere to a strict progression: **Proposal -> Design -> Task Definition -> Verification Setup -> Implementation -> Synthesis & Completion**.
+
+- **Proposal**: If the goal is not definitively clear, outline a brief proposal for the feature. If the goal is clear, this step can be skipped.
+- **Design Docs**: Refer to existing architectural documents or write/amend a design document in `docs/`. Never implement complex systems without a formalized design.
+- **Task Definition**: Create a new task markdown file in `docs/tasks/` matching `docs/tasks/template.md`. Include clearly defined Objectives, Links to Design Docs, Requirements, and an Implementation Plan.
+- **Verification Setup (TDD)**: Before writing application logic, establish quantifiable tests, headless verification scripts, or visual check hooks. Provide the agent with an objective compiler/tester loop.
+- **Implementation**: Write the core functionality, iterating against the Verification Setup to ensure deterministic success.
+- **Synthesis & Completion**: When implementation is verified, extract any newly discovered architectural constraints or learnings, and update the central `docs/` index or relevant architecture guides. Then:
+  1. Change `status: open` to `status: closed` in `docs/tasks/*.md`.
+  2. Mark `[x]` in `docs/roadmap.md`.
+  3. Move the completed task file to `docs/tasks/completed/`.
+  4. Create a task-scoped `git commit` incorporating all pertinent files.
 
 ## 5. Debugging Protocol
 
@@ -62,3 +64,9 @@ When resolving rendering glitches, logic flaws, or any application bugs, you MUS
 2. **Research:** Analyze the technical design docs and current implementation to determine likely mathematical, architectural, or state-driven causes of the bug.
 3. **Reproduce via Test:** Add a test case that definitively detects and fails due to the bug. **CRITICAL:** Do not modify the application code during this step. The test must be isolated from the system's runtime behavior to ensure it accurately reproduces the flaw in the current implementation.
 4. **Fix and Validate:** Only after a failing test case is committed, attempt to fix the application code. Use the newly created test case to verify that the fix resolves the issue deterministically.
+
+## 6. Behavioral Directives
+
+- **Deliberate Pacing Over Rushing**: Do not rush into code implementation, especially for complex features. Stop and think. Proceed through the Proposal -> Design -> Task Definition -> Verification Setup -> Implementation -> Synthesis workflow. Avoid digging into architectural holes by ensuring a sound design and test criteria exist before writing code.
+- **Critical Analysis Over Flattery**: Avoid deferential flattery or immediately agreeing with user suggestions. Instead, default to objective, rigorous engineering scrutiny. Evaluate all proposed ideas, architectures, and implementations strictly against performance requirements, established best practices, and the technical boundaries defined in the documentation.
+- **Provide Alternatives**: If a user proposal has flaws, edge cases, or negative performance implications, proactively highlight them and suggest architecturally sound alternatives rather than blindly agreeing to implement it.
