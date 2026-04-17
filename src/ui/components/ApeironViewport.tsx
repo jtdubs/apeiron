@@ -9,9 +9,7 @@ import layoutWgsl from '../../engine/shaders/escape/generated/layout.wgsl?raw';
 import layoutAccessorsWgsl from '../../engine/shaders/escape/generated/layout_accessors.wgsl?raw';
 import { viewportStore } from '../stores/viewportStore';
 import { renderStore } from '../stores/renderStore';
-import { ProgressiveRenderScheduler } from '../../engine/ProgressiveRenderScheduler';
-import { AdaptiveDRSController } from '../../engine/AdaptiveDRS';
-import { buildMathContext } from '../stores/mathContextAdapter';
+import { RenderOrchestrator } from '../../engine/RenderOrchestrator';
 import { PerturbationOrchestrator } from '../../engine/PerturbationOrchestrator';
 import { TelemetryRegistry } from '../../engine/debug/TelemetryRegistry';
 
@@ -173,9 +171,7 @@ export const ApeironViewport: React.FC = () => {
         engineRef.current = engine;
 
         // ── Render Orchestration Loop ───────────────────────────────────────
-        const scheduler = new ProgressiveRenderScheduler();
-        const adrsController = new AdaptiveDRSController();
-        let wasInteracting = false;
+        const orchestrator = new RenderOrchestrator();
         let lastFrameTime = performance.now();
 
         const registry = TelemetryRegistry.getInstance();
@@ -204,20 +200,6 @@ export const ApeironViewport: React.FC = () => {
             retention: 'lapse',
             smoothingAlpha: 0.1,
           }),
-          adrsScale: registry.register({
-            id: 'engine.adrsScale',
-            label: 'ADRS Scale',
-            group: 'WebGPU',
-            type: 'analog',
-            retention: 'latch',
-          }),
-          adrsIter: registry.register({
-            id: 'engine.adrsIter',
-            label: 'ADRS Max Iter',
-            group: 'WebGPU',
-            type: 'analog',
-            retention: 'latch',
-          }),
         };
 
         const loop = () => {
@@ -236,56 +218,23 @@ export const ApeironViewport: React.FC = () => {
           const state = viewportStore.getState();
           const theme = renderStore.getState();
 
-          const isInteracting = state.interactionState !== 'STATIC';
-          const renderDpr = window.devicePixelRatio || 1;
-
-          if (!isInteracting && wasInteracting) {
-            adrsController.reset();
-          }
-          wasInteracting = isInteracting;
-
-          let snapshotRenderScale = 1.0;
-          let interactMaxIterOverride: number | null = null;
-          const gpuMs = engine.getMathPassMs();
-
-          if (isInteracting) {
-            const adrsState = adrsController.update(gpuMs);
-            snapshotRenderScale = adrsState.renderScale / renderDpr;
-            interactMaxIterOverride = adrsState.effectiveMaxIter;
-            devChannels.adrsScale.set(adrsState.renderScale);
-            devChannels.adrsIter.set(adrsState.effectiveMaxIter);
-          } else {
-            devChannels.adrsScale.set(1.0);
-            devChannels.adrsIter.set(0);
-          }
-
-          const context = buildMathContext(
+          const descriptor = orchestrator.tick(
             state,
             theme,
-            canvas?.width ?? 0,
-            canvas?.height ?? 0,
-            interactMaxIterOverride,
-          );
-
-          const command = scheduler.update(
-            context,
-            isInteracting,
-            canvasSizeVersion,
-            theme.themeVersion,
-            snapshotRenderScale,
-            canvas?.width ?? 1,
-            canvas?.height ?? 1,
             engine.getMathPassMs(),
             engine.isIterationTargetMet(),
+            canvas?.width ?? 1,
+            canvas?.height ?? 1,
+            canvasSizeVersion,
           );
 
-          if (!command) {
+          if (!descriptor) {
             registry.commitFrame();
             requestRef.current = requestAnimationFrame(loop);
             return;
           }
 
-          engine.renderFrame({ context, command, theme });
+          engine.renderFrame(descriptor);
 
           const ms = engine.getMathPassMs();
           if (ms !== -1) {

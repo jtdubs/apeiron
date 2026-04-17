@@ -1,5 +1,4 @@
 import type { MathContext, ExecutionCommand } from './RenderFrameDescriptor';
-import { IterationBudgetController } from './IterationBudgetController';
 import { TelemetryRegistry, type TelemetryChannel } from './debug/TelemetryRegistry';
 
 export function contextsEqual(a: MathContext, b: MathContext): boolean {
@@ -21,13 +20,11 @@ export class ProgressiveRenderScheduler {
   private accumulationCount = 0;
   private isDeepening = true;
   private isFirstSlice = true;
-  private budgetController = new IterationBudgetController(14);
   private cycleJitterX = 0;
   private cycleJitterY = 0;
 
   private channels: {
     mode: TelemetryChannel;
-    budget: TelemetryChannel;
     renderscale: TelemetryChannel;
     saSkip: TelemetryChannel;
     zoom: TelemetryChannel;
@@ -64,14 +61,6 @@ export class ProgressiveRenderScheduler {
         type: 'enum',
         retention: 'latch',
         enumValues: { 0: 'INTERACT', 1: 'DEEPENING', 2: 'ACCUM', 3: 'IDLE' },
-      }),
-      budget: reg.register({
-        id: 'engine.budget',
-        label: 'Iteration Budget',
-        group: 'FSM',
-        type: 'analog',
-        retention: 'latch',
-        smoothingAlpha: 0.1,
       }),
       renderscale: reg.register({
         id: 'engine.renderscale',
@@ -205,10 +194,6 @@ export class ProgressiveRenderScheduler {
     return this.isDeepening;
   }
 
-  public getBudget(): number {
-    return this.budgetController.getBudget();
-  }
-
   public update(
     context: MathContext,
     isInteracting: boolean,
@@ -217,7 +202,7 @@ export class ProgressiveRenderScheduler {
     snapshotRenderScale: number,
     canvasWidth: number,
     canvasHeight: number,
-    mathPassMs: number,
+    stepLimit: number,
     isTargetMet: boolean,
   ): ExecutionCommand | null {
     let invalidated = false;
@@ -261,9 +246,6 @@ export class ProgressiveRenderScheduler {
     }
 
     const isFirstSliceVal = this.isFirstSlice;
-    const rawBudget = this.budgetController.update(mathPassMs !== -1 ? mathPassMs : 14);
-
-    const stepLimit = rawBudget; // Detached from iterations completely
 
     const advancePingPong = isFirstSliceVal;
     const clearCheckpoint = isFirstSliceVal && this.accumulationCount > 0;
@@ -296,7 +278,6 @@ export class ProgressiveRenderScheduler {
     const modeVal = mode === 'INTERACT' ? 0 : mode === 'DEEPENING' ? 1 : 2;
 
     this.channels.mode.set(modeVal);
-    this.channels.budget.set(rawBudget);
     this.channels.renderscale.set(snapshotRenderScale);
     this.channels.saSkip.set(context.skipIter);
 
