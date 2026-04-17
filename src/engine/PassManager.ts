@@ -10,7 +10,7 @@ import {
 
 export class AccumulationPass {
   private device: GPUDevice;
-  private mathPipeline: GPURenderPipeline;
+  private mathPipeline: GPUComputePipeline;
   public uniformsBuffer: GPUBuffer;
   private dummyRefOrbitsBuffer: GPUBuffer;
 
@@ -29,19 +29,11 @@ export class AccumulationPass {
     });
     device.queue.writeBuffer(this.dummyRefOrbitsBuffer, 0, new Float32Array([0.0, 0.0, 0.0, 0.0]));
 
-    this.mathPipeline = device.createRenderPipeline({
+    this.mathPipeline = device.createComputePipeline({
       layout: 'auto',
-      vertex: {
+      compute: {
         module: mathModule,
-        entryPoint: 'vs_main',
-      },
-      fragment: {
-        module: mathModule,
-        entryPoint: 'fs_main',
-        targets: [{ format: 'rgba32float' }],
-      },
-      primitive: {
-        topology: 'triangle-list',
+        entryPoint: 'main_compute',
       },
     });
   }
@@ -51,6 +43,7 @@ export class AccumulationPass {
     prevFrameView: GPUTextureView,
     checkpointBuffer: GPUBuffer,
     completionFlagBuffer: GPUBuffer,
+    targetView: GPUTextureView,
   ): GPUBindGroup {
     return this.device.createBindGroup({
       layout: this.mathPipeline.getBindGroupLayout(0),
@@ -65,28 +58,20 @@ export class AccumulationPass {
         { binding: 4, resource: prevFrameView },
         { binding: 5, resource: { buffer: checkpointBuffer } },
         { binding: 6, resource: { buffer: completionFlagBuffer } },
+        { binding: 7, resource: targetView },
       ],
     });
   }
 
   public execute(
     commandEncoder: GPUCommandEncoder,
-    gBufferView: GPUTextureView,
     bindGroup: GPUBindGroup,
     renderWidth: number,
     renderHeight: number,
     queryActive?: boolean,
     querySet?: GPUQuerySet | null,
   ) {
-    const mathPass = commandEncoder.beginRenderPass({
-      colorAttachments: [
-        {
-          view: gBufferView,
-          clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
-          loadOp: 'clear',
-          storeOp: 'store',
-        },
-      ],
+    const mathPass = commandEncoder.beginComputePass({
       ...(queryActive && querySet
         ? {
             timestampWrites: {
@@ -96,14 +81,10 @@ export class AccumulationPass {
             },
           }
         : {}),
-    } as GPURenderPassDescriptor);
+    });
     mathPass.setPipeline(this.mathPipeline);
     mathPass.setBindGroup(0, bindGroup);
-    // Constrain rasterization to the DRS sub-rect. The resolve pass upscales
-    // this region to fill the full canvas via the render_scale UV remap.
-    mathPass.setViewport(0, 0, renderWidth, renderHeight, 0, 1);
-    mathPass.setScissorRect(0, 0, renderWidth, renderHeight);
-    mathPass.draw(6);
+    mathPass.dispatchWorkgroups(Math.ceil(renderWidth / 16), Math.ceil(renderHeight / 16));
     mathPass.end();
   }
 }
@@ -287,7 +268,10 @@ export class PassManager {
     const desc: GPUTextureDescriptor = {
       size: [this.width, this.height, 1],
       format: 'rgba32float',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+      usage:
+        GPUTextureUsage.RENDER_ATTACHMENT |
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.STORAGE_BINDING,
     };
 
     this.gBufferTextureA = this.device.createTexture(desc);
@@ -407,6 +391,8 @@ export class PassManager {
       debug_view_mode: desc.context.debugViewMode,
       canvas_width: width,
       skip_iter: desc.context.skipIter,
+      drs_width: renderWidth,
+      drs_height: renderHeight,
     });
     this.device.queue.writeBuffer(
       this.accumPass.uniformsBuffer,
@@ -513,6 +499,7 @@ export class PassManager {
       readTex!.createView(),
       this.checkpointBuffer!,
       this.completionFlagBuffer!,
+      writeTex!.createView(),
     );
 
     // Initialize completion flag to 1 (true) before the pass
@@ -520,7 +507,6 @@ export class PassManager {
 
     this.accumPass.execute(
       commandEncoder,
-      writeTex!.createView(),
       accumBindGroup,
       renderWidth,
       renderHeight,

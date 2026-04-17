@@ -594,25 +594,7 @@ fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32
   }
 }
 
-@compute @workgroup_size(1)
-fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
-  let idx = global_id.x;
-  
-  let input_z = vec2<f32>(data_in[idx * 6u], data_in[idx * 6u + 1u]);
-  let input_c = vec2<f32>(data_in[idx * 6u + 2u], data_in[idx * 6u + 3u]);
-  let delta_c = vec2<f32>(data_in[idx * 6u + 4u], data_in[idx * 6u + 5u]);
-  let delta_z = vec2<f32>(0.0, 0.0);
-  
-  let floats_per_case = u32(camera.ref_max_iter) * FLOATS_PER_ITER + META_STRIDE;
-  let ref_offset = idx * floats_per_case;
-
-  let ret = execute_engine_math(input_z, input_c, delta_z, delta_c, ref_offset, idx);
-  
-  data_out[idx * 4u] = ret.x;
-  data_out[idx * 4u + 1u] = ret.y;
-  data_out[idx * 4u + 2u] = ret.z;
-  data_out[idx * 4u + 3u] = ret.w;
-}
+@group(0) @binding(7) var g_buffer_out: texture_storage_2d<rgba32float, write>;
 
 @compute @workgroup_size(64)
 fn unit_test_complex_math(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -727,35 +709,28 @@ fn unit_test_bla_advance(@builtin(global_invocation_id) global_id: vec3<u32>) {
   data_out[idx * 4u + 3u] = select(0.0, 1.0, bla.advanced);
 }
 
-@vertex
-fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
-  var pos = array<vec2<f32>, 6>(
-    vec2<f32>(-1.0, -1.0), vec2<f32>( 1.0, -1.0), vec2<f32>(-1.0,  1.0),
-    vec2<f32>(-1.0,  1.0), vec2<f32>( 1.0, -1.0), vec2<f32>( 1.0,  1.0)
-  );
-  var out: VertexOutput;
-  out.position = vec4<f32>(pos[VertexIndex], 0.0, 1.0);
-  out.uv = pos[VertexIndex];
-  return out;
-}
-
-@fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-  let pixel_id = u32(in.position.y) * u32(camera.canvas_width) + u32(in.position.x);
-  let coord = vec2<i32>(in.position.xy);
+@compute @workgroup_size(16, 16)
+fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
+  if (global_id.x >= u32(camera.drs_width) || global_id.y >= u32(camera.drs_height)) {
+    return;
+  }
+  let coord = vec2<i32>(global_id.xy);
+  let pixel_id = u32(coord.y) * u32(camera.canvas_width) + u32(coord.x);
   var cp = checkpoint[pixel_id];
   
   // Terminal Resolving during Progressive Rendering.
-  // `cp.iter = -1.0` is the sentinel value mathematically asserting this pixel has escaped completely.
-  // During accumulating frames (`load_checkpoint`), we don't clear or wipe the accumulator for these pixels.
-  // We simply copy their terminal stored pixel output natively into the ping-pong compositor.
   if (cp.iter < 0.0 && camera.load_checkpoint > 0.5) {
       let stored_result = vec4<f32>(cp.zx, cp.zy, cp.der_x, cp.der_y);
       let prev = textureLoad(readTex, coord, 0);
-      return mix(prev, stored_result, select(1.0, camera.blend_weight, camera.blend_weight > 0.0));
+      let out_val = mix(prev, stored_result, select(1.0, camera.blend_weight, camera.blend_weight > 0.0));
+      textureStore(g_buffer_out, coord, out_val);
+      return;
   }
 
-  let uv_mapped = vec2<f32>((in.uv.x + camera.jitter_x) * camera.scale * camera.aspect, (in.uv.y + camera.jitter_y) * camera.scale);
+  let uv_x = (f32(global_id.x) + 0.5) / camera.drs_width * 2.0 - 1.0;
+  let uv_y = 1.0 - (f32(global_id.y) + 0.5) / camera.drs_height * 2.0;
+
+  let uv_mapped = vec2<f32>((uv_x + camera.jitter_x) * camera.scale * camera.aspect, (uv_y + camera.jitter_y) * camera.scale);
   
   let cos_theta = cos(camera.slice_angle);
   let sin_theta = sin(camera.slice_angle);
@@ -795,18 +770,44 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
       
       // Still allow yielding to not flash black holes
       if (ret.x < -1.0 && camera.blend_weight > 0.0) {
-          return textureLoad(readTex, coord, 0);
+          textureStore(g_buffer_out, coord, textureLoad(readTex, coord, 0));
+          return;
       }
   } else {
-      if (ret.x < -1.0) {
-          if (camera.blend_weight > 0.0) {
-              return textureLoad(readTex, coord, 0);
-          } else {
-              return vec4<f32>(camera.compute_max_iter, 0.0, 0.0, 0.0);
-          }
+      // Progressive Frame Accumulation
+      if (ret.x < -1.0 && camera.blend_weight > 0.0) {
+          textureStore(g_buffer_out, coord, textureLoad(readTex, coord, 0));
+          return;
+      }
+      
+      if (camera.blend_weight > 0.0) {
+          let prev = textureLoad(readTex, coord, 0);
+          output_color = mix(prev, output_color, camera.blend_weight);
       }
   }
   
-  let prev = textureLoad(readTex, coord, 0);
-  return mix(prev, output_color, select(1.0, camera.blend_weight, camera.blend_weight > 0.0));
+  textureStore(g_buffer_out, coord, output_color);
+}
+
+@compute @workgroup_size(1)
+fn unit_test_engine_math(@builtin(global_invocation_id) global_id: vec3<u32>) {
+  let idx = global_id.x;
+  if (idx * 6u >= arrayLength(&data_in)) {
+      return;
+  }
+  
+  let input_z = vec2<f32>(data_in[idx * 6u], data_in[idx * 6u + 1u]);
+  let input_c = vec2<f32>(data_in[idx * 6u + 2u], data_in[idx * 6u + 3u]);
+  let delta_c = vec2<f32>(data_in[idx * 6u + 4u], data_in[idx * 6u + 5u]);
+  let delta_z = vec2<f32>(0.0, 0.0);
+  
+  let floats_per_case = u32(camera.ref_max_iter) * FLOATS_PER_ITER + META_STRIDE;
+  let ref_offset = idx * floats_per_case;
+
+  let ret = execute_engine_math(input_z, input_c, delta_z, delta_c, ref_offset, idx);
+  
+  data_out[idx * 4u] = ret.x;
+  data_out[idx * 4u + 1u] = ret.y;
+  data_out[idx * 4u + 2u] = ret.z;
+  data_out[idx * 4u + 3u] = ret.w;
 }

@@ -8,14 +8,14 @@ Apeiron utilizes a direct WebGPU pipeline optimized for parallel mathematical co
 
 To decouple heavy orbit calculations from UI responsiveness, Apeiron utilizes a Deferred Resolve pipeline via an intermediate G-Buffer.
 
-- **Accumulator Math Pass (Compute/Fragment):** During progressive rendering, the hot loops calculate and accumulate raw, multi-sampled mathematical output floats (e.g., Continuous Iteration, Distance Estimation, Stripe Average/TIA). No color or lighting decisions are made here.
+- **Accumulator Math Pass (Compute Kernel):** During progressive rendering, the parallel math engines operate purely as `GPUComputePipeline` distributions. This natively allows calculating multi-sampled limits without the severe GPU performance penalty of "Quad-Divergence" stalls. It outputs raw mathematical floats (Continuous Iteration, DE, TIA) directly into `texture_storage_2d` targets instead of resolving colors.
 - **Presentation Pass (Resolve Fragment):** A final Resolve Shader executes continuously at 60fps, reading the raw data buffers and dynamically applying Trigonometric Cosine Palettes, 3D specular lighting, topological contours, and exterior glow logic. This guarantees perfect anti-aliasing while allowing instant UI theme updates without recalculating a single fractal orbit.
 
 ### 1.2 Offscreen and Headless Capabilities
 
 The engine initializes via a `createFractalEngine(canvas?)` abstraction.
 
-- If passed a valid `HTMLCanvasElement`, it constructs the SwapChain and Fragment pipelines for real-time visualization.
+- If passed a valid `HTMLCanvasElement`, it constructs the SwapChain, the core Compute Accumulators, and Fragment pipelines for real-time visualization.
 - If omitted, it binds exclusively to offscreen textures and mapping buffers. This creates the backbone of our data-first unit testing.
 
 ### 1.3 4D Viewport Mapping (The Slicing Plane)
@@ -44,7 +44,7 @@ To prevent rendering bottlenecks caused by dense fractal interior locations that
 To prevent the engine from rendering a "Black Void" when the user rapidly pans or zooms out of mathematical bounds, the engine maintains a hidden **History Cache** of WebGPU textures:
 
 - As the user zooms _in_, the engine occasionally snapshots the 4K canvas, downscales it to a reduced resolution to conserve VRAM, and pushes it to an off-screen Ring Buffer array.
-- During rapid traversal (the `INTERACT_FAST` progressive rendering state), the fragment shader samples from this History Cache. It selects the closest zoomed-out texture and stretches it across the newly exposed territory.
+- During rapid traversal (the `INTERACT_FAST` progressive rendering state), the compute pass downsizes calculation dispatches natively using Dynamic Resolution Scaling (DRS) via `drs_width/drs_height`, and the presentation fragment shader smoothly interpolates this low-res data across the full UI canvas. The engine also samples from a persistent History Cache to patch surrounding bounds.
 - To prevent VRAM starvation and browser context crashes (especially on mobile browsers like iOS Safari), the History Cache is strictly limited to a Ring Buffer of the most recent 3 to 5 zoom tiers.
 
 ## 2. Advanced Coloring Features

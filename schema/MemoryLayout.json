@@ -66,9 +66,9 @@
         { "name": "debug_view_mode", "type": "f32" },
         { "name": "canvas_width", "type": "f32" },
         { "name": "skip_iter", "type": "f32" },
-        { "name": "pad1", "type": "f32" },
-        { "name": "pad2", "type": "f32" },
-        { "name": "pad3", "type": "f32" }
+        { "name": "drs_width", "type": "f32" },
+        { "name": "drs_height", "type": "f32" },
+        { "name": "pad1", "type": "f32" }
       ]
     },
     "ResolveUniforms": {

@@ -28,7 +28,7 @@ export class WebGPUTestHarness {
     exponent: number = 2.0,
   ): Promise<Float32Array> {
     return this.executeUnitTest(
-      'main_compute',
+      'unit_test_engine_math',
       input,
       {
         cameraData: {
@@ -141,7 +141,7 @@ export class WebGPUTestHarness {
     if (
       (entryPoint === 'unit_test_sa_init' ||
         entryPoint === 'unit_test_bla_advance' ||
-        entryPoint === 'main_compute') &&
+        entryPoint === 'unit_test_engine_math') &&
       options.refOrbits
     ) {
       const refArray = options.refOrbits;
@@ -190,7 +190,7 @@ export class WebGPUTestHarness {
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
       entries.push({ binding: 3, resource: { buffer: refOrbitsActualBuffer } });
       entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
-    } else if (entryPoint === 'main_compute') {
+    } else if (entryPoint === 'unit_test_engine_math') {
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
       entries.push({ binding: 3, resource: { buffer: refOrbitsActualBuffer } });
       entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
@@ -206,7 +206,7 @@ export class WebGPUTestHarness {
     const passEncoder = commandEncoder.beginComputePass();
     passEncoder.setPipeline(computePipeline);
     passEncoder.setBindGroup(0, bindGroup);
-    const workgroupDivisor = entryPoint === 'main_compute' ? 1 : 64;
+    const workgroupDivisor = entryPoint === 'unit_test_engine_math' ? 1 : 64;
     passEncoder.dispatchWorkgroups(Math.ceil(computeUnits / workgroupDivisor));
     passEncoder.end();
 
