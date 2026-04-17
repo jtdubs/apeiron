@@ -72,12 +72,18 @@ export const viewportStore = createStore<ViewportState>((set) => ({
   refOrbits: null,
   interactionState: 'STATIC',
   debugViewMode: 0,
-  isTelemetryOpen: false,
+  isTelemetryOpen:
+    typeof window !== 'undefined' && localStorage.getItem('apeiron_telemetry_open') === 'true',
 
   setRefOrbits: (orbits) => set({ refOrbits: orbits }),
   setInteractionState: (interactionState) => set({ interactionState }),
   setDebugViewMode: (debugViewMode) => set({ debugViewMode }),
-  setIsTelemetryOpen: (isTelemetryOpen) => set({ isTelemetryOpen }),
+  setIsTelemetryOpen: (isTelemetryOpen) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('apeiron_telemetry_open', String(isTelemetryOpen));
+    }
+    set({ isTelemetryOpen });
+  },
 
   setAnchorsAndDeltas: (azr, azi, acr, aci, dzr, dzi, dcr, dci, zoom, sliceAngle, exponent) =>
     set({
