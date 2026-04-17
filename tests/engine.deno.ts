@@ -306,7 +306,9 @@ Deno.test({
     }
 
     const renderSession = harness.createSession(2, 2);
-    renderSession.renderFrame(0.0, 0.0, -1.748, 0.0, 1e-15, 500, 0.0, 2.0, 0.0);
+    renderSession.renderFrame({
+      context: { cr: -1.748, zoom: 1e-15, computeMaxIter: 500, paletteMaxIter: 500 },
+    });
     const renderOutput = await renderSession.readResolved();
     renderSession.destroy();
 
@@ -343,68 +345,32 @@ Deno.test({
 
     // Frame A: first render, blendWeight=0.0 (replace prev)
     const sessionA = harness.createSession(width, height);
-    sessionA.renderFrame(
-      0.0,
-      0.0,
-      -1.748,
-      0.0,
-      1.0,
-      100,
-      0.0,
-      2.0,
-      0.0, // blendWeight: first frame, replace
-      j1.jitterX,
-      j1.jitterY,
-    );
+    sessionA.renderFrame({
+      context: { cr: -1.748 },
+      command: { jitterX: j1.jitterX, jitterY: j1.jitterY },
+    });
     const frameA = await sessionA.readGBuffer();
     sessionA.destroy();
 
     // Frame B: first render in a fresh session, blendWeight=0.0
     const sessionB = harness.createSession(width, height);
-    sessionB.renderFrame(
-      0.0,
-      0.0,
-      -1.748,
-      0.0,
-      1.0,
-      100,
-      0.0,
-      2.0,
-      0.0, // blendWeight: first frame, replace
-      j2.jitterX,
-      j2.jitterY,
-    );
+    sessionB.renderFrame({
+      context: { cr: -1.748 },
+      command: { jitterX: j2.jitterX, jitterY: j2.jitterY },
+    });
     const frameB = await sessionB.readGBuffer();
     sessionB.destroy();
 
     // Accumulated session: first frame replaces, second blends at 0.5 → result = (frameA + frameB) / 2
     const sessionAccum = harness.createSession(width, height);
-    sessionAccum.renderFrame(
-      0.0,
-      0.0,
-      -1.748,
-      0.0,
-      1.0,
-      100,
-      0.0,
-      2.0,
-      0.0, // blendWeight: first frame, replace
-      j1.jitterX,
-      j1.jitterY,
-    );
-    sessionAccum.renderFrame(
-      0.0,
-      0.0,
-      -1.748,
-      0.0,
-      1.0,
-      100,
-      0.0,
-      2.0,
-      0.5, // blendWeight: 1/2 → mix(prev, curr, 0.5) = mathematical mean
-      j2.jitterX,
-      j2.jitterY,
-    );
+    sessionAccum.renderFrame({
+      context: { cr: -1.748 },
+      command: { blendWeight: 0.0, jitterX: j1.jitterX, jitterY: j1.jitterY },
+    });
+    sessionAccum.renderFrame({
+      context: { cr: -1.748 },
+      command: { blendWeight: 0.5, jitterX: j2.jitterX, jitterY: j2.jitterY },
+    });
     const accumAB = await sessionAccum.readGBuffer();
     sessionAccum.destroy();
 
@@ -438,7 +404,9 @@ Deno.test({
     // accumulationCount goes 1..64; blendWeight = 0.0 for first, 1/N for N-th
     for (let i = 1; i <= 64; i++) {
       const blendWeight = i === 1 ? 0.0 : 1.0 / i;
-      session.renderFrame(0.0, 0.0, 0.0, 0.0, 1.0, 100, 0.0, 2.0, blendWeight, 0.1, -0.1);
+      session.renderFrame({
+        command: { blendWeight, jitterX: 0.1, jitterY: -0.1 },
+      });
     }
     const blackHoleAccum = await session.readResolved();
     session.destroy();
@@ -575,57 +543,26 @@ Deno.test({
     const width = 2;
     const height = 2;
 
-    const zr = 0.0;
-    const zi = 0.0;
     const cr = -1.75;
-    const ci = 0.0;
     const zoom = 500.0;
     const maxIter = 250;
 
     // Run A: Single monolithic pass
     const sessionA = harness.createSession(width, height);
-    sessionA.renderFrame(
-      zr,
-      zi,
-      cr,
-      ci,
-      zoom,
-      maxIter,
-      0.0,
-      2.0,
-      0.0,
-      0.0,
-      0.0,
-      undefined,
-      undefined,
-      maxIter,
-      false,
-      true,
-    );
+    sessionA.renderFrame({
+      context: { cr, zoom, computeMaxIter: maxIter, paletteMaxIter: maxIter },
+      command: { stepLimit: maxIter, loadCheckpoint: false, clearCheckpoint: true },
+    });
     const resultA = await sessionA.readGBuffer();
     sessionA.destroy();
 
     // Run B: Stepped pipeline (10 steps of 25 iterations each)
     const sessionB = harness.createSession(width, height);
     for (let step = 0; step < 10; step++) {
-      sessionB.renderFrame(
-        zr,
-        zi,
-        cr,
-        ci,
-        zoom,
-        maxIter,
-        0.0,
-        2.0,
-        0.0,
-        0.0,
-        0.0,
-        undefined,
-        undefined,
-        25, // yieldIterLimit
-        step > 0, // loadCheckpoint
-        step === 0, // clearCheckpoint
-      );
+      sessionB.renderFrame({
+        context: { cr, zoom, computeMaxIter: maxIter, paletteMaxIter: maxIter },
+        command: { stepLimit: 25, loadCheckpoint: step > 0, clearCheckpoint: step === 0 },
+      });
     }
     const resultB = await sessionB.readGBuffer();
     sessionB.destroy();
@@ -656,22 +593,10 @@ Deno.test({
     // We cap the yield limit at 20. The math MUST yield and safely map to the interior color (maxIter 100),
     // rather than rendering an arbitrary base-zero gradient flash.
     const session = harness.createSession(width, height);
-    session.renderFrame(
-      0.0,
-      0.0,
-      -1.748,
-      0.0,
-      1.0, // zoom
-      100, // maxIter
-      0.0, // angle
-      2.0, // exp
-      0.0, // blendWeight
-      0.0, // jitterX
-      0.0, // jitterY
-      undefined, // refOrbits
-      undefined, // theme
-      20, // yieldIterLimit!
-    );
+    session.renderFrame({
+      context: { cr: -1.748 },
+      command: { stepLimit: 20 },
+    });
 
     const yieldData = await session.readResolved();
     session.destroy();

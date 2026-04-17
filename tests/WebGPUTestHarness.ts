@@ -258,49 +258,38 @@ export class TestRenderSession {
     this.targetView = this.targetTexture.createView();
   }
 
-  public renderFrame(
-    zr: number,
-    zi: number,
-    cr: number,
-    ci: number,
-    zoom: number,
-    maxIter: number,
-    sliceAngle: number,
-    exponent: number,
-    blendWeight: number = 0.0,
-    jitterX: number = 0.0,
-    jitterY: number = 0.0,
-    refOrbits?: Float64Array | null,
-    theme?: RenderState,
-    yieldIterLimit?: number,
-    loadCheckpoint: boolean = false,
-    clearCheckpoint: boolean = true,
-  ) {
+  public renderFrame(options: {
+    context?: Partial<MathContext>;
+    command?: Partial<ExecutionCommand>;
+    theme?: Partial<RenderState>;
+  }) {
     const desc: RenderFrameDescriptor = {
       context: {
-        zr,
-        zi,
-        cr,
-        ci,
-        zoom,
-        computeMaxIter: maxIter,
-        paletteMaxIter: maxIter,
-        sliceAngle,
-        exponent,
-        refOrbits: refOrbits ?? null,
+        zr: 0,
+        zi: 0,
+        cr: 0,
+        ci: 0,
+        zoom: 1,
+        computeMaxIter: 100,
+        paletteMaxIter: 100,
+        sliceAngle: 0,
+        exponent: 2,
+        refOrbits: null,
         debugViewMode: 0,
+        ...options.context,
       },
       command: {
         renderScale: 1.0,
-        blendWeight,
-        jitterX,
-        jitterY,
-        stepLimit: yieldIterLimit ?? maxIter,
-        loadCheckpoint,
+        blendWeight: 0.0,
+        jitterX: 0.0,
+        jitterY: 0.0,
+        stepLimit: 100,
+        loadCheckpoint: false,
         advancePingPong: true,
-        clearCheckpoint,
+        clearCheckpoint: true,
+        ...options.command,
       },
-      theme: theme ?? ({} as RenderState),
+      theme: (options.theme ?? {}) as RenderState,
     };
     this.pm.render(this.targetView, this.width, this.height, desc);
   }
