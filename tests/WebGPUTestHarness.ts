@@ -273,6 +273,8 @@ export class TestRenderSession {
     refOrbits?: Float64Array | null,
     theme?: RenderState,
     yieldIterLimit?: number,
+    loadCheckpoint: boolean = false,
+    clearCheckpoint: boolean = true,
   ) {
     const desc: RenderFrameDescriptor = {
       context: {
@@ -294,9 +296,9 @@ export class TestRenderSession {
         jitterX,
         jitterY,
         stepLimit: yieldIterLimit ?? maxIter,
-        loadCheckpoint: false,
+        loadCheckpoint,
         advancePingPong: true,
-        clearCheckpoint: true,
+        clearCheckpoint,
       },
       theme: theme ?? ({} as RenderState),
     };

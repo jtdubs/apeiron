@@ -565,6 +565,83 @@ Deno.test('Validating Series Approximation Skip Iteration Algebraic Jump', async
 });
 
 Deno.test({
+  name: 'Validating mathematical determinism of execution bounds decoupling (Multi-step equals Single-step)',
+  sanitizeOps: false,
+  async fn() {
+    const state = await initSharedState();
+    if (!state) return;
+
+    const { harness } = state;
+    const width = 2;
+    const height = 2;
+
+    const zr = 0.0;
+    const zi = 0.0;
+    const cr = -1.75;
+    const ci = 0.0;
+    const zoom = 500.0;
+    const maxIter = 250;
+
+    // Run A: Single monolithic pass
+    const sessionA = harness.createSession(width, height);
+    sessionA.renderFrame(
+      zr,
+      zi,
+      cr,
+      ci,
+      zoom,
+      maxIter,
+      0.0,
+      2.0,
+      0.0,
+      0.0,
+      0.0,
+      undefined,
+      undefined,
+      maxIter,
+      false,
+      true,
+    );
+    const resultA = await sessionA.readGBuffer();
+    sessionA.destroy();
+
+    // Run B: Stepped pipeline (10 steps of 25 iterations each)
+    const sessionB = harness.createSession(width, height);
+    for (let step = 0; step < 10; step++) {
+      sessionB.renderFrame(
+        zr,
+        zi,
+        cr,
+        ci,
+        zoom,
+        maxIter,
+        0.0,
+        2.0,
+        0.0,
+        0.0,
+        0.0,
+        undefined,
+        undefined,
+        25, // yieldIterLimit
+        step > 0, // loadCheckpoint
+        step === 0, // clearCheckpoint
+      );
+    }
+    const resultB = await sessionB.readGBuffer();
+    sessionB.destroy();
+
+    for (let i = 0; i < resultA.length; i++) {
+      // Only accept VERY minor float differences
+      if (Math.abs(resultA[i] - resultB[i]) > 1e-4) {
+        throw new Error(
+          `Execution bounds decoupling failed! Multi-step pipeline diverged from single-step results at GBuffer float index ${i}. Single: ${resultA[i]}, Multi: ${resultB[i]}`,
+        );
+      }
+    }
+  },
+});
+
+Deno.test({
   name: 'Validating Iteration Yield Fallback to Interior',
   sanitizeOps: false,
   async fn() {
