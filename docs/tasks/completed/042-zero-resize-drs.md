@@ -12,7 +12,7 @@ GPU, keeping the canvas and G-Buffer textures permanently fixed at full native r
 
 ## Relevant Design Docs
 
-- `docs/design/rendering-engine.md`
+- `docs/design/engine/webgpu-passes.md`
 
 ## Background
 
@@ -119,4 +119,4 @@ the resolve-present pass uses to remap its UV sampling so the low-res quadrant f
       upscaled to fill the viewport (no black borders or UV clamping artifacts).
 - [ ] **Desktop parity:** Mouse drag and wheel zoom behaviour is unchanged.
 - [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update
-      `docs/design/rendering-engine.md` before closing this task.
+      `docs/design/engine/webgpu-passes.md` before closing this task.

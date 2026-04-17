@@ -10,7 +10,7 @@ Transcend binary black-and-white domain testing bounded models by implementing s
 
 ## Relevant Design Docs
 
-- [Math Backend Design](../../design/math-backend.md)
+- [Math Backend Design](../../design/engine/core-math.md)
 
 ## Requirements
 

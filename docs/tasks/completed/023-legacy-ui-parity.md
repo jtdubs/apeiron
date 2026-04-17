@@ -10,7 +10,7 @@ Adopt and refine rendering configuration concepts from the legacy `frac` project
 
 ## Relevant Design Docs
 
-- `docs/design/rendering-engine.md`
+- `docs/design/engine/webgpu-passes.md`
 
 ## Requirements
 

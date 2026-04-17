@@ -10,8 +10,8 @@ Connect the React UI frontend to the standalone WebGPU rendering engine (`initEn
 
 ## Relevant Design Docs
 
-- [Frontend Design](../../design/frontend.md)
-- [Rendering Engine Design](../../design/rendering-engine.md)
+- [Frontend Design](../../design/interface/react-architecture.md)
+- [Rendering Engine Design](../../design/engine/webgpu-passes.md)
 
 ## Requirements
 
@@ -34,4 +34,4 @@ Connect the React UI frontend to the standalone WebGPU rendering engine (`initEn
 - [ ] `npm run dev` yields a browser window correctly rendering the basic WGSL test pass.
 - [ ] Expanding the browser window correctly resizes the canvas output resolution via `device.configure` without pixelation or crashing.
 - [ ] No React UI re-renders are triggered by the internal drawing loop.
-- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/frontend.md` before closing this task.
+- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/interface/react-architecture.md` before closing this task.

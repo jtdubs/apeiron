@@ -10,8 +10,8 @@ Implement a robust testing strategy for the frontend UI state machine and its as
 
 ## Relevant Design Docs
 
-- [Frontend Design](../../design/frontend.md)
-- [Progressive Rendering Design](../../design/progressive-rendering.md)
+- [Frontend Design](../../design/interface/react-architecture.md)
+- [Progressive Rendering Design](../../design/engine/temporal-pipeline.md)
 - [Test Plan](../../process/test-plan.md)
 
 ## Requirements
@@ -34,4 +34,4 @@ Implement a robust testing strategy for the frontend UI state machine and its as
 - [ ] Write integration test validating `INTERACT_FAST` is properly transitioned into `STATIC` after `150ms` timeout using fake timers.
 - [ ] Write `Latest-Only Buffer` test, where 10 parameter update requests are dispatched but only the 10th request is passed along after the mocked worker resolves the 1st request.
 - [ ] Incorporate this execution natively into `npm run test` ensuring both math arrays and state machine architectures pass smoothly.
-- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/progressive-rendering.md` and `docs/process/test-plan.md` before closing this task.
+- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/engine/temporal-pipeline.md` and `docs/process/test-plan.md` before closing this task.

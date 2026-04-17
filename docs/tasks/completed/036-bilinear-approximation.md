@@ -10,8 +10,8 @@ Implement Bivariate Linear Approximation (BLA) to accelerate deep zoom perturbat
 
 ## Relevant Design Docs
 
-- [docs/design/math-backend.md](../../design/math-backend.md)
-- [docs/design/rendering-engine.md](../../design/rendering-engine.md)
+- [docs/design/engine/core-math.md](../../design/engine/core-math.md)
+- [docs/design/engine/webgpu-passes.md](../../design/engine/webgpu-passes.md)
 
 ## Requirements
 

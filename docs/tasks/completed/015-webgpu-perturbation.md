@@ -10,8 +10,8 @@ Implement the WebGPU side of the Perturbation Theory rendering logic. The comput
 
 ## Relevant Design Docs
 
-- `docs/design/math-backend.md`
-- `docs/design/rendering-engine.md`
+- `docs/design/engine/core-math.md`
+- `docs/design/engine/webgpu-passes.md`
 
 ## Requirements
 

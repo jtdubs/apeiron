@@ -61,7 +61,7 @@ The outermost layer relies on React, Zustand, and a Web Worker (communicating ba
 Across all application layers, any identified bug or rendering glitch must be resolved using the following strict test-driven workflow:
 
 1. **Document:** Ensure the bug is detailed comprehensively in a `docs/tasks/` file.
-2. **Research:** Review the implementation and relevant design documentation (e.g., `design/math-backend.md`, `design/rendering-engine.md`) to isolate the theoretical root causes (state machines, WebGPU float tolerances, worker starvation, etc.).
+2. **Research:** Review the implementation and relevant design documentation (e.g., `design/engine/core-math.md`, `design/engine/webgpu-passes.md`) to isolate the theoretical root causes (state machines, WebGPU float tolerances, worker starvation, etc.).
 3. **Reproduce via Test:** Create a deterministic test case that specifically detects the bug and fails under the current implementation. **Crucially, do not modify application source code during this step.** Whether it requires a new ground-truth entry in `tests/cases.json`, a new array validation in `engine.deno.ts`, or a UI state mock in Vitest, the test must capture the faulty state without altering application mechanics.
 4. **Fix and Validate:** Once a test definitively fails because of the documented bug, implement the patch in the application code. Iterate on the source code until the isolated test case succeeds, validating the resolution.
 

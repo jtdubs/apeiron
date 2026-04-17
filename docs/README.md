@@ -6,11 +6,11 @@ Welcome to the Apeiron documentation! This index serves as the entry point for a
 
 - [System Architecture](architecture/system.md): The overarching system design, emphasizing the strict decoupling of the UI from our math and rendering engines.
 - [Code Layout & Nomenclature](process/code-layout.md): Physical directory structure and standardized component terminology boundaries.
-- [Math Backend Design](design/math-backend.md): The native Rust/WASM arbitrary-precision calculation motor and ground-truth data generator.
-- [Rendering Engine Design](design/rendering-engine.md): The headless-capable WebGPU compute and rasterization pipelines (including Distance Estimation and Histogram mapping).
-- [Animation Design](design/animation.md): The interpolation framework governing cinematic playback and mathematical scale-bridging.
-- [State Machine Architecture](architecture/state-machine.md): The decoupling of the Temporal Pipeline Execution flow from the declarative mathematical intents and UI snapshots.
-- [Progressive Rendering Design](design/progressive-rendering.md): The performance framework governing multi-frame accumulation (supersampling) and interactive resolution scaling.
+- [Math Backend Design](design/engine/core-math.md): The native Rust/WASM arbitrary-precision calculation motor and ground-truth data generator.
+- [Rendering Engine Design](design/engine/webgpu-passes.md): The headless-capable WebGPU compute and rasterization pipelines (including Distance Estimation and Histogram mapping).
+- [Animation Design](backlog/animation.md): The interpolation framework governing cinematic playback and mathematical scale-bridging.
+- [State Machine Architecture](design/engine/temporal-pipeline.md): The decoupling of the Temporal Pipeline Execution flow from the declarative mathematical intents and UI snapshots.
+- [Progressive Rendering Design](design/engine/temporal-pipeline.md): The performance framework governing multi-frame accumulation (supersampling) and interactive resolution scaling.
 
 ## Product & Requirements
 
@@ -19,8 +19,8 @@ Welcome to the Apeiron documentation! This index serves as the entry point for a
 
 ## Frontend & Interfaces
 
-- [Frontend Design](design/frontend.md): The React/Vite domain logic, enforcing "Zero-DOM-in-Hot-Path" via Zustand state management.
-- [UI Design](design/ui.md): Our aesthetic mandate (glassmorphism/dark mode) and standard interface interaction strategies.
+- [Frontend Design](design/interface/react-architecture.md): The React/Vite domain logic, enforcing "Zero-DOM-in-Hot-Path" via Zustand state management.
+- [UI Design](design/interface/user-experience.md): Our aesthetic mandate (glassmorphism/dark mode) and standard interface interaction strategies.
 
 ## Workflow & Development
 

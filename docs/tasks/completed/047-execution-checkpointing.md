@@ -13,8 +13,8 @@ multiple full-resolution passes).
 
 ## Relevant Design Docs
 
-- `docs/design/progressive-rendering.md`
-- `docs/design/rendering-engine.md`
+- `docs/design/engine/temporal-pipeline.md`
+- `docs/design/engine/webgpu-passes.md`
 
 ## Core Design
 
@@ -250,5 +250,5 @@ entirely.
       interior black-hole, f32 early-outs, bit-perfect regression).
 - [ ] Browser smoke test with `showPerfHUD` at zoom ≈ 5e-2 (STATIC): - GPU frame time ≤ ~14 ms throughout - Budget stays in `[500, 5000]` - Slice = Budget on non-final slices; Slice < Budget on final slice - Deepen reaches 100% before each Accum increment - Accum counts monotonically 0 → 64 - No flickering: interior pixels stay black; boundary pixels converge
       smoothly to a stable color
-- [ ] **Documentation Sync:** Update `docs/design/progressive-rendering.md`
+- [ ] **Documentation Sync:** Update `docs/design/engine/temporal-pipeline.md`
       with the final ping-pong-discipline diagram before closing this task.

@@ -11,7 +11,7 @@ Refactor the `PassManager` to support offscreen headless rendering without a DOM
 ## Relevant Design Docs
 
 - [Test Plan](../../process/test-plan.md)
-- [Rendering Engine Design](../../design/rendering-engine.md)
+- [Rendering Engine Design](../../design/engine/webgpu-passes.md)
 
 ## Requirements
 

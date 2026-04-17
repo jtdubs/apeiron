@@ -10,7 +10,7 @@ Create the native Rust arbitrary precision calculation module to act as the math
 
 ## Relevant Design Docs
 
-- [Math Backend Design](../../design/math-backend.md)
+- [Math Backend Design](../../design/engine/core-math.md)
 - [Test Plan & Debugging Methodology](../../process/test-plan.md)
 
 ## Requirements
@@ -32,4 +32,4 @@ Create the native Rust arbitrary precision calculation module to act as the math
 - [ ] Compilation succeeds without errors using `wasm-pack` or equivalent tooling.
 - [ ] Function is consumable in TypeScript and successfully calculates the iterations for `tests/cases.json` inputs.
 - [ ] Array outputs demonstrably avoid `f32` precision collapse at zoomed subsets.
-- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/math-backend.md` before closing this task.
+- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/engine/core-math.md` before closing this task.

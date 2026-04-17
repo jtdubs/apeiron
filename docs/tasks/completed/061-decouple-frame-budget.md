@@ -10,8 +10,8 @@ Fully detach the per-frame computational budget from the mathematical outcomes (
 
 ## Relevant Design Docs
 
-- [Progressive Rendering Design](../../design/progressive-rendering.md)
-- [State Machine Architecture](../../architecture/state-machine.md)
+- [Progressive Rendering Design](../../design/engine/temporal-pipeline.md)
+- [State Machine Architecture](../../design/engine/temporal-pipeline.md)
 - [Apeiron Best Practices](../../process/best-practices.md)
 
 ## Requirements

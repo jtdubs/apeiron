@@ -17,8 +17,8 @@ as their orbit structure permits rather than always running to `max_iter`.
 
 ## Relevant Design Docs
 
-- [docs/design/rendering-engine.md](../../design/rendering-engine.md)
-- [docs/design/math-backend.md](../../design/math-backend.md)
+- [docs/design/engine/webgpu-passes.md](../../design/engine/webgpu-passes.md)
+- [docs/design/engine/core-math.md](../../design/engine/core-math.md)
 
 ## Background
 
@@ -114,7 +114,7 @@ Two complementary techniques are applied to the f32 path:
    unchanged. The interior test benchmark from step 1 should show a dramatic reduction in per-pixel
    iteration count for interior frames.
 
-6. **Update `docs/design/rendering-engine.md`** to document the early-out techniques.
+6. **Update `docs/design/engine/webgpu-passes.md`** to document the early-out techniques.
 
 ## Verification Steps
 
@@ -129,6 +129,6 @@ Two complementary techniques are applied to the f32 path:
 - [x] Subjective: panning through the main cardioid at zoom 1e-1 no longer causes perceptible lag
       on the f32 path (combined with Task 044's interactive `maxIter` fraction).
 - [x] Confirm `calculate_perturbation` is unmodified from its pre-task state (diff check).
-- [x] **Documentation Sync:** Update `docs/design/rendering-engine.md` Section 1 to document the
+- [x] **Documentation Sync:** Update `docs/design/engine/webgpu-passes.md` Section 1 to document the
       analytic and Brent early-out strategies for the f32 path, and note that the perturbation
       path equivalent is tracked in Task 034.

@@ -11,7 +11,7 @@ Set up the baseline Vite and React monorepo footprint to serve as the Apeiron st
 ## Relevant Design Docs
 
 - [Code Layout & Nomenclature](../../process/code-layout.md)
-- [Frontend Design](../../design/frontend.md)
+- [Frontend Design](../../design/interface/react-architecture.md)
 - [Development Guide](../../process/development.md)
 
 ## Requirements

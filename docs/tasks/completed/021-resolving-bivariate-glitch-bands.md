@@ -10,8 +10,8 @@ Fix the geometric tearing, vertical color banding, and complete loss of render d
 
 ## Relevant Design Docs
 
-- [Rendering Engine Design](../../design/rendering-engine.md)
-- [Math Backend Design](../../design/math-backend.md)
+- [Rendering Engine Design](../../design/engine/webgpu-passes.md)
+- [Math Backend Design](../../design/engine/core-math.md)
 
 ## Requirements
 

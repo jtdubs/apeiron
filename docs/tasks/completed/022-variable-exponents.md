@@ -10,9 +10,9 @@ Extend the Apeiron rendering engine and math core to support arbitrary variable 
 
 ## Relevant Design Docs
 
-- [Math Backend Design](../../design/math-backend.md)
-- [Rendering Engine Design](../../design/rendering-engine.md)
-- [Frontend Design](../../design/frontend.md)
+- [Math Backend Design](../../design/engine/core-math.md)
+- [Rendering Engine Design](../../design/engine/webgpu-passes.md)
+- [Frontend Design](../../design/interface/react-architecture.md)
 
 ## Requirements
 
@@ -39,4 +39,4 @@ Extend the Apeiron rendering engine and math core to support arbitrary variable 
 
 - [ ] Write a headless test case that structurally asserts generation of a Multibrot ($d=3$ or $d=4$) via Rust `math-core` arrays.
 - [ ] Run automated fuzzy validation to ensure the WebGPU `f32` shader outputs correspond directly with the Rust baseline using a $d=3.5$ floating-point exponent.
-- [ ] **Documentation Sync:** Once the method for arbitrary-precision trig is finalized in Rust, explicitly document it and its performance implications in `docs/design/math-backend.md`.
+- [ ] **Documentation Sync:** Once the method for arbitrary-precision trig is finalized in Rust, explicitly document it and its performance implications in `docs/design/engine/core-math.md`.

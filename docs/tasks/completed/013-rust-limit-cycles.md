@@ -10,7 +10,7 @@ Offload Deep Zoom interior Limit-Cycle boundary checking into the WASM Rust core
 
 ## Relevant Design Docs
 
-- `docs/design/math-backend.md`
+- `docs/design/engine/core-math.md`
 
 ## Requirements
 
@@ -27,4 +27,4 @@ Offload Deep Zoom interior Limit-Cycle boundary checking into the WASM Rust core
 
 - [ ] Does the Rust logic correctly flag well-known interior limit cycles (e.g. `0,0`) and return bounded derivative metadata?
 - [ ] Do headless tests confirm output shape parity with the updated metadata structure?
-- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/math-backend.md` before closing this task.
+- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/engine/core-math.md` before closing this task.

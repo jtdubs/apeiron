@@ -10,7 +10,7 @@ Establish structural interpolation routines parsing exact arbitrary limits mappi
 
 ## Relevant Design Docs
 
-- [docs/design/animation.md](../design/animation.md)
+- [docs/backlog/animation.md](../backlog/animation.md)
 
 ## Requirements
 

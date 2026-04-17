@@ -13,7 +13,7 @@ executor that receives explicit, pre-computed rendering intent.
 
 ## Relevant Design Docs
 
-- `docs/design/rendering-engine.md`
+- `docs/design/engine/webgpu-passes.md`
 
 ## Background & Motivation
 
@@ -157,4 +157,4 @@ Four compounding fragilities exist in the current STATIC/INTERACT rendering pipe
 - [ ] **First pan frame is clean** — no 1-frame tile glitch (the `blendWeight=0.0` on
       INTERACT frames replaces the `passFrameCount` workaround explicitly).
 - [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so,
-      update `docs/design/rendering-engine.md` before closing this task.
+      update `docs/design/engine/webgpu-passes.md` before closing this task.

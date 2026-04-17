@@ -11,7 +11,7 @@ Identify and fix the critical gap in the headless test suite where automated reg
 ## Relevant Design Docs
 
 - `docs/process/test-plan.md`
-- `docs/design/math-backend.md`
+- `docs/design/engine/core-math.md`
 
 ## Requirements
 

@@ -10,7 +10,7 @@ Leverage the G-Buffer (Deferred Resolve Pipeline) to apply 3D Distance Estimatio
 
 ## Relevant Design Docs
 
-- `docs/design/rendering-engine.md`
+- `docs/design/engine/webgpu-passes.md`
 
 ## Requirements
 

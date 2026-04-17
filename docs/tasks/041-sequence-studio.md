@@ -10,7 +10,7 @@ Construct the timeline UI surfaces cleanly isolating playback commands seamlessl
 
 ## Relevant Design Docs
 
-- [docs/design/animation.md](../design/animation.md)
+- [docs/backlog/animation.md](../backlog/animation.md)
 
 ## Requirements
 

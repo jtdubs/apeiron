@@ -10,8 +10,8 @@ Formalize and align the multi-boundary (Rust WASM -> TypeScript -> WebGPU) data 
 
 ## Relevant Design Docs
 
-- [Math Backend Design](../../design/math-backend.md)
-- [Rendering Engine Design](../../design/rendering-engine.md)
+- [Math Backend Design](../../design/engine/core-math.md)
+- [Rendering Engine Design](../../design/engine/webgpu-passes.md)
 
 ## Requirements
 
@@ -40,4 +40,4 @@ Formalize and align the multi-boundary (Rust WASM -> TypeScript -> WebGPU) data 
 
 - [x] Execute `npm run test:engine` (the headless Deno test harness) to verify that raw output data buffers identically match pre-existing baselines after the layout extraction.
 - [x] Inspect the WASM and WGSL compiled execution logic locally iteratively during interactive rendering to ensure FPS hasn't suffered due to dynamic offsets in WGSL (the compiler should inline them completely as `const`).
-- [x] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/math-backend.md` and `docs/product/requirements.md` before closing this task.
+- [x] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/engine/core-math.md` and `docs/product/requirements.md` before closing this task.

@@ -10,8 +10,8 @@ Replace the placeholder pipeline gradient shader with a dedicated `.wgsl` file t
 
 ## Relevant Design Docs
 
-- [Math Backend Design](../../design/math-backend.md)
-- [Rendering Engine Design](../../design/rendering-engine.md)
+- [Math Backend Design](../../design/engine/core-math.md)
+- [Rendering Engine Design](../../design/engine/webgpu-passes.md)
 
 ## Requirements
 

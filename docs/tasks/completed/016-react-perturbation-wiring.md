@@ -11,7 +11,7 @@ Bridge the gap between the React UI controls and the newly implemented Rust Web 
 ## Relevant Design Docs
 
 - `docs/architecture/system.md`
-- `docs/design/rendering-engine.md`
+- `docs/design/engine/webgpu-passes.md`
 
 ## Requirements
 

@@ -15,7 +15,7 @@ Detect limit cycles natively in the Rust `math-core` by strictly evaluating poly
 
 ## Relevant Design Docs
 
-- [docs/design/math-backend.md](../design/math-backend.md)
+- [docs/design/engine/core-math.md](../design/engine/core-math.md)
 
 ## Requirements
 

@@ -10,7 +10,7 @@ Break apart the monolithic WebGPU `initEngine.ts` orchestration layer into `Accu
 
 ## Relevant Design Docs
 
-- `docs/design/rendering-engine.md`
+- `docs/design/engine/webgpu-passes.md`
 - `docs/process/code-layout.md`
 
 ## Requirements

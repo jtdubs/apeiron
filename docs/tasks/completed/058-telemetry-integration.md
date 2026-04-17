@@ -10,7 +10,7 @@ Instrument the existing engine components (`ProgressiveRenderScheduler`, `Pertur
 
 ## Relevant Design Docs
 
-- [Telemetry Design](../../design/telemetry.md)
+- [Telemetry Design](../../design/telemetry/architecture.md)
 - [Apeiron Best Practices](../../process/best-practices.md)
 
 ## Requirements
@@ -32,4 +32,4 @@ Instrument the existing engine components (`ProgressiveRenderScheduler`, `Pertur
 - [ ] Ensure that `npm run test:engine` test suites don't break due to the registry dependencies being pulled into the FSM classes.
 - [ ] Run application manually and assert via DevTools that `TelemetryRegistry` buffers are actively accumulating real execution data.
 - [ ] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
-- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/telemetry.md` before closing this task.
+- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/telemetry/architecture.md` before closing this task.

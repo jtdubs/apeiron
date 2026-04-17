@@ -11,7 +11,7 @@ Implement a two-way synchronization layer between the application's Zustand stat
 ## Relevant Design Docs
 
 - [User Journeys](../../product/user-journeys.md) (The Deep-Zoom Enthusiast)
-- [Frontend Design](../../design/frontend.md) (State Management)
+- [Frontend Design](../../design/interface/react-architecture.md) (State Management)
 
 ## Requirements
 
@@ -31,4 +31,4 @@ Implement a two-way synchronization layer between the application's Zustand stat
 - [ ] Verify that navigating to deep bounds, updating the color palette, and changing exponents successfully updates the base64 URL.
 - [ ] Copy a generated URL, open it in a new tab, and verify that the exact visual and mathematical state is restored flawlessly.
 - [ ] Ensure that active mouse-panning does not cause UI stutter due to URL history updates (validate debounce behavior).
-- [ ] **Documentation Sync:** Update `docs/design/frontend.md` if the URL sync methodology impacts state boundaries.
+- [ ] **Documentation Sync:** Update `docs/design/interface/react-architecture.md` if the URL sync methodology impacts state boundaries.

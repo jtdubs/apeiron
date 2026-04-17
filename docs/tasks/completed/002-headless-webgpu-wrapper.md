@@ -10,7 +10,7 @@ Implement the headless-capable WebGPU engine wrapper to allow rendering and data
 
 ## Relevant Design Docs
 
-- [Rendering Engine Design](../../design/rendering-engine.md)
+- [Rendering Engine Design](../../design/engine/webgpu-passes.md)
 - [Test Plan & Debugging Methodology](../../process/test-plan.md)
 
 ## Requirements
@@ -30,4 +30,4 @@ Implement the headless-capable WebGPU engine wrapper to allow rendering and data
 
 - [ ] The engine initializes in a Node/Deno environment equipped with WebGPU backends (e.g., `dawn.node`).
 - [ ] The engine correctly executes a basic math pass (e.g., inputting `[1.0, 2.0]` and verifying output).
-- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/rendering-engine.md` before closing this task.
+- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/engine/webgpu-passes.md` before closing this task.

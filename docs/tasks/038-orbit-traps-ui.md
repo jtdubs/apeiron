@@ -10,7 +10,7 @@ Design and construct a strictly isolated zero-DOM React interface allowing digit
 
 ## Relevant Design Docs
 
-- [docs/design/ui.md](../design/ui.md)
+- [docs/design/interface/user-experience.md](../design/interface/user-experience.md)
 
 ## Requirements
 

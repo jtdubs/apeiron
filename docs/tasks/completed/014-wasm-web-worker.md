@@ -10,7 +10,7 @@ Offload the heavy arbitrary-precision Rust/WASM calculations (like Reference Orb
 
 ## Relevant Design Docs
 
-- `docs/design/math-backend.md`
+- `docs/design/engine/core-math.md`
 - `docs/process/test-plan.md` (or general test requirements from `docs/product/requirements.md`)
 
 ## Requirements

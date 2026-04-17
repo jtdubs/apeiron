@@ -10,7 +10,7 @@ Split the existing `mandelbrot_f32.wgsl` into a two-pass architecture (Accumulat
 
 ## Relevant Design Docs
 
-- `docs/design/rendering-engine.md`
+- `docs/design/engine/webgpu-passes.md`
 
 ## Requirements
 
@@ -29,4 +29,4 @@ Split the existing `mandelbrot_f32.wgsl` into a two-pass architecture (Accumulat
 
 - [x] Does the UI correctly shift colors instantly at 60fps when themes are switched, without recalculating fractal coordinates?
 - [x] Are headless regression tests still able to pull standard numerical arrays (ignoring color space mappings)?
-- [x] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/rendering-engine.md` before closing this task.
+- [x] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/design/engine/webgpu-passes.md` before closing this task.
