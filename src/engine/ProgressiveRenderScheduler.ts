@@ -62,7 +62,7 @@ export class ProgressiveRenderScheduler {
         group: 'FSM',
         type: 'enum',
         retention: 'latch',
-        enumValues: { 0: 'INTERACT', 1: 'DEEPENING', 2: 'ACCUM' },
+        enumValues: { 0: 'INTERACT', 1: 'DEEPENING', 2: 'ACCUM', 3: 'IDLE' },
       }),
       budget: reg.register({
         id: 'engine.budget',
@@ -240,6 +240,7 @@ export class ProgressiveRenderScheduler {
     }
 
     if (!isInteracting && this.accumulationCount >= this.MAX_ACCUM_FRAMES) {
+      this.channels.mode.set(3);
       return null; // RESOLVED state
     }
 
