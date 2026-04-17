@@ -532,13 +532,15 @@ export class PassManager {
       this.querySet,
     );
 
-    commandEncoder.copyBufferToBuffer(
-      this.completionFlagBuffer!,
-      0,
-      this.completionStagingBuffer!,
-      0,
-      4,
-    );
+    if (!this._isCompletionQueryPending) {
+      commandEncoder.copyBufferToBuffer(
+        this.completionFlagBuffer!,
+        0,
+        this.completionStagingBuffer!,
+        0,
+        4,
+      );
+    }
 
     if (queryActive) {
       commandEncoder.resolveQuerySet(this.querySet!, 0, 2, this.resolveBuffer!, 0);
