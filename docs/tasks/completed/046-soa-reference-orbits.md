@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed (rejected)
 ---
 
 # Task 046: AoS to SoA Reference Orbit Migration
@@ -34,3 +34,14 @@ Refactor the `ReferenceOrbitNode` memory structure from an Array of Structures (
 - [ ] Run headless test suite to ensure mathematical regression did not occur due to memory bounds or struct padding.
 - [ ] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
 - [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update relevant design docs.
+
+## Conclusion: REJECTED
+
+After critical analysis of the GPU memory access patterns within `math_accum.wgsl`, this proposal is definitively rejected for the following architectural reasons:
+
+1. **Warp-Coherent Access Patterns:** A reference orbit is globally shared across the entire fractal domain. Local thread groups (warps) evaluate standard iterations synchronously (`iter += 1.0`). Any divergence typically occurs only when stepping through `advance_via_bla`, but even then, neighboring pixels usually take the exact same BLA steps due to identical perturbation depths, maintaining thread coherence.
+2. **GPU Cache Broadcasting:** Because all threads within a SIMT workgroup read `ref_orbits[iter]`, they request the exact same memory address. The GPU's L1 cache treats this as a uniform broadcast, pulling a single cache line (usually 64 or 128 bytes) and serving all threads simultaneously.
+3. **AoS Fits Ideal Cache Boundaries:** `ReferenceOrbitNode` is an interleaved struct of 8 `f32` fields (64 bytes total). This maps perfectly to exactly one cache line fetch. When `init_perturbation_state` reads all 8 coefficients, or BLA reads 6, they pull all data seamlessly in one cache-line transaction without penalty.
+4. **SoA Degrades Bandwidth & Register Pressure:** If migrated to an SoA layout, a single thread accessing `x, y` would require memory requests across two completely disparate buffer locations. This forces the memory controller to allocate 2 cache lines rather than 1. When an 8-variable read occurs (in SA initialization), SoA would hit up to 8 independent cache lines simultaneously, polluting the cache entirely, throttling bus bandwidth, and risking exhaustion of the `maxStorageBuffersPerShaderStage` limit.
+
+**Decision:** The AoS design for `ReferenceOrbitNode` demonstrates ideal cache utilization for identical-offset broadcast memory loads. Maintaining the current structure prevents catastrophic L1 cache-thrashing that would arise from separated buffer reads in uniformly-iterating SIMT domains.
