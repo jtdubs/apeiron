@@ -245,8 +245,14 @@ export class ProgressiveRenderScheduler {
       this.accumulationCount++;
       this.isFirstSlice = true;
     } else if (!this.isDeepening) {
-      this.accumulationCount++;
-      this.isFirstSlice = true;
+      if (isTargetMet) {
+        this.accumulationCount++;
+        this.isFirstSlice = true;
+      } else {
+        this.isFirstSlice = false;
+      }
+    } else {
+      this.isFirstSlice = false;
     }
 
     if (!isInteracting && this.accumulationCount >= this.MAX_ACCUM_FRAMES) {

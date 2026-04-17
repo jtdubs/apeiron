@@ -497,6 +497,7 @@ export class PassManager {
 
     if (desc.command.clearCheckpoint && this.checkpointBuffer) {
       commandEncoder.clearBuffer(this.checkpointBuffer);
+      this._isIterationTargetMet = false;
     }
 
     // Deno WebGPU stub or some browsers might report the feature but lack the function
