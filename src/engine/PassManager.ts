@@ -204,6 +204,7 @@ export class PresentationPass {
     commandEncoder: GPUCommandEncoder,
     targetView: GPUTextureView,
     bindGroup0: GPUBindGroup,
+    skipDraw = false,
   ) {
     const resolvePass = commandEncoder.beginRenderPass({
       colorAttachments: [
@@ -215,10 +216,12 @@ export class PresentationPass {
         },
       ],
     });
-    resolvePass.setPipeline(this.resolvePipeline);
-    resolvePass.setBindGroup(0, bindGroup0);
-    resolvePass.setBindGroup(1, this.bindGroup1);
-    resolvePass.draw(6);
+    if (!skipDraw) {
+      resolvePass.setPipeline(this.resolvePipeline);
+      resolvePass.setBindGroup(0, bindGroup0);
+      resolvePass.setBindGroup(1, this.bindGroup1);
+      resolvePass.draw(6);
+    }
     resolvePass.end();
   }
 }
@@ -256,6 +259,7 @@ export class PassManager {
   private completionStagingBuffer: GPUBuffer | null = null;
   private _isIterationTargetMet = false;
   private _isCompletionQueryPending = false;
+  private _hasEverAccumulated = false;
   public latestMapPromise: Promise<void> | null = null;
 
   public get lastMathPassMs(): number {
@@ -537,10 +541,17 @@ export class PassManager {
       // Pipeline is still compiling async, yield accumulation to prevent stutter
       const latestTex = this.pingPongTargetIsB ? this.gBufferTextureB : this.gBufferTextureA;
       const resolveBindGroup0 = this.presentPass.getBindGroup0(latestTex!.createView());
-      this.presentPass.execute(commandEncoder, targetView, resolveBindGroup0);
+      this.presentPass.execute(
+        commandEncoder,
+        targetView,
+        resolveBindGroup0,
+        !this._hasEverAccumulated,
+      );
       this.device.queue.submit([commandEncoder.finish()]);
       return;
     }
+
+    this._hasEverAccumulated = true;
 
     if (desc.command.clearCheckpoint && this.checkpointBuffer) {
       commandEncoder.clearBuffer(this.checkpointBuffer);
