@@ -100,12 +100,19 @@ export class TelemetryRenderer {
 
     if (cursorAge !== null) {
       const maxPoints = Math.max(1, Math.floor(globalCapacity / zoomX));
-      const startPointOffset = Math.floor(panX * (globalCapacity - maxPoints));
+      const startPointOffset = Math.floor(panX * Math.max(0, globalCapacity - maxPoints + 1));
       const i = cursorAge - startPointOffset;
-      const x = this.width - (i / (maxPoints - 1)) * this.width;
 
-      if (x >= -5 && x <= this.width + 5) {
-        this.drawCursor(x);
+      let x = this.width;
+      let frameWidth = this.width;
+      if (maxPoints > 1) {
+        x = this.width - (i / (maxPoints - 1)) * this.width;
+        frameWidth = this.width / (maxPoints - 1);
+      }
+
+      // Check if any part of the frame cursor box is visible on screen
+      if (x >= -5 && x - frameWidth <= this.width + 5) {
+        this.drawCursor(x, frameWidth);
       }
     }
 
@@ -130,19 +137,39 @@ export class TelemetryRenderer {
     this.ctx.textBaseline = 'middle';
     this.ctx.lineWidth = 1;
 
-    const intervals = 10;
-    const maxPoints = Math.floor(capacity / zoomX);
-    const startPointOffset = Math.floor(panX * (capacity - maxPoints));
+    const maxPoints = Math.max(1, Math.floor(capacity / zoomX));
+    const startPointOffset = Math.floor(panX * Math.max(0, capacity - maxPoints + 1));
 
-    for (let i = 0; i <= intervals; i++) {
-      const x = this.width - (i / intervals) * this.width;
+    // Determine step size for grid
+    const targetIntervals = 10;
+    const rawStep = maxPoints / targetIntervals;
+    const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep || 1)));
+    const normalizedStep = rawStep / magnitude;
+
+    let stepMultiplier;
+    if (normalizedStep < 1.5) stepMultiplier = 1;
+    else if (normalizedStep < 3.5) stepMultiplier = 2;
+    else if (normalizedStep < 7.5) stepMultiplier = 5;
+    else stepMultiplier = 10;
+
+    const stepSize = Math.max(1, Math.round(stepMultiplier * magnitude));
+
+    const startAge = Math.ceil(startPointOffset / stepSize) * stepSize;
+    const endAge = startPointOffset + maxPoints - 1;
+
+    for (let age = startAge; age <= endAge; age += stepSize) {
+      const index = age - startPointOffset;
+      // Calculate x position corresponding to this index exactly like the waveforms do
+      let x = this.width;
+      if (maxPoints > 1) {
+        x = this.width - (index / (maxPoints - 1)) * this.width;
+      }
 
       this.ctx.beginPath();
       this.ctx.moveTo(x, this.headerHeight);
       this.ctx.lineTo(x, this.height);
       this.ctx.stroke();
 
-      const age = startPointOffset + Math.floor((i / intervals) * maxPoints);
       if (age > 0) {
         this.ctx.fillText(`-${age}f`, x, this.headerHeight / 2);
       } else {
@@ -152,14 +179,23 @@ export class TelemetryRenderer {
     this.ctx.restore();
   }
 
-  private drawCursor(cursorX: number) {
+  private drawCursor(cursorX: number, frameWidth: number) {
     this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(255, 200, 0, 0.8)';
+
+    // Draw trailing and leading edges of the frame bounds
+    this.ctx.strokeStyle = 'rgba(255, 200, 0, 0.4)';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
     this.ctx.moveTo(cursorX, 0);
     this.ctx.lineTo(cursorX, this.height);
+    this.ctx.moveTo(cursorX - frameWidth, 0);
+    this.ctx.lineTo(cursorX - frameWidth, this.height);
     this.ctx.stroke();
+
+    // Fill the interior representing the duration of the frame
+    this.ctx.fillStyle = 'rgba(255, 200, 0, 0.15)';
+    this.ctx.fillRect(cursorX - frameWidth, 0, frameWidth, this.height);
+
     this.ctx.restore();
   }
 
@@ -270,7 +306,7 @@ export class TelemetryRenderer {
     this.ctx.stroke();
 
     const maxPoints = Math.max(1, Math.floor(buf.capacity / zoomX));
-    const startPointOffset = Math.floor(panX * (buf.capacity - maxPoints));
+    const startPointOffset = Math.floor(panX * Math.max(0, buf.capacity - maxPoints + 1));
 
     let min = def.minBound ?? 0;
     let max = def.maxBound ?? 1;
@@ -322,15 +358,25 @@ export class TelemetryRenderer {
     let lastX: number = this.width;
 
     for (let i = 0; i < maxPoints; i++) {
-      if (i >= buf.count) break;
+      const x = this.width - (i / (maxPoints - 1)) * this.width;
 
       const age = i + startPointOffset;
-      if (age >= buf.count) break;
+      if (age >= buf.count) {
+        // Draw the trailing horizontal state for the oldest digital frame out to its true extent
+        if (i > 0 && def.type === 'digital') {
+          const lastValAgeMinus1PhysicalIdx =
+            (buf.headIndex - 1 - (age - 1) + buf.capacity) % buf.capacity;
+          const lastVal = buf.rawBuffer[lastValAgeMinus1PhysicalIdx];
+          let lastNorm = range === 0 ? 0.5 : (lastVal - min) / range;
+          lastNorm = Math.max(0, Math.min(1, lastNorm));
+          const lastY = yOffset + height - paddingY - lastNorm * drawHeight;
+          this.ctx.lineTo(x, lastY);
+        }
+        break;
+      }
 
       const physicalIdx = (buf.headIndex - 1 - age + buf.capacity) % buf.capacity;
       const val = buf.rawBuffer[physicalIdx];
-
-      const x = this.width - (i / (maxPoints - 1)) * this.width;
 
       if (def.type === 'enum') {
         if (enumVal === null) {
@@ -338,10 +384,10 @@ export class TelemetryRenderer {
           enumStartX = x;
         } else if (!Object.is(enumVal, val)) {
           if (!Number.isNaN(enumVal)) {
-            this.drawEnumPacket(def, enumVal, lastX, enumStartX, yOffset, height, colorIndex);
+            this.drawEnumPacket(def, enumVal, x, enumStartX, yOffset, height, colorIndex);
           }
           enumVal = val;
-          enumStartX = lastX;
+          enumStartX = x;
         }
         lastX = x;
         continue;
@@ -379,7 +425,16 @@ export class TelemetryRenderer {
     }
 
     if (def.type === 'enum' && enumVal !== null && !Number.isNaN(enumVal)) {
-      this.drawEnumPacket(def, enumVal, lastX, enumStartX, yOffset, height, colorIndex);
+      const remainingFrameWidth = maxPoints > 1 ? this.width / (maxPoints - 1) : this.width;
+      this.drawEnumPacket(
+        def,
+        enumVal,
+        lastX - remainingFrameWidth,
+        enumStartX,
+        yOffset,
+        height,
+        colorIndex,
+      );
     }
 
     if (def.type === 'digital') {

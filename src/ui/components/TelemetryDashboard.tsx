@@ -253,16 +253,21 @@ export const TelemetryDashboard: React.FC = () => {
           firstBuf?.getCapacity() ||
           600;
         const maxPoints = Math.max(1, Math.floor(capacity / zoomXRef.current));
-        const startPointOffset = Math.floor(panXRef.current * (capacity - maxPoints));
+        const maxOffset = Math.max(0, capacity - maxPoints + 1);
+        const startPointOffset = Math.floor(panXRef.current * maxOffset);
 
-        const i = Math.round((1 - pixelX / width) * (maxPoints - 1));
+        const i = Math.floor((1 - pixelX / width) * Math.max(1, maxPoints - 1));
         setCursorAge(Math.max(0, Math.min(capacity - 1, i + startPointOffset)));
       }
     }
   };
 
   const onWheel = (e: React.WheelEvent) => {
-    if (e.deltaY !== 0) {
+    if (e.deltaY !== 0 && canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const pixelX = e.clientX - rect.left;
+      const width = canvasRef.current.width;
+
       const firstBuf =
         activeSignals.length > 0
           ? TelemetryRegistry.getInstance().getBuffer(activeSignals[0])
@@ -272,11 +277,35 @@ export const TelemetryDashboard: React.FC = () => {
         firstBuf?.getCapacity() ||
         600;
 
+      const oldZoomX = zoomXRef.current;
+      const oldMaxPoints = Math.max(1, Math.floor(capacity / oldZoomX));
+      const oldMaxOffset = Math.max(0, capacity - oldMaxPoints + 1);
+      const oldStartPointOffset = panXRef.current * oldMaxOffset;
+
+      const anchorProportion = 1.0 - pixelX / width;
+      const iAnchorOld = anchorProportion * Math.max(0, oldMaxPoints - 1);
+      const anchorAge = oldStartPointOffset + iAnchorOld;
+
       // Maximum zoom allows viewing exactly 10 frames across the grid, meaning 1 frame per grid line.
       const maxZoom = Math.max(10.0, capacity / 10.0);
-
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-      zoomXRef.current = Math.max(1.0, Math.min(maxZoom, zoomXRef.current * zoomFactor));
+      const newZoomX = Math.max(1.0, Math.min(maxZoom, oldZoomX * zoomFactor));
+
+      if (newZoomX !== oldZoomX) {
+        zoomXRef.current = newZoomX;
+        const newMaxPoints = Math.max(1, Math.floor(capacity / newZoomX));
+        const iAnchorNew = anchorProportion * Math.max(0, newMaxPoints - 1);
+
+        let newStartPointOffset = anchorAge - iAnchorNew;
+        const newMaxOffset = Math.max(0, capacity - newMaxPoints + 1);
+
+        if (newMaxOffset > 0) {
+          newStartPointOffset = Math.max(0, Math.min(newMaxOffset, newStartPointOffset));
+          panXRef.current = Math.max(0, Math.min(1.0, newStartPointOffset / newMaxOffset));
+        } else {
+          panXRef.current = 0;
+        }
+      }
     }
   };
 
@@ -330,16 +359,18 @@ export const TelemetryDashboard: React.FC = () => {
 
       if (nextAge !== null) {
         const maxPoints = Math.max(1, Math.floor(capacity / zoomXRef.current));
-        let startPointOffset = Math.floor(panXRef.current * (capacity - maxPoints));
+        const maxOffset = Math.max(0, capacity - maxPoints + 1);
+        let startPointOffset = Math.floor(panXRef.current * maxOffset);
 
         if (nextAge < startPointOffset) {
           startPointOffset = nextAge;
-        } else if (nextAge > startPointOffset + maxPoints - 1) {
-          startPointOffset = nextAge - maxPoints + 1;
+        } else if (nextAge >= startPointOffset + maxPoints - 1) {
+          // Ensure the cursor bounds is actually visible on screen by having its trailing boundary inside maxPoints - 2
+          startPointOffset = Math.max(0, nextAge - Math.max(1, maxPoints - 2));
         }
 
-        if (capacity > maxPoints) {
-          panXRef.current = Math.max(0, Math.min(1.0, startPointOffset / (capacity - maxPoints)));
+        if (maxOffset > 0) {
+          panXRef.current = Math.max(0, Math.min(1.0, startPointOffset / maxOffset));
         }
       }
 
@@ -379,7 +410,7 @@ export const TelemetryDashboard: React.FC = () => {
             >
               {isSidebarVisible ? '◀' : '▶'}
             </button>
-            <h3>GTKWave Telemetry Analyzer</h3>
+            <h3>Telemetry</h3>
           </div>
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
             {cursorAge !== null && (
