@@ -96,5 +96,12 @@ describe('ProgressiveRenderScheduler', () => {
     const cmdAccum = scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, 10, true);
     expect(cmdAccum?.clearCheckpoint).toBe(true);
     expect(cmdAccum?.blendWeight).toBeCloseTo(0.3333333333333333); // 1 / (2 + 1)
+
+    // Pass: ACCUMULATING cycle 1, slice 2 (Target Not Met)
+    const cmdAccumSubslice = scheduler.update(ctx, false, 0, 0, 1.0, 1920, 1080, 10, false);
+    // The scheduler must cleanly chunk the geometry and neither advance the ping-pong nor clear the checkpoint!
+    expect(scheduler.getAccumulationCount()).toBe(2); // Should not advance cycle!
+    expect(cmdAccumSubslice?.clearCheckpoint).toBe(false);
+    expect(cmdAccumSubslice?.advancePingPong).toBe(false);
   });
 });

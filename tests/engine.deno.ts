@@ -625,6 +625,40 @@ Deno.test({
   },
 });
 
+Deno.test({
+  name: 'Validating Low-Resolution Interact Yield (Void Rendering)',
+  sanitizeOps: false,
+  async fn() {
+    const state = await initSharedState();
+    if (!state) return;
+
+    const { harness } = state;
+    const session = harness.createSession(1, 1);
+
+    // Simulate panning interactions where maxIter is high, but the execution budget is very low,
+    // and blendWeight is explicitly 0.0. We use a dense boundary point (-0.75, 0.1) and high zoom
+    // so the top-left uv(0,0) falls cleanly into the deep set and exhausts the 20 steps to YIELD.
+    session.renderFrame({
+      context: { cr: -0.75, ci: 0.1, computeMaxIter: 1000, zoom: 1e-10 },
+      command: { stepLimit: 20, blendWeight: 0.0, loadCheckpoint: false, clearCheckpoint: true },
+    });
+
+    const yieldData = await session.readResolved();
+    session.destroy();
+
+    const r = yieldData[0];
+    const g = yieldData[1];
+    const b = yieldData[2];
+    const a = yieldData[3];
+
+    if (r !== 0 || g !== 0 || b !== 0 || a !== 255) {
+      throw new Error(
+        `Low-Resolution Interact Yield failed! Expected void iteration sentinel (black RGB 0,0,0,255), but got ${r},${g},${b},${a}. This indicates spatial stretching or palette artifacts during panning.`,
+      );
+    }
+  },
+});
+
 Deno.test('Validating Bit-Perfect Regression Match', async () => {
   const state = await initSharedState();
   if (!state) return;
