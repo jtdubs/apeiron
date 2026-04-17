@@ -39,11 +39,11 @@ export class WebGPUTestHarness {
           step_limit: maxIter,
           ref_max_iter: maxIter,
           compute_max_iter: maxIter,
-          use_perturbation: usePerturbation ? 1.0 : 0.0,
-          exponent: exponent,
           skip_iter: 0.0,
         },
         refOrbits: refOrbits,
+        exponent: exponent,
+        usePerturbation: usePerturbation ? 1.0 : 0.0,
       },
       6,
       4,
@@ -57,6 +57,8 @@ export class WebGPUTestHarness {
       cameraData?: CameraParams;
       refOrbits?: Float64Array;
       checkpointData?: Float32Array;
+      exponent?: number;
+      usePerturbation?: number;
     } = {},
     inputStride: number = 4,
     outputStride: number = 4,
@@ -67,6 +69,10 @@ export class WebGPUTestHarness {
       compute: {
         module: computeModule,
         entryPoint: entryPoint,
+        constants: {
+          0: options.exponent ?? 2.0,
+          1: options.usePerturbation ?? 1.0,
+        },
       },
     });
 
@@ -101,7 +107,6 @@ export class WebGPUTestHarness {
       aspect: 1.0,
       compute_max_iter: 100.0,
       ref_max_iter: 100.0,
-      exponent: 2.0,
       render_scale: 1.0,
       step_limit: 100.0,
       canvas_width: 1.0,
@@ -180,9 +185,7 @@ export class WebGPUTestHarness {
     ];
 
     // Auto layout parsing logic
-    if (entryPoint === 'unit_test_polynomial') {
-      entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
-    } else if (entryPoint === 'unit_test_state_resume') {
+    if (entryPoint === 'unit_test_state_resume') {
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
       entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
       entries.push({ binding: 6, resource: { buffer: completionFlagBuffer } });

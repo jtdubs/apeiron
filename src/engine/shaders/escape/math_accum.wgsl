@@ -8,6 +8,9 @@ struct CheckpointState {
   dz_x: f32, dz_y: f32,
 };
 
+@id(0) override fractal_exponent: f32 = 2.0;
+@id(1) override use_perturbation: f32 = 1.0;
+
 @group(0) @binding(0) var<uniform> camera: CameraParams;
 
 struct VertexOutput {
@@ -94,7 +97,7 @@ fn step_mandelbrot(z: vec2<f32>, c: vec2<f32>, der: vec2<f32>, d: f32) -> vec4<f
 fn get_escape_data(iter: f32, zx: f32, zy: f32, der_x: f32, der_y: f32, offset: f32, tia_sum: f32) -> vec4<f32> {
   let mag_sq = zx * zx + zy * zy;
   let log_z = 0.5 * log(mag_sq);
-  let p = max(camera.exponent, 2.0);
+  let p = max(fractal_exponent, 2.0);
   let smooth_iter = iter + offset - log2(log_z) / log2(p);
   
   let mag = sqrt(mag_sq);
@@ -165,7 +168,7 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
   // Synchronizes iterator bounds with the ProgressiveRenderScheduler to allow
   let target_steps = camera.step_limit;
   var steps = 0.0;
-  let d = camera.exponent;
+  let d = fractal_exponent;
   var prev_z_mag = length(vec2<f32>(x, y));
   let c_mag = length(start_c);
   
@@ -238,7 +241,7 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
 }
 
 fn calculate_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, max_iterations: f32, pixel_idx: u32) -> vec4<f32> {
-  if (camera.exponent == 2.0 && start_z.x == 0.0 && start_z.y == 0.0) {
+  if (fractal_exponent == 2.0 && start_z.x == 0.0 && start_z.y == 0.0) {
     if (is_interior_analytic(start_c.x, start_c.y)) {
       let ret = vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
       checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0, 0.0, 0.0);
@@ -484,7 +487,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
   var steps = 0.0;
 
   while (iter < max_iterations && steps < target_steps) {
-    if (camera.exponent == 2.0) {
+    if (fractal_exponent == 2.0) {
         let bla_res = advance_via_bla(dz, vec2<f32>(der_x, der_y), delta_c, start_c, iter, max_iterations, ref_offset, ref_escaped_iter, max_iterations, pixel_idx, tia_sum);
         if (bla_res.advanced) {
             if (bla_res.escaped) {
@@ -505,7 +508,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     let zy = ref_node.y;
     
     var dz_next: vec2<f32>;
-    let d = camera.exponent;
+    let d = fractal_exponent;
     if (d == 2.0) {
       let dz2 = complex_sq(dz);
       let two_z_dz = 2.0 * complex_mul(vec2<f32>(zx, zy), dz);
@@ -574,7 +577,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
 }
 
 fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u32, pixel_idx: u32) -> vec4<f32> {
-  if (camera.use_perturbation > 0.5) {
+  if (use_perturbation > 0.5) {
      let floats_per_case = u32(camera.ref_max_iter) * FLOATS_PER_ITER + META_STRIDE;
      let orbit_meta = get_orbit_metadata(ref_offset, u32(camera.ref_max_iter));
      let cycle = orbit_meta.cycle_found;
@@ -625,7 +628,7 @@ fn unit_test_polynomial(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let z = vec2<f32>(data_in[idx * 4u], data_in[idx * 4u + 1u]);
   let c_val = vec2<f32>(data_in[idx * 4u + 2u], data_in[idx * 4u + 3u]);
   
-  let d = camera.exponent;
+  let d = fractal_exponent;
   let p_res = step_polynomial(z, c_val, d);
   let der_res = step_derivative(z, c_val, d); // Note: feeding c_val as dummy 'der' for testing
   
@@ -744,8 +747,8 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let abs_cr = orbit_meta.abs_cr;
   let abs_ci = orbit_meta.abs_ci;
   
-  let start_z = select(vec2<f32>(camera.zr, camera.zi) + uv_mapped * sin_theta, vec2<f32>(abs_zr, abs_zi) + delta_z, camera.use_perturbation > 0.5);
-  let start_c = select(vec2<f32>(camera.cr, camera.ci) + uv_mapped * cos_theta, vec2<f32>(abs_cr, abs_ci) + delta_c, camera.use_perturbation > 0.5);
+  let start_z = select(vec2<f32>(camera.zr, camera.zi) + uv_mapped * sin_theta, vec2<f32>(abs_zr, abs_zi) + delta_z, use_perturbation > 0.5);
+  let start_c = select(vec2<f32>(camera.cr, camera.ci) + uv_mapped * cos_theta, vec2<f32>(abs_cr, abs_ci) + delta_c, use_perturbation > 0.5);
   
   let ret = execute_engine_math(start_z, start_c, delta_z, delta_c, 0u, pixel_id);
   

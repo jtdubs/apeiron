@@ -10,13 +10,15 @@ import {
 
 export class AccumulationPass {
   private device: GPUDevice;
-  private mathPipeline: GPUComputePipeline;
+  private mathModule: GPUShaderModule;
+  private pipelineCache: Map<string, GPUComputePipeline>;
   public uniformsBuffer: GPUBuffer;
   private dummyRefOrbitsBuffer: GPUBuffer;
 
   constructor(device: GPUDevice, mathShaderCode: string) {
     this.device = device;
-    const mathModule = device.createShaderModule({ code: mathShaderCode });
+    this.mathModule = device.createShaderModule({ code: mathShaderCode });
+    this.pipelineCache = new Map();
 
     this.uniformsBuffer = device.createBuffer({
       size: 96, // 24 floats × 4 bytes (CameraParams)
@@ -28,17 +30,30 @@ export class AccumulationPass {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     device.queue.writeBuffer(this.dummyRefOrbitsBuffer, 0, new Float32Array([0.0, 0.0, 0.0, 0.0]));
+  }
 
-    this.mathPipeline = device.createComputePipeline({
-      layout: 'auto',
-      compute: {
-        module: mathModule,
-        entryPoint: 'main_compute',
-      },
-    });
+  public getPipeline(exponent: number, usePerturbation: number): GPUComputePipeline {
+    const key = `${exponent}_${usePerturbation}`;
+    let pipeline = this.pipelineCache.get(key);
+    if (!pipeline) {
+      pipeline = this.device.createComputePipeline({
+        layout: 'auto',
+        compute: {
+          module: this.mathModule,
+          entryPoint: 'main_compute',
+          constants: {
+            0: exponent,
+            1: usePerturbation,
+          },
+        },
+      });
+      this.pipelineCache.set(key, pipeline);
+    }
+    return pipeline;
   }
 
   public getBindGroup(
+    pipeline: GPUComputePipeline,
     activeRefOrbitsBuffer: GPUBuffer | null,
     prevFrameView: GPUTextureView,
     checkpointBuffer: GPUBuffer,
@@ -46,7 +61,7 @@ export class AccumulationPass {
     targetView: GPUTextureView,
   ): GPUBindGroup {
     return this.device.createBindGroup({
-      layout: this.mathPipeline.getBindGroupLayout(0),
+      layout: pipeline.getBindGroupLayout(0),
       entries: [
         { binding: 0, resource: { buffer: this.uniformsBuffer } },
         {
@@ -65,6 +80,7 @@ export class AccumulationPass {
 
   public execute(
     commandEncoder: GPUCommandEncoder,
+    pipeline: GPUComputePipeline,
     bindGroup: GPUBindGroup,
     renderWidth: number,
     renderHeight: number,
@@ -82,7 +98,7 @@ export class AccumulationPass {
           }
         : {}),
     });
-    mathPass.setPipeline(this.mathPipeline);
+    mathPass.setPipeline(pipeline);
     mathPass.setBindGroup(0, bindGroup);
     mathPass.dispatchWorkgroups(Math.ceil(renderWidth / 16), Math.ceil(renderHeight / 16));
     mathPass.end();
@@ -373,9 +389,7 @@ export class PassManager {
       aspect: aspectRatio,
       compute_max_iter: desc.context.computeMaxIter,
       slice_angle: desc.context.sliceAngle,
-      use_perturbation: usePerturbation,
       ref_max_iter: actualRefMaxIter,
-      exponent: desc.context.exponent,
       coloring_mode:
         desc.theme?.coloringMode === 'stripe'
           ? 1.0
@@ -494,7 +508,10 @@ export class PassManager {
     const writeTex = this.pingPongTargetIsB ? this.gBufferTextureB : this.gBufferTextureA;
     const readTex = this.pingPongTargetIsB ? this.gBufferTextureA : this.gBufferTextureB;
 
+    const accumPipeline = this.accumPass.getPipeline(desc.context.exponent, usePerturbation);
+
     const accumBindGroup = this.accumPass.getBindGroup(
+      accumPipeline,
       this.activeRefOrbitsBuffer,
       readTex!.createView(),
       this.checkpointBuffer!,
@@ -507,6 +524,7 @@ export class PassManager {
 
     this.accumPass.execute(
       commandEncoder,
+      accumPipeline,
       accumBindGroup,
       renderWidth,
       renderHeight,

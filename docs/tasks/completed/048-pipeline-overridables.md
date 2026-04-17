@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 048: Pipeline-Overridable Constants for Branch Elimination
