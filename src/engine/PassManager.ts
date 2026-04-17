@@ -21,7 +21,7 @@ export class AccumulationPass {
     this.pipelineCache = new Map();
 
     this.uniformsBuffer = device.createBuffer({
-      size: 96, // 24 floats × 4 bytes (CameraParams)
+      size: 80, // 20 floats × 4 bytes (CameraParams)
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -422,7 +422,6 @@ export class PassManager {
       compute_max_iter: desc.context.computeMaxIter,
       slice_angle: desc.context.sliceAngle,
       ref_max_iter: actualRefMaxIter,
-      pad_c: 0.0,
       jitter_x: desc.command.jitterX,
       jitter_y: desc.command.jitterY,
       blend_weight: desc.command.blendWeight,

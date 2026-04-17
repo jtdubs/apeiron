@@ -53,10 +53,7 @@
         { "name": "aspect", "type": "f32" },
         { "name": "compute_max_iter", "type": "f32" },
         { "name": "slice_angle", "type": "f32" },
-        { "name": "pad_a", "type": "f32" },
         { "name": "ref_max_iter", "type": "f32" },
-        { "name": "pad_b", "type": "f32" },
-        { "name": "pad_c", "type": "f32" },
         { "name": "jitter_x", "type": "f32" },
         { "name": "jitter_y", "type": "f32" },
         { "name": "blend_weight", "type": "f32" },
@@ -67,8 +64,7 @@
         { "name": "canvas_width", "type": "f32" },
         { "name": "skip_iter", "type": "f32" },
         { "name": "drs_width", "type": "f32" },
-        { "name": "drs_height", "type": "f32" },
-        { "name": "pad1", "type": "f32" }
+        { "name": "drs_height", "type": "f32" }
       ]
     },
     "ResolveUniforms": {
