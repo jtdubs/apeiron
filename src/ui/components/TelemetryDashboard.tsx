@@ -25,7 +25,6 @@ export const TelemetryDashboard: React.FC = () => {
   const isOpen = viewportState.isTelemetryOpen;
   const setIsOpen = viewportState.setIsTelemetryOpen;
   const [isPaused, setIsPaused] = useState(false);
-  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [panelHeight, setPanelHeight] = useState(350);
   const resizeRef = useRef({ isResizing: false });
@@ -44,6 +43,8 @@ export const TelemetryDashboard: React.FC = () => {
     }
     return ['engine.framerate', 'webgpu.renderms', 'engine.fsm'];
   });
+
+  const [isSidebarVisible, setIsSidebarVisible] = useState(() => activeSignals.length === 0);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(activeSignals));
