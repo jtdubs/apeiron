@@ -1,6 +1,68 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { calculateSkipIter } from '../seriesApproximation';
 import { META_STRIDE, FLOATS_PER_ITER } from '../generated/MemoryLayout';
+import { AccumulationPass } from '../PassManager';
+
+globalThis.GPUBufferUsage = {
+  UNIFORM: 64,
+  COPY_DST: 8,
+  STORAGE: 128,
+} as unknown as typeof GPUBufferUsage;
+
+const createMockDevice = () => {
+  return {
+    createShaderModule: vi.fn().mockReturnValue({}),
+    createBuffer: vi.fn().mockReturnValue({}),
+    queue: {
+      writeBuffer: vi.fn(),
+    },
+    createComputePipeline: vi.fn().mockImplementation(() => ({ getBindGroupLayout: vi.fn() })),
+    createBindGroup: vi.fn(),
+  } as unknown as GPUDevice;
+};
+
+describe('AccumulationPass Pipeline Caching', () => {
+  it('creates a compute pipeline when fetched with new constants', () => {
+    const device = createMockDevice();
+    const pass = new AccumulationPass(device, 'mock code');
+
+    pass.getPipeline(2.0, 1.0);
+
+    expect(device.createComputePipeline).toHaveBeenCalledTimes(1);
+    expect(device.createComputePipeline).toHaveBeenCalledWith({
+      layout: 'auto',
+      compute: {
+        module: expect.anything(),
+        entryPoint: 'main_compute',
+        constants: { 0: 2.0, 1: 1.0 },
+      },
+    });
+  });
+
+  it('returns a cached pipeline when fetched repeatedly with the same constants', () => {
+    const device = createMockDevice();
+    const pass = new AccumulationPass(device, 'mock code');
+
+    const pipeline1 = pass.getPipeline(2.0, 0.0);
+    const pipeline2 = pass.getPipeline(2.0, 0.0);
+
+    expect(pipeline1).toBe(pipeline2);
+    expect(device.createComputePipeline).toHaveBeenCalledTimes(1);
+  });
+
+  it('creates distinct pipelines for different constants without bleeding', () => {
+    const device = createMockDevice();
+    const pass = new AccumulationPass(device, 'mock code');
+
+    const pipeline1 = pass.getPipeline(2.0, 1.0);
+    const pipeline2 = pass.getPipeline(3.0, 1.0);
+    const pipeline3 = pass.getPipeline(2.0, 0.0);
+
+    expect(device.createComputePipeline).toHaveBeenCalledTimes(3);
+    expect(pipeline1).not.toBe(pipeline2);
+    expect(pipeline1).not.toBe(pipeline3);
+  });
+});
 
 describe('PassManager Pure Function Uniform Building', () => {
   describe('Series Approximation Math Tracker', () => {
