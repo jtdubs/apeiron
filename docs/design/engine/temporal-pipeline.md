@@ -100,7 +100,7 @@ Apeiron combines DRS, Accumulation, and **Asynchronous Orchestration** into a ho
 ### State: `INTERACT` (The Extrapolation Pivot)
 
 - **Trigger:** The user pans/zooms actively.
-- **Execution:** Operations drop to 1-sample-per-pixel and flush the accumulation buffer. WebGPU continues calculating geometry using the _previous_ Reference Orbit if within bounds, or mathematically falls back to dynamic 2D texture upscaling. Concurrently, a request for a _new_ Reference Orbit is posted to the asynchronous Rust Web Worker.
+- **Execution:** Operations drop to 1-sample-per-pixel and flush the accumulation buffer. To maintain 60fps, the FSM employs **Adaptive Dynamic Resolution Scaling (ADRS)**, reading live GPU macro-benchmarks (`lastMathPassMs`) to dynamically step the `renderScale` (down to 25%) and the `maxIter` cap based on computational load. Concurrently, a request for a _new_ Reference Orbit is posted to the asynchronous Rust Web Worker.
 
 ### State: `DEEPENING` (The Decoupled Compute Pivot)
 

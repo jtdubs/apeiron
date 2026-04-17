@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 045: Adaptive Dynamic Resolution Scaling (ADRS)

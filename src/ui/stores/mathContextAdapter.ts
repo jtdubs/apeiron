@@ -10,6 +10,7 @@ export function buildMathContext(
   theme: RenderState,
   canvasWidth: number,
   canvasHeight: number,
+  interactMaxIterOverride?: number | null,
 ): MathContext {
   const isPerturb = state.refOrbits !== null && theme.precisionMode !== 'f32';
 
@@ -36,11 +37,13 @@ export function buildMathContext(
 
   const interactFloor = calculateMaxIter(1.0);
   const effectiveMaxIter = isInteracting
-    ? Math.min(
-        state.paletteMaxIter,
-        Math.max(interactFloor, Math.floor(state.paletteMaxIter * INTERACT_ITER_FRACTION)) +
-          skipIter,
-      )
+    ? interactMaxIterOverride !== undefined && interactMaxIterOverride !== null
+      ? interactMaxIterOverride + skipIter
+      : Math.min(
+          state.paletteMaxIter,
+          Math.max(interactFloor, Math.floor(state.paletteMaxIter * INTERACT_ITER_FRACTION)) +
+            skipIter,
+        )
     : state.paletteMaxIter;
 
   return {
