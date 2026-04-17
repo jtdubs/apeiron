@@ -20,23 +20,20 @@ The challenge involves calculating millions of iterations per pixel without exce
 
 Apeiron combines DRS, Accumulation, and **Asynchronous Orchestration** into a holistic state machine to maintain 60fps under punishing computational loads.
 
-### State: `STATIC` (The Accumulation Pivot)
+### State: `ACCUMULATING` (The Temporal Supersampling Pivot)
 
-- **Trigger:** A debounce threshold ($~150\text{ms}$) expires after the last user-driven coordinate mutation.
-- **Execution:** WebGPU spins up multi-frame accumulation. Over the next $X$ frames, it mathematically jitters the coordinate inputs incrementally. It compounds these into a ping-pong buffer. Once the accumulation limit ($~64$ frames) is reached, standard rendering halts to eliminate GPU/battery drain.
+- **Trigger:** The fractal has fully finished calculating its depth geometry (signaled via GPU), but the user is stationary.
+- **Execution:** WebGPU mathematically jitters the coordinate inputs incrementally. It compounds these into a ping-pong buffer. Once the accumulation limit ($~64$ frames) is reached, standard rendering halts to eliminate GPU/battery drain, leaving a pristine anti-aliased image.
 
-### State: `INTERACT_SAFE` (The Extrapolation Pivot)
+### State: `INTERACT` (The Extrapolation Pivot)
 
-- **Trigger:** The user pans/zooms actively, but stays within a safe scalar radius of the current mathematical Perturbation Reference Orbit.
-- **Execution:** Operations drop to 1-sample-per-pixel and flush the accumulation buffer. WebGPU continues calculating geometry using the _previous_ Reference Orbit, mathematically applying the new mouse coordinate deltas. A request for a _new_ Reference Orbit is concurrently posted to the asynchronous Rust Web Worker.
+- **Trigger:** The user pans/zooms actively.
+- **Execution:** Operations drop to 1-sample-per-pixel and flush the accumulation buffer. WebGPU continues calculating geometry using the _previous_ Reference Orbit if within bounds, or mathematically falls back to dynamic 2D texture upscaling. Concurrently, a request for a _new_ Reference Orbit is posted to the asynchronous Rust Web Worker.
 
-### State: `INTERACT_FAST` (The 2D Fallback Pivot)
+### State: `DEEPENING` (The Decoupled Compute Pivot)
 
-- **Trigger:** Aggressive zooming or panning pushes the coordinate camera outside the mathematical limits of the current Reference Orbit before the Web Worker can reply.
-- **Execution:** WebGPU suspends executing new math to avoid floating-point black-noise. Instead:
-  - **Zoom**: The most recent WebGPU texture is dynamically scaled (2D stretched).
-  - **Pan**: The texture physically slides, leaving a solid "Void" mask (or sampling from an offscreen coarse history buffer) to clearly signal unrendered geometry.
-- **Recovery Handshake:** Once the Rust Web Worker returns the new orbit, its **Epoch ID** is validated against the active interaction cycle state. Upon handshake, the system instantly snaps back to `INTERACT_SAFE` resolving the exact geometry.
+- **Trigger:** The user stablizes movement, but the heavy deep-zoom geometry requires more iterations than can fit in a single 16.6ms frame.
+- **Execution:** Operations execute chunks of computation defined by a non-blocking frame budget (`stepLimit`). WebGPU saves cross-frame memory into a `Checkpoint Buffer`, continuing calculation exactly where the previous frame ended, until the mathematical evaluation limit (`computeMaxIter`) is reached.
 
 ## 3. Asynchronous Orchestration Protocol (The Latest-Only Buffer)
 
@@ -53,16 +50,17 @@ To solve this, the orchestrator acts as a **Latest-Only Dispatch Buffer**:
 
 This logic guarantees the Rust calculations are never separated from the UI state by more than a single calculation cycle, maintaining UI fluidity infinitely regardless of how wildly or continuously the user scrubs the map.
 
-## 4. Interactive Quality Budget & Telemetry
+## 4. Execution Budget Decoupling & Telemetry
 
-To eliminate lag during deep, interior-heavy fractal exploration, the system enforces a strict quality budget and relies on GPU telemetry for tuning.
+To eliminate lag during deep, interior-heavy fractal exploration, the system enforces a strict quality budget utilizing asynchronous memory flags and relies on GPU telemetry for tuning.
 
-### Zoom-Proportional `maxIter` Fraction
+### Deterministic Execution Boundaries (`stepLimit`)
 
-During `INTERACT_SAFE` and `INTERACT_FAST`, the maximum iteration budget is dynamically reduced by a proportional fraction (e.g., ~33%). This curtails the computational load for unescapable interior pixels that would otherwise saturate the GPU.
+To ensure smooth 60fps bounds without sacrificing mathematically exact geometry bounds, the FSM isolates frame budgets from analytical depths:
 
-- **Why it Works:** The Dynamic Resolution Scaling (DRS) pass already softens the output during interaction, making thousands of iterations perceptually wasted.
-- **The Safety Floor:** To prevent the fractal silhouette from losing structural detail at extreme magnifications, the reduced `effectiveMaxIter` is hard-floored against the baseline iterations of an unzoomed (1.0x) view.
+- **Asynchronous Chunking:** During `DEEPENING`, the system provides a fixed processing chunk (`stepLimit`) to the fragment kernel. The shader computes forward strictly up to this limit.
+- **`completion_flag` Hardware Signaling:** When the entire buffer successfully finishes parsing the mathematical iteration limits without breaking early, the GPU writes directly to an `atomic<u32>` buffer mapped via `mapAsync` promises. The CPU reads this asynchronous pipeline flag seamlessly to know when to gracefully transition the FSM into `ACCUMULATING`.
+- **Zero-DOM Execution Guarantee:** The frame execution yields deterministic math regardless of how small the chunk slices are, keeping logic purely independent of timing or screen FPS fluctuations.
 
 ### GPU Frame-Time Telemetry
 

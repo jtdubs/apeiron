@@ -422,114 +422,125 @@ Deno.test({
   },
 });
 
-Deno.test('Validating f32 Analytic and Brent Interior Early-Outs', async () => {
-  const state = await initSharedState();
-  if (!state) return;
+Deno.test({
+  name: 'Validating f32 Analytic and Brent Interior Early-Outs',
+  sanitizeOps: false,
+  async fn() {
+    const state = await initSharedState();
+    if (!state) return;
 
-  const { harness } = state;
-  // Test points:
-  // 1. (0, 0) -> Main Cardioid
-  // 2. (-1, 0) -> Period-2 Bulb
-  // 3. (0.5, 0) -> Exterior (should escape quickly)
-  // 4. (-1.75, 0.0) -> Interior but NOT in main cardioid or period-2 bulb (tests Brent's cycle detection)
+    const { harness } = state;
+    // Test points:
+    // 1. (0, 0) -> Main Cardioid
+    // 2. (-1, 0) -> Period-2 Bulb
+    // 3. (0.5, 0) -> Exterior (should escape quickly)
+    // 4. (-1.75, 0.0) -> Interior but NOT in main cardioid or period-2 bulb (tests Brent's cycle detection)
 
-  const inputs = new Float32Array([
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    0.0, // 0: Main Cardioid
-    0.0,
-    0.0,
-    -1.0,
-    0.0,
-    0.0,
-    0.0, // 1: Period-2 Bulb
-    0.0,
-    0.0,
-    0.5,
-    0.0,
-    0.0,
-    0.0, // 2: Exterior
-    0.0,
-    0.0,
-    -1.75,
-    0.0,
-    0.0,
-    0.0, // 3: Interior (Brent) - Period 3
-    // Also test shifted z0 to ensure analytic is bypassed securely
-    0.001,
-    0.0,
-    0.0,
-    0.0,
-    0.0,
-    0.0, // 4: z0 != 0, c = 0 (Should bypass analytic, but Brent detects it)
-  ]);
+    const inputs = new Float32Array([
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0, // 0: Main Cardioid
+      0.0,
+      0.0,
+      -1.0,
+      0.0,
+      0.0,
+      0.0, // 1: Period-2 Bulb
+      0.0,
+      0.0,
+      0.5,
+      0.0,
+      0.0,
+      0.0, // 2: Exterior
+      0.0,
+      0.0,
+      -1.75,
+      0.0,
+      0.0,
+      0.0, // 3: Interior (Brent) - Period 3
+      // Also test shifted z0 to ensure analytic is bypassed securely
+      0.001,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0, // 4: z0 != 0, c = 0 (Should bypass analytic, but Brent detects it)
+    ]);
 
-  const maxIter = 1000;
-  const res = await harness.executeTestCompute(inputs, undefined, maxIter, false, 2.0);
+    const maxIter = 1000;
+    const res = await harness.executeTestCompute(inputs, undefined, maxIter, false, 2.0);
 
-  const iter0 = res[0]; // (0,0)
-  const iter1 = res[4]; // (-1,0)
-  const iter2 = res[8]; // (0.5,0)
-  const iter3 = res[12]; // (-1.75, 0.0)
-  const iter4 = res[16]; // z0 != 0
+    const iter0 = res[0]; // (0,0)
+    const iter1 = res[4]; // (-1,0)
+    const iter2 = res[8]; // (0.5,0)
+    const iter3 = res[12]; // (-1.75, 0.0)
+    const iter4 = res[16]; // z0 != 0
 
-  if (iter0 !== maxIter)
-    throw new Error(`Analytic main cardioid failed. Expected ${maxIter}, got ${iter0}`);
-  if (iter1 !== maxIter)
-    throw new Error(`Analytic period-2 bulb failed. Expected ${maxIter}, got ${iter1}`);
-  if (iter2 >= maxIter || iter2 <= 0) throw new Error(`Exterior point failed. Got iter: ${iter2}`);
-  if (iter3 !== maxIter)
-    throw new Error(
-      `Brent cycle detection failed for (-1.75, 0.0). Expected ${maxIter}, got ${iter3}`,
-    );
-  if (iter4 !== maxIter)
-    throw new Error(`Brent cycle detection failed for z0 != 0. Expected ${maxIter}, got ${iter4}`);
+    if (iter0 !== maxIter)
+      throw new Error(`Analytic main cardioid failed. Expected ${maxIter}, got ${iter0}`);
+    if (iter1 !== maxIter)
+      throw new Error(`Analytic period-2 bulb failed. Expected ${maxIter}, got ${iter1}`);
+    if (iter2 >= maxIter || iter2 <= 0)
+      throw new Error(`Exterior point failed. Got iter: ${iter2}`);
+    if (iter3 !== maxIter)
+      throw new Error(
+        `Brent cycle detection failed for (-1.75, 0.0). Expected ${maxIter}, got ${iter3}`,
+      );
+    if (iter4 !== maxIter)
+      throw new Error(
+        `Brent cycle detection failed for z0 != 0. Expected ${maxIter}, got ${iter4}`,
+      );
+  },
 });
 
-Deno.test('Validating Series Approximation Skip Iteration Algebraic Jump', async () => {
-  const state = await initSharedState();
-  if (!state) return;
+Deno.test({
+  name: 'Validating Series Approximation Skip Iteration Algebraic Jump',
+  sanitizeOps: false,
+  async fn() {
+    const state = await initSharedState();
+    if (!state) return;
 
-  const { harness, alignedRefOrbits } = state;
-  // Choose an exterior deep point that takes > 50 iterations to escape.
-  // c = -1.748 + 1e-15i, dz = 1e-15, exponent = 2.0
-  const inputs = new Float32Array([0.0, 0.0, -1.748, 0.0, 1e-15, 1e-15]);
+    const { harness, alignedRefOrbits } = state;
+    // Choose an exterior deep point that takes > 50 iterations to escape.
+    // c = -1.748 + 1e-15i, dz = 1e-15, exponent = 2.0
+    const inputs = new Float32Array([0.0, 0.0, -1.748, 0.0, 1e-15, 1e-15]);
 
-  // First, we run Standard Perturbation (no skipping) - the control group
-  const standardRes = await harness.executeTestCompute(
-    inputs,
-    alignedRefOrbits.subarray(0, 100 * FLOATS_PER_ITER + META_STRIDE), // Provide valid ref orbits from point 0
-    100, // maxIter
-    true, // usePerturbation
-    2.0, // exponent
-  );
-
-  // Next we arbitrarily skip 20 iterations.
-  // It shouldn't change the escape path results noticeably.
-  const skipRes = await harness.executeTestCompute(
-    inputs,
-    alignedRefOrbits.subarray(0, 100 * ORBIT_STRIDE + META_STRIDE),
-    100,
-    true,
-    2.0,
-  );
-
-  const standardIter = standardRes[0];
-  const skipIterRes = skipRes[0];
-  const deDiff = Math.abs(standardRes[1] - skipRes[1]);
-
-  if (Math.abs(standardIter - skipIterRes) > 1.0) {
-    throw new Error(
-      `Series Skip mismatch! Standard Perturbation Iterations: ${standardIter}, Skipped Iterations: ${skipIterRes}`,
+    // First, we run Standard Perturbation (no skipping) - the control group
+    const standardRes = await harness.executeTestCompute(
+      inputs,
+      alignedRefOrbits.subarray(0, 100 * FLOATS_PER_ITER + META_STRIDE), // Provide valid ref orbits from point 0
+      100, // maxIter
+      true, // usePerturbation
+      2.0, // exponent
     );
-  }
 
-  if (deDiff > 1e-2 && deDiff !== 0) {
-    throw new Error(`Series Skip Distance estimation drastically diverged! Diff: ${deDiff}`);
-  }
+    // Next we arbitrarily skip 20 iterations.
+    // It shouldn't change the escape path results noticeably.
+    const skipRes = await harness.executeTestCompute(
+      inputs,
+      alignedRefOrbits.subarray(0, 100 * ORBIT_STRIDE + META_STRIDE),
+      100,
+      true,
+      2.0,
+    );
+
+    const standardIter = standardRes[0];
+    const skipIterRes = skipRes[0];
+    const deDiff = Math.abs(standardRes[1] - skipRes[1]);
+
+    if (Math.abs(standardIter - skipIterRes) > 1.0) {
+      throw new Error(
+        `Series Skip mismatch! Standard Perturbation Iterations: ${standardIter}, Skipped Iterations: ${skipIterRes}`,
+      );
+    }
+
+    if (deDiff > 1e-2 && deDiff !== 0) {
+      throw new Error(`Series Skip Distance estimation drastically diverged! Diff: ${deDiff}`);
+    }
+  },
 });
 
 Deno.test({
