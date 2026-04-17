@@ -41,7 +41,7 @@ export class TelemetryRenderer {
     zoomX: number = 1.0,
     panX: number = 0.0,
     frozenSnapshots: Map<string, IBufferSnapshot> | null = null,
-    cursorX: number | null = null,
+    cursorAge: number | null = null,
   ): Record<string, number> {
     this.ctx.clearRect(0, 0, this.width, this.height);
 
@@ -91,15 +91,22 @@ export class TelemetryRenderer {
         zoomX,
         panX,
         index,
-        cursorX,
+        cursorAge,
       );
       if (valAtCursor !== null) {
         readouts[id] = valAtCursor;
       }
     });
 
-    if (cursorX !== null) {
-      this.drawCursor(cursorX);
+    if (cursorAge !== null) {
+      const maxPoints = Math.max(1, Math.floor(globalCapacity / zoomX));
+      const startPointOffset = Math.floor(panX * (globalCapacity - maxPoints));
+      const i = cursorAge - startPointOffset;
+      const x = this.width - (i / (maxPoints - 1)) * this.width;
+
+      if (x >= -5 && x <= this.width + 5) {
+        this.drawCursor(x);
+      }
     }
 
     return readouts;
@@ -179,13 +186,32 @@ export class TelemetryRenderer {
 
     this.ctx.beginPath();
     const chamfer = Math.min(Math.min(h * 0.2, w * 0.3), 4);
+    const clipLeft = leftX <= 0;
+    const clipRight = rightX >= this.width;
+
     if (w > 2 * chamfer) {
-      this.ctx.moveTo(leftX, top + h / 2);
-      this.ctx.lineTo(leftX + chamfer, top);
-      this.ctx.lineTo(rightX - chamfer, top);
-      this.ctx.lineTo(rightX, top + h / 2);
-      this.ctx.lineTo(rightX - chamfer, bottom);
-      this.ctx.lineTo(leftX + chamfer, bottom);
+      if (clipLeft) {
+        this.ctx.moveTo(leftX, bottom);
+        this.ctx.lineTo(leftX, top);
+      } else {
+        this.ctx.moveTo(leftX, top + h / 2);
+        this.ctx.lineTo(leftX + chamfer, top);
+      }
+
+      if (clipRight) {
+        this.ctx.lineTo(rightX, top);
+        this.ctx.lineTo(rightX, bottom);
+      } else {
+        this.ctx.lineTo(rightX - chamfer, top);
+        this.ctx.lineTo(rightX, top + h / 2);
+        this.ctx.lineTo(rightX - chamfer, bottom);
+      }
+
+      if (clipLeft) {
+        this.ctx.lineTo(leftX, bottom);
+      } else {
+        this.ctx.lineTo(leftX + chamfer, bottom);
+      }
       this.ctx.closePath();
     } else {
       this.ctx.rect(leftX, top, w, h);
@@ -222,7 +248,7 @@ export class TelemetryRenderer {
     zoomX: number,
     panX: number,
     colorIndex: number,
-    cursorX: number | null,
+    cursorAge: number | null,
   ): number | null {
     if (buf.count === 0) return null;
 
@@ -286,6 +312,11 @@ export class TelemetryRenderer {
     const drawHeight = height - paddingY * 2;
     let valAtCursor: number | null = null;
 
+    if (cursorAge !== null && cursorAge < buf.count && cursorAge >= 0) {
+      const phys = (buf.headIndex - 1 - cursorAge + buf.capacity) % buf.capacity;
+      valAtCursor = buf.rawBuffer[phys];
+    }
+
     let enumVal: number | null = null;
     let enumStartX: number = this.width;
     let lastX: number = this.width;
@@ -301,18 +332,14 @@ export class TelemetryRenderer {
 
       const x = this.width - (i / (maxPoints - 1)) * this.width;
 
-      if (cursorX !== null && valAtCursor === null) {
-        if (x <= cursorX) {
-          valAtCursor = val;
-        }
-      }
-
       if (def.type === 'enum') {
         if (enumVal === null) {
           enumVal = val;
           enumStartX = x;
-        } else if (enumVal !== val) {
-          this.drawEnumPacket(def, enumVal, lastX, enumStartX, yOffset, height, colorIndex);
+        } else if (!Object.is(enumVal, val)) {
+          if (!Number.isNaN(enumVal)) {
+            this.drawEnumPacket(def, enumVal, lastX, enumStartX, yOffset, height, colorIndex);
+          }
           enumVal = val;
           enumStartX = lastX;
         }
@@ -347,9 +374,11 @@ export class TelemetryRenderer {
       }
     }
 
-    this.ctx.stroke();
+    if (def.type !== 'enum') {
+      this.ctx.stroke();
+    }
 
-    if (def.type === 'enum' && enumVal !== null) {
+    if (def.type === 'enum' && enumVal !== null && !Number.isNaN(enumVal)) {
       this.drawEnumPacket(def, enumVal, lastX, enumStartX, yOffset, height, colorIndex);
     }
 
@@ -370,11 +399,6 @@ export class TelemetryRenderer {
       this.ctx.fillText(max.toFixed(2), this.width - 10, yOffset + 10);
       this.ctx.textBaseline = 'bottom';
       this.ctx.fillText(min.toFixed(2), this.width - 10, yOffset + height - 10);
-    }
-
-    if (cursorX !== null && valAtCursor === null && buf.count > 0) {
-      const phys = (buf.headIndex - 1 - startPointOffset + buf.capacity) % buf.capacity;
-      valAtCursor = buf.rawBuffer[phys];
     }
 
     this.ctx.restore();

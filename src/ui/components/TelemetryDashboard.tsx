@@ -27,7 +27,7 @@ export const TelemetryDashboard: React.FC = () => {
   const resizeRef = useRef({ isResizing: false });
   const zoomXRef = useRef(1.0);
   const panXRef = useRef(0.0);
-  const [cursorX, setCursorX] = useState<number | null>(null);
+  const [cursorAge, setCursorAge] = useState<number | null>(null);
   const [activeSignals, setActiveSignals] = useState<string[]>(() => {
     return ['engine.framerate', 'webgpu.renderms', 'engine.fsm'];
   });
@@ -43,7 +43,7 @@ export const TelemetryDashboard: React.FC = () => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (cursorX !== null) {
+      if (cursorAge !== null) {
         setDisplayValues({ ...latestCursorValuesRef.current });
       } else if (!isPaused) {
         const reg = TelemetryRegistry.getInstance();
@@ -55,7 +55,7 @@ export const TelemetryDashboard: React.FC = () => {
       }
     }, 100);
     return () => clearInterval(interval);
-  }, [cursorX, isPaused, activeSignals]);
+  }, [cursorAge, isPaused, activeSignals]);
 
   useEffect(() => {
     if (!isOpen || !canvasRef.current || !containerRef.current) return;
@@ -86,7 +86,7 @@ export const TelemetryDashboard: React.FC = () => {
         const currentHead = firstBuf ? firstBuf.getHeadIndex() : 0;
         const currentCount = firstBuf ? firstBuf.getCount() : 0;
 
-        const currentRenderKey = `${currentHead}:${currentCount}:${zoomXRef.current}:${panXRef.current}:${cursorX}:${isPaused}:${canvas.width}`;
+        const currentRenderKey = `${currentHead}:${currentCount}:${zoomXRef.current}:${panXRef.current}:${cursorAge}:${isPaused}:${canvas.width}`;
 
         if (scrollContainerRef.current && scrollInnerRef.current) {
           const fakeWidth = zoomXRef.current * 100;
@@ -112,7 +112,7 @@ export const TelemetryDashboard: React.FC = () => {
             zoomXRef.current,
             panXRef.current,
             frozenSnapshotsRef.current,
-            cursorX,
+            cursorAge,
           );
           latestCursorValuesRef.current = vals;
           lastRenderKey = currentRenderKey;
@@ -140,7 +140,7 @@ export const TelemetryDashboard: React.FC = () => {
       cancelAnimationFrame(animationId);
       resizeObserver.disconnect();
     };
-  }, [isOpen, activeSignals, cursorX, isPaused]);
+  }, [isOpen, activeSignals, cursorAge, isPaused]);
 
   useEffect(() => {
     const handleMove = (e: PointerEvent) => {
@@ -242,15 +242,41 @@ export const TelemetryDashboard: React.FC = () => {
     if (wasClick) {
       const rect = canvasRef.current?.getBoundingClientRect();
       if (rect) {
-        setCursorX(e.clientX - rect.left);
+        const pixelX = e.clientX - rect.left;
+        const width = canvasRef.current!.width;
+        const firstBuf =
+          activeSignals.length > 0
+            ? TelemetryRegistry.getInstance().getBuffer(activeSignals[0])
+            : null;
+        const capacity =
+          frozenSnapshotsRef.current?.get(activeSignals[0] || '')?.capacity ||
+          firstBuf?.getCapacity() ||
+          600;
+        const maxPoints = Math.max(1, Math.floor(capacity / zoomXRef.current));
+        const startPointOffset = Math.floor(panXRef.current * (capacity - maxPoints));
+
+        const i = Math.round((1 - pixelX / width) * (maxPoints - 1));
+        setCursorAge(Math.max(0, Math.min(capacity - 1, i + startPointOffset)));
       }
     }
   };
 
   const onWheel = (e: React.WheelEvent) => {
     if (e.deltaY !== 0) {
+      const firstBuf =
+        activeSignals.length > 0
+          ? TelemetryRegistry.getInstance().getBuffer(activeSignals[0])
+          : null;
+      const capacity =
+        frozenSnapshotsRef.current?.get(activeSignals[0] || '')?.capacity ||
+        firstBuf?.getCapacity() ||
+        600;
+
+      // Maximum zoom allows viewing exactly 10 frames across the grid, meaning 1 frame per grid line.
+      const maxZoom = Math.max(10.0, capacity / 10.0);
+
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-      zoomXRef.current = Math.max(1.0, Math.min(10.0, zoomXRef.current * zoomFactor));
+      zoomXRef.current = Math.max(1.0, Math.min(maxZoom, zoomXRef.current * zoomFactor));
     }
   };
 
@@ -278,6 +304,47 @@ export const TelemetryDashboard: React.FC = () => {
     } else {
       setActiveSignals([...activeSignals, id]);
     }
+  };
+
+  const moveCursor = (type: 'start' | 'end' | 'prev' | 'next') => {
+    if (!canvasRef.current) return;
+    const firstBuf =
+      activeSignals.length > 0 ? TelemetryRegistry.getInstance().getBuffer(activeSignals[0]) : null;
+    const capacity =
+      frozenSnapshotsRef.current?.get(activeSignals[0] || '')?.capacity ||
+      firstBuf?.getCapacity() ||
+      600;
+
+    setCursorAge((prev) => {
+      let nextAge = prev;
+      if (prev === null) {
+        if (type === 'start') nextAge = capacity - 1;
+        else if (type === 'end') nextAge = 0;
+        else nextAge = Math.floor(capacity / 2);
+      } else {
+        if (type === 'start') nextAge = capacity - 1;
+        else if (type === 'end') nextAge = 0;
+        else if (type === 'prev') nextAge = Math.min(capacity - 1, prev + 1);
+        else if (type === 'next') nextAge = Math.max(0, prev - 1);
+      }
+
+      if (nextAge !== null) {
+        const maxPoints = Math.max(1, Math.floor(capacity / zoomXRef.current));
+        let startPointOffset = Math.floor(panXRef.current * (capacity - maxPoints));
+
+        if (nextAge < startPointOffset) {
+          startPointOffset = nextAge;
+        } else if (nextAge > startPointOffset + maxPoints - 1) {
+          startPointOffset = nextAge - maxPoints + 1;
+        }
+
+        if (capacity > maxPoints) {
+          panXRef.current = Math.max(0, Math.min(1.0, startPointOffset / (capacity - maxPoints)));
+        }
+      }
+
+      return nextAge;
+    });
   };
 
   const setPreset = (preset: string) => {
@@ -315,7 +382,34 @@ export const TelemetryDashboard: React.FC = () => {
             <h3>GTKWave Telemetry Analyzer</h3>
           </div>
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-            {cursorX !== null && <button onClick={() => setCursorX(null)}>CLEAR CURSOR</button>}
+            {cursorAge !== null && (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '4px',
+                  background: '#222',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  alignItems: 'center',
+                }}
+              >
+                <button onClick={() => moveCursor('start')} title="Oldest Frame (Start)">
+                  |◀
+                </button>
+                <button onClick={() => moveCursor('prev')} title="Previous Frame (Older)">
+                  ◀
+                </button>
+                <button onClick={() => moveCursor('next')} title="Next Frame (Newer)">
+                  ▶
+                </button>
+                <button onClick={() => moveCursor('end')} title="Newest Frame (Head)">
+                  ▶|
+                </button>
+                <button onClick={() => setCursorAge(null)} style={{ marginLeft: '8px' }}>
+                  ✕ CLEAR
+                </button>
+              </div>
+            )}
             <button
               onClick={() => setIsPaused(!isPaused)}
               style={{ color: isPaused ? '#ef4444' : '#3b82f6' }}
