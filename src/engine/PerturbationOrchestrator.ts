@@ -9,6 +9,7 @@ export interface WorkerJob {
   absCi: string;
   exponent: number;
   paletteMaxIter: number;
+  isRefining?: boolean;
 }
 
 export class PerturbationOrchestrator {
@@ -77,22 +78,32 @@ export class PerturbationOrchestrator {
       this.pendingWorkerJob = null;
       this.isWorkerBusy = true;
 
-      const casesJson = JSON.stringify([
-        {
-          zr: this.currentWorkerJob.absZr,
-          zi: this.currentWorkerJob.absZi,
+      if (this.currentWorkerJob.isRefining) {
+        this.worker.postMessage({
+          id: this.currentWorkerJob.id,
+          type: 'REFINE_REFERENCE',
           cr: this.currentWorkerJob.absCr,
           ci: this.currentWorkerJob.absCi,
-          exponent: this.currentWorkerJob.exponent,
-        },
-      ]);
+          max_iterations: this.currentWorkerJob.paletteMaxIter,
+        });
+      } else {
+        const casesJson = JSON.stringify([
+          {
+            zr: this.currentWorkerJob.absZr,
+            zi: this.currentWorkerJob.absZi,
+            cr: this.currentWorkerJob.absCr,
+            ci: this.currentWorkerJob.absCi,
+            exponent: this.currentWorkerJob.exponent,
+          },
+        ]);
 
-      this.worker.postMessage({
-        id: this.currentWorkerJob.id,
-        type: 'COMPUTE',
-        casesJson,
-        paletteMaxIter: this.currentWorkerJob.paletteMaxIter,
-      });
+        this.worker.postMessage({
+          id: this.currentWorkerJob.id,
+          type: 'COMPUTE',
+          casesJson,
+          paletteMaxIter: this.currentWorkerJob.paletteMaxIter,
+        });
+      }
 
       this.channels.dispatched.set(this.currentWorkerJob.id);
       this.channels.pending.set(1);
@@ -104,7 +115,38 @@ export class PerturbationOrchestrator {
   }
 
   private handleWorkerMessage(e: MessageEvent) {
-    if (e.data.type === 'COMPUTE_RESULT' && e.data.orbit_nodes) {
+    if (e.data.type === 'REFINE_RESULT') {
+      if (this.pendingWorkerJob !== null) {
+        this.dispatchPendingWork();
+      } else if (this.currentWorkerJob && this.currentWorkerJob.id === e.data.id) {
+        console.log(`[PerturbationOrchestrator] Refined anchor: ${e.data.refType} (period: ${e.data.period}, pre-period: ${e.data.pre_period})`);
+        
+        // Progress job to COMPUTE phase using the newly minted mathematically pure reference
+        this.currentWorkerJob.isRefining = false;
+        this.currentWorkerJob.absCr = e.data.cr.toString();
+        this.currentWorkerJob.absCi = e.data.ci.toString();
+        // Force Z back to 0 so the calculation executes from the anchor origin
+        this.currentWorkerJob.absZr = "0";
+        this.currentWorkerJob.absZi = "0";
+
+        const casesJson = JSON.stringify([
+          {
+            zr: this.currentWorkerJob.absZr,
+            zi: this.currentWorkerJob.absZi,
+            cr: this.currentWorkerJob.absCr,
+            ci: this.currentWorkerJob.absCi,
+            exponent: this.currentWorkerJob.exponent,
+          },
+        ]);
+
+        this.worker.postMessage({
+          id: this.currentWorkerJob.id,
+          type: 'COMPUTE',
+          casesJson,
+          paletteMaxIter: this.currentWorkerJob.paletteMaxIter,
+        });
+      }
+    } else if (e.data.type === 'COMPUTE_RESULT' && e.data.orbit_nodes) {
       if (this.pendingWorkerJob !== null) {
         // User panned while we were waiting, discard obsolete result
         this.dispatchPendingWork();
@@ -112,6 +154,7 @@ export class PerturbationOrchestrator {
         const job = this.currentWorkerJob;
 
         // Apply state synchronously to avoid tearing
+        // Mathematical snapping: The viewport stays exactly where it is, but the anchor changes.
         viewportStore.setState((state) => {
           const currentAbsoluteCr = parseFloat(state.anchorCr) + state.deltaCr;
           const currentAbsoluteCi = parseFloat(state.anchorCi) + state.deltaCi;
@@ -183,6 +226,7 @@ export class PerturbationOrchestrator {
             absCi,
             exponent: state.exponent,
             paletteMaxIter: state.paletteMaxIter,
+            isRefining: true,
           };
 
           this.pendingWorkerJob = job;

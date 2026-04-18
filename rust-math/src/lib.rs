@@ -327,3 +327,256 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> MathPayload
         bla_grid: js_sys::Float64Array::from(&bla_results[..]),
     }
 }
+
+#[wasm_bindgen]
+pub struct RefineResult {
+    cr: f64,
+    ci: f64,
+    ref_type: String,
+    period: u32,
+    pre_period: u32,
+}
+
+#[wasm_bindgen]
+impl RefineResult {
+    #[wasm_bindgen(getter)]
+    pub fn cr(&self) -> f64 { self.cr }
+    #[wasm_bindgen(getter)]
+    pub fn ci(&self) -> f64 { self.ci }
+    #[wasm_bindgen(getter)]
+    pub fn ref_type(&self) -> String { self.ref_type.clone() }
+    #[wasm_bindgen(getter)]
+    pub fn period(&self) -> u32 { self.period }
+    #[wasm_bindgen(getter)]
+    pub fn pre_period(&self) -> u32 { self.pre_period }
+}
+
+#[wasm_bindgen]
+pub fn refine_reference(cr_str: &str, ci_str: &str, max_iterations: u32) -> RefineResult {
+    let mut c_r = BigDecimal::from_str(cr_str).unwrap_or(BigDecimal::zero());
+    let mut c_i = BigDecimal::from_str(ci_str).unwrap_or(BigDecimal::zero());
+
+    let limit = BigDecimal::from(4);
+    let two = BigDecimal::from(2);
+
+    let mut path_r = Vec::with_capacity(max_iterations as usize + 1);
+    let mut path_i = Vec::with_capacity(max_iterations as usize + 1);
+    path_r.push(BigDecimal::zero());
+    path_i.push(BigDecimal::zero());
+
+    let mut found_type = "unknown".to_string();
+    let mut out_period = 0;
+    let mut out_pre_period = 0;
+
+    // Use a larger epsilon for attracting cycle detection
+    let epsilon = BigDecimal::from_f64(1e-4).unwrap();
+    let epsilon_sq = (&epsilon * &epsilon).with_prec(100);
+    
+    // For Misiurewicz, we only check the first few iterations because it is repelling.
+    // If it gets close early, it's Misiurewicz.
+    // Otherwise, if it eventually converges, it's an attracting cycle (Nucleus).
+
+    for i in 1..=max_iterations {
+        let r = &path_r[i as usize - 1];
+        let i_comp = &path_i[i as usize - 1];
+
+        let r2 = (r * r).with_prec(100);
+        let i2 = (i_comp * i_comp).with_prec(100);
+        if (&r2 + &i2) > limit {
+            break;
+        }
+
+        let next_r = (&r2 - &i2 + &c_r).with_prec(100);
+        let next_i = (&two * r * i_comp + &c_i).with_prec(100);
+
+        let mut mis_found = false;
+        // Search backwards to see if we hit a cycle
+        for k in 0..(i - 1) {
+            let diff_r = &next_r - &path_r[k as usize];
+            let diff_i = &next_i - &path_i[k as usize];
+            let diff_sq = (&diff_r * &diff_r + &diff_i * &diff_i).with_prec(100);
+            
+            if diff_sq < epsilon_sq {
+                out_period = i - k;
+                out_pre_period = k;
+                
+                // Check if 0 is in the cycle!
+                // The cycle is from path[k] to path[i-1].
+                let mut min_mag_sq = BigDecimal::from_f64(f64::MAX).unwrap();
+                for c_idx in k..i {
+                    let c_r = &path_r[c_idx as usize];
+                    let c_i = &path_i[c_idx as usize];
+                    let c_mag_sq = (c_r * c_r + c_i * c_i).with_prec(100);
+                    if c_mag_sq < min_mag_sq {
+                        min_mag_sq = c_mag_sq;
+                    }
+                }
+                
+                // If the cycle contains a point close to 0, it's a nucleus (attracting cycle)
+                // We use a somewhat relaxed threshold since we might not have perfectly converged yet
+                let nucleus_threshold = BigDecimal::from_f64(1e-2).unwrap();
+                if min_mag_sq < nucleus_threshold {
+                    found_type = "nucleus".to_string();
+                } else {
+                    found_type = "misiurewicz".to_string();
+                }
+                
+                mis_found = true;
+                break;
+            }
+        }
+
+        path_r.push(next_r);
+        path_i.push(next_i);
+
+        if mis_found {
+            break;
+        }
+    }
+
+    if found_type == "nucleus" {
+        // Newton-Raphson refinement for Nucleus solver
+        for _ in 0..20 {
+            let mut z_r = BigDecimal::zero();
+            let mut z_i = BigDecimal::zero();
+            let mut z_der_r = BigDecimal::zero();
+            let mut z_der_i = BigDecimal::zero();
+
+            for _ in 0..out_period {
+                let new_z_der_r = (&two * (&z_r * &z_der_r - &z_i * &z_der_i) + BigDecimal::one()).with_prec(100);
+                let new_z_der_i = (&two * (&z_r * &z_der_i + &z_i * &z_der_r)).with_prec(100);
+
+                let new_z_r = (&z_r * &z_r - &z_i * &z_i + &c_r).with_prec(100);
+                let new_z_i = (&two * &z_r * &z_i + &c_i).with_prec(100);
+
+                z_der_r = new_z_der_r;
+                z_der_i = new_z_der_i;
+                z_r = new_z_r;
+                z_i = new_z_i;
+            }
+
+            let den = (&z_der_r * &z_der_r + &z_der_i * &z_der_i).with_prec(100);
+            if den == BigDecimal::zero() {
+                break;
+            }
+
+            let num_r = (&z_r * &z_der_r + &z_i * &z_der_i).with_prec(100);
+            let num_i = (&z_i * &z_der_r - &z_r * &z_der_i).with_prec(100);
+
+            c_r = (&c_r - (num_r / &den)).with_prec(100);
+            c_i = (&c_i - (num_i / &den)).with_prec(100);
+            
+            // Check convergence
+            let z_mag = (&z_r * &z_r + &z_i * &z_i).with_prec(100);
+            if z_mag < epsilon_sq {
+                break;
+            }
+        }
+    } else if found_type == "misiurewicz" {
+        // Newton-Raphson refinement for Misiurewicz solver
+        // We use the basic f(c) = z_{k+p}(c) - z_k(c) for simplicity in first pass
+        for _ in 0..20 {
+            let mut z_r = vec![BigDecimal::zero(); (out_pre_period + out_period + 1) as usize];
+            let mut z_i = vec![BigDecimal::zero(); (out_pre_period + out_period + 1) as usize];
+            let mut z_der_r = vec![BigDecimal::zero(); (out_pre_period + out_period + 1) as usize];
+            let mut z_der_i = vec![BigDecimal::zero(); (out_pre_period + out_period + 1) as usize];
+
+            for j in 0..(out_pre_period + out_period) {
+                let idx = j as usize;
+                
+                let new_z_der_r = (&two * (&z_r[idx] * &z_der_r[idx] - &z_i[idx] * &z_der_i[idx]) + BigDecimal::one()).with_prec(100);
+                let new_z_der_i = (&two * (&z_r[idx] * &z_der_i[idx] + &z_i[idx] * &z_der_r[idx])).with_prec(100);
+
+                let new_z_r = (&z_r[idx] * &z_r[idx] - &z_i[idx] * &z_i[idx] + &c_r).with_prec(100);
+                let new_z_i = (&two * &z_r[idx] * &z_i[idx] + &c_i).with_prec(100);
+
+                z_der_r[idx + 1] = new_z_der_r;
+                z_der_i[idx + 1] = new_z_der_i;
+                z_r[idx + 1] = new_z_r;
+                z_i[idx + 1] = new_z_i;
+            }
+
+            let pk = out_pre_period as usize;
+            let pkp = (out_pre_period + out_period) as usize;
+
+            let g_r = (&z_r[pkp] - &z_r[pk]).with_prec(100);
+            let g_i = (&z_i[pkp] - &z_i[pk]).with_prec(100);
+            let g_der_r = (&z_der_r[pkp] - &z_der_r[pk]).with_prec(100);
+            let g_der_i = (&z_der_i[pkp] - &z_der_i[pk]).with_prec(100);
+            
+            // Calculate h(c) to avoid finding roots of lower periods
+            // h(c) = Product_{j=0..(k-1)} [ z_{j+p}(c) - z_j(c) ]
+            let mut h_r = BigDecimal::one();
+            let mut h_i = BigDecimal::zero();
+            let mut h_sum_der_r = BigDecimal::zero();
+            let mut h_sum_der_i = BigDecimal::zero();
+
+            for i in 0..pk {
+                let diff_r = (&z_r[i + out_period as usize] - &z_r[i]).with_prec(100);
+                let diff_i = (&z_i[i + out_period as usize] - &z_i[i]).with_prec(100);
+                let diff_der_r = (&z_der_r[i + out_period as usize] - &z_der_r[i]).with_prec(100);
+                let diff_der_i = (&z_der_i[i + out_period as usize] - &z_der_i[i]).with_prec(100);
+
+                let new_h_r = (&h_r * &diff_r - &h_i * &diff_i).with_prec(100);
+                let new_h_i = (&h_r * &diff_i + &h_i * &diff_r).with_prec(100);
+                h_r = new_h_r;
+                h_i = new_h_i;
+
+                let diff_den = (&diff_r * &diff_r + &diff_i * &diff_i).with_prec(100);
+                if diff_den != BigDecimal::zero() {
+                    let div_r = (&diff_der_r * &diff_r + &diff_der_i * &diff_i).with_prec(100);
+                    let div_i = (&diff_der_i * &diff_r - &diff_der_r * &diff_i).with_prec(100);
+                    h_sum_der_r = (&h_sum_der_r + (div_r / &diff_den)).with_prec(100);
+                    h_sum_der_i = (&h_sum_der_i + (div_i / &diff_den)).with_prec(100);
+                }
+            }
+
+            let h_der_r = (&h_r * &h_sum_der_r - &h_i * &h_sum_der_i).with_prec(100);
+            let h_der_i = (&h_r * &h_sum_der_i + &h_i * &h_sum_der_r).with_prec(100);
+
+            let h_mag_sq = (&h_r * &h_r + &h_i * &h_i).with_prec(100);
+            if h_mag_sq == BigDecimal::zero() {
+                break;
+            }
+            let f_r = ((&g_r * &h_r + &g_i * &h_i) / &h_mag_sq).with_prec(100);
+            let f_i = ((&g_i * &h_r - &g_r * &h_i) / &h_mag_sq).with_prec(100);
+
+            let gder_h_r = (&g_der_r * &h_r - &g_der_i * &h_i).with_prec(100);
+            let gder_h_i = (&g_der_r * &h_i + &g_der_i * &h_r).with_prec(100);
+            let g_hder_r = (&g_r * &h_der_r - &g_i * &h_der_i).with_prec(100);
+            let g_hder_i = (&g_r * &h_der_i + &g_i * &h_der_r).with_prec(100);
+            
+            let num2_r = (&gder_h_r - &g_hder_r).with_prec(100);
+            let num2_i = (&gder_h_i - &g_hder_i).with_prec(100);
+            
+            let h_sq_r = (&h_r * &h_r - &h_i * &h_i).with_prec(100);
+            let h_sq_i = (&two * &h_r * &h_i).with_prec(100);
+            
+            let h_sq_mag = (&h_sq_r * &h_sq_r + &h_sq_i * &h_sq_i).with_prec(100);
+            if h_sq_mag == BigDecimal::zero() {
+                break;
+            }
+            let f_der_r = ((&num2_r * &h_sq_r + &num2_i * &h_sq_i) / &h_sq_mag).with_prec(100);
+            let f_der_i = ((&num2_i * &h_sq_r - &num2_r * &h_sq_i) / &h_sq_mag).with_prec(100);
+
+            let fder_mag_sq = (&f_der_r * &f_der_r + &f_der_i * &f_der_i).with_prec(100);
+            if fder_mag_sq == BigDecimal::zero() {
+                break;
+            }
+            
+            let final_num_r = (&f_r * &f_der_r + &f_i * &f_der_i).with_prec(100);
+            let final_num_i = (&f_i * &f_der_r - &f_r * &f_der_i).with_prec(100);
+
+            c_r = (&c_r - (final_num_r / &fder_mag_sq)).with_prec(100);
+            c_i = (&c_i - (final_num_i / &fder_mag_sq)).with_prec(100);
+        }
+    }
+
+    RefineResult {
+        cr: c_r.to_f64().unwrap_or(0.0),
+        ci: c_i.to_f64().unwrap_or(0.0),
+        ref_type: found_type,
+        period: out_period,
+        pre_period: out_pre_period,
+    }
+}

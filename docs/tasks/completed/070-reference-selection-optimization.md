@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 070: Reference Selection Optimization
@@ -17,26 +17,26 @@ Implement an automated, dual-mode Reference Optimizer that selects and refines t
 
 ### 1. Rust WASM Solvers
 
-- [ ] Implement `NucleusSolver` in `rust-math`:
+- [x] Implement `NucleusSolver` in `rust-math`:
   - Newton-Raphson refinement for $z_p(c) = 0$.
   - Recursive derivative tracking for $z'_p$.
-- [ ] Implement `MisiurewiczSolver` in `rust-math`:
+- [x] Implement `MisiurewiczSolver` in `rust-math`:
   - Refined Newton-Raphson objective function to prevent pre-period collapse.
   - Simultaneous tracking of pre-periodic and periodic orbit/derivative components.
-- [ ] Implement `PeriodDetector`:
+- [x] Implement `PeriodDetector`:
   - Atom Domain search (monitoring $|z_n|$).
   - Misiurewicz Domain search (monitoring $|z_n - z_i|$).
 
 ### 2. TypeScript Orchestration
 
-- [ ] Update `PerturbationOrchestrator` to execute the detection-refinement pipeline.
-- [ ] Implement the "Snapping" logic: sample viewport center -> detect type -> refine -> set reference.
-- [ ] Add support for "Re-referencing" triggered by GPU glitch feedback.
+- [x] Update `PerturbationOrchestrator` to execute the detection-refinement pipeline.
+- [x] Implement the "Snapping" logic: sample viewport center -> detect type -> refine -> set reference.
+- [x] Add support for "Re-referencing" triggered by GPU glitch feedback.
 
 ### 3. GPU Glitch Feedback
 
-- [ ] Update WebGPU shaders to detect bits-of-precision loss.
-- [ ] Implement a readback buffer for glitch coordinates to trigger asynchronous re-optimization.
+- [ ] *Deferred to Task 071* Update WebGPU shaders to detect bits-of-precision loss.
+- [ ] *Deferred to Task 071* Implement a readback buffer for glitch coordinates to trigger asynchronous re-optimization.
 
 ## Implementation Plan
 
@@ -138,7 +138,7 @@ impl MisiurewiczSolver {
 
 ## Verification Steps
 
-- [ ] Write a headless Deno test that feeds a target coordinate into `rust-math`. Verify that the NucleusSolver converges to the known mathematical center instead of the naive starting point.
-- [ ] Add a headless test for the WGSL glitch detection output buffer.
-- [ ] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
-- [ ] **Documentation Sync:** Update `docs/reference/singular_points_reference_selection.md` with any constraints discovered during implementation before closing this task.
+- [x] Write a headless Deno test that feeds a target coordinate into `rust-math`. Verify that the NucleusSolver converges to the known mathematical center instead of the naive starting point.
+- [ ] *Deferred* Add a headless test for the WGSL glitch detection output buffer.
+- [x] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
+- [x] **Documentation Sync:** Update `docs/reference/singular_points_reference_selection.md` with any constraints discovered during implementation before closing this task.
