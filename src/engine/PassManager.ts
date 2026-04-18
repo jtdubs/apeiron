@@ -657,7 +657,7 @@ export class PassManager {
     );
     this.device.queue.writeBuffer(
       this.presentPass.paletteUniformsBuffer,
-      124,
+      116,
       new Float32Array([desc.context.paletteMaxIter]).buffer as ArrayBuffer,
     );
 
