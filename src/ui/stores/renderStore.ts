@@ -56,10 +56,10 @@ export interface RenderState {
   ambient: number;
 
   // modes
-  precisionMode: 'f32' | 'perturbation';
+  renderMode: 'auto' | 'f32' | 'f32_perturbation' | 'f64_perturbation';
   coloringMode: 'iteration' | 'stripe' | 'banded';
   surfaceMode: 'off' | '3d-topography' | 'soft-glow' | 'contours';
-  setPrecisionMode: (mode: 'f32' | 'perturbation') => void;
+  setRenderMode: (mode: 'auto' | 'f32' | 'f32_perturbation' | 'f64_perturbation') => void;
   setColoringMode: (mode: 'iteration' | 'stripe' | 'banded') => void;
   setSurfaceMode: (mode: 'off' | '3d-topography' | 'soft-glow' | 'contours') => void;
 
@@ -114,7 +114,7 @@ export const renderStore = createStore<RenderState>((set) => ({
   heightScale: 0.1,
   ambient: 0.2,
 
-  precisionMode: 'perturbation',
+  renderMode: 'auto',
   coloringMode: 'iteration',
   surfaceMode: '3d-topography',
   glowFalloff: 20.0,
@@ -123,8 +123,8 @@ export const renderStore = createStore<RenderState>((set) => ({
   contourThickness: 0.8,
   colorDensity: 3.0,
   colorPhase: 0.0,
-  setPrecisionMode: (mode) =>
-    set((state) => ({ precisionMode: mode, themeVersion: state.themeVersion + 1 })),
+  setRenderMode: (mode) =>
+    set((state) => ({ renderMode: mode, themeVersion: state.themeVersion + 1 })),
   setColoringMode: (mode) =>
     set((state) => ({ coloringMode: mode, themeVersion: state.themeVersion + 1 })),
   setSurfaceMode: (mode) =>

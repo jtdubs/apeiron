@@ -313,6 +313,7 @@ export class TestRenderSession {
         refOrbitNodes: null,
         refMetadata: null,
         refBlaGrid: null,
+        effectiveMathMode: 0,
         skipIter: 0,
         debugViewMode: 0,
         ...options.context,

@@ -17,7 +17,7 @@ describe('urlSync', () => {
       THEMES.watermelon.d,
       'watermelon',
     );
-    rs.setPrecisionMode('perturbation');
+    rs.setRenderMode('f32_perturbation');
     rs.setColoringMode('iteration');
     rs.setSurfaceMode('3d-topography');
   });
@@ -43,7 +43,7 @@ describe('urlSync', () => {
       THEMES.cyberpunk.d,
       'cyberpunk',
     );
-    rs.setPrecisionMode('f32');
+    rs.setRenderMode('f32');
     rs.setColoringMode('stripe');
     rs.setSurfaceMode('soft-glow');
     rs.setGlowFalloff(99.0);
@@ -61,7 +61,7 @@ describe('urlSync', () => {
       THEMES.monochrome.d,
       'monochrome',
     );
-    rs.setPrecisionMode('perturbation');
+    rs.setRenderMode('auto');
     rs.setGlowFalloff(20.0);
 
     // Call deserialize
@@ -79,7 +79,7 @@ describe('urlSync', () => {
     expect(r.paletteName).toBe('cyberpunk');
     // We expect the array actually loaded from THEMES
     expect(r.paletteA).toEqual(THEMES.cyberpunk.a);
-    expect(r.precisionMode).toBe('f32');
+    expect(r.renderMode).toBe('f32');
     expect(r.coloringMode).toBe('stripe');
     expect(r.surfaceMode).toBe('soft-glow');
     expect(r.glowFalloff).toBe(99.0);

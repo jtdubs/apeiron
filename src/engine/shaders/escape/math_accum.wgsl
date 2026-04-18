@@ -1,8 +1,9 @@
 // #import "./generated/layout.wgsl"
 // #import "./generated/layout_accessors.wgsl"
+// #import "../math/ds_math.wgsl"
 
 @id(0) override fractal_exponent: f32 = 2.0;
-@id(1) override use_perturbation: f32 = 1.0;
+@id(1) override math_compute_mode: u32 = 0u;
 @id(2) override coloring_mode: f32 = 0.0;
 
 @group(0) @binding(0) var<uniform> camera: CameraParams;
@@ -493,7 +494,6 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
   var tia_sum = init_state.tia_sum;
 
   // Initialize parallel high-precision state
-  let deep_zoom = camera.scale < 1e-10 && fractal_exponent == 2.0;
   var dz_ds = complex_f32_to_ds(dz);
   let dc_ds = complex_f32_to_ds(delta_c);
 
@@ -528,9 +528,8 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     var dz_next: vec2<f32>;
     let d = fractal_exponent;
     
-    // Switch to Double-Single Emulated precision natively when exceeding f32 capability (around scale ~1e-10)
-    // and using Mandelbrot (d=2) which is the only one we have DS math fully vetted for right now.
-    if (deep_zoom) {
+    // Switch to Double-Single Emulated precision natively when math_compute_mode == 2
+    if (math_compute_mode == 2u) {
         let z_ds = complex_f32_to_ds(vec2<f32>(zx, zy));
         
         let dz2_ds = complex_sq_ds(dz_ds);
@@ -626,7 +625,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
 }
 
 fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, pixel_idx: u32) -> vec4<f32> {
-  if (use_perturbation > 0.5) {
+  if (math_compute_mode > 0u) {
      let orbit_meta = get_orbit_metadata();
      let cycle = orbit_meta.cycle_found;
      let ref_escaped_iter = orbit_meta.escaped_iter;
@@ -795,8 +794,8 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let abs_cr = orbit_meta.abs_cr;
   let abs_ci = orbit_meta.abs_ci;
   
-  let start_z = select(vec2<f32>(camera.zr, camera.zi) + uv_mapped * sin_theta, vec2<f32>(abs_zr, abs_zi) + delta_z, use_perturbation > 0.5);
-  let start_c = select(vec2<f32>(camera.cr, camera.ci) + uv_mapped * cos_theta, vec2<f32>(abs_cr, abs_ci) + delta_c, use_perturbation > 0.5);
+  let start_z = select(vec2<f32>(camera.zr, camera.zi) + uv_mapped * sin_theta, vec2<f32>(abs_zr, abs_zi) + delta_z, math_compute_mode > 0u);
+  let start_c = select(vec2<f32>(camera.cr, camera.ci) + uv_mapped * cos_theta, vec2<f32>(abs_cr, abs_ci) + delta_c, math_compute_mode > 0u);
   
   let ret = execute_engine_math(start_z, start_c, delta_z, delta_c, pixel_id);
   

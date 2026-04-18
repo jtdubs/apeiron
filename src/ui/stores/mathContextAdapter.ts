@@ -7,12 +7,13 @@ const INTERACT_ITER_FRACTION = 0.33;
 
 export function buildMathContext(
   state: ViewportState,
-  theme: RenderState,
+  _theme: RenderState,
   canvasWidth: number,
   canvasHeight: number,
   interactMaxIterOverride?: number | null,
+  effectiveMathMode: number = 0,
 ): MathContext {
-  const isPerturb = state.refOrbitNodes !== null && theme.precisionMode !== 'f32';
+  const isPerturb = effectiveMathMode !== 0;
 
   const zr = isPerturb ? state.deltaZr : parseFloat(state.anchorZr) + state.deltaZr;
   const zi = isPerturb ? state.deltaZi : parseFloat(state.anchorZi) + state.deltaZi;
@@ -31,7 +32,7 @@ export function buildMathContext(
           canvasWidth,
           canvasHeight,
           state.sliceAngle,
-          theme.precisionMode,
+          isPerturb ? 'perturbation' : 'f32',
         )
       : 0;
 
@@ -59,6 +60,7 @@ export function buildMathContext(
     refOrbitNodes: state.refOrbitNodes,
     refMetadata: state.refMetadata,
     refBlaGrid: state.refBlaGrid,
+    effectiveMathMode,
     skipIter,
     debugViewMode: state.debugViewMode,
   };

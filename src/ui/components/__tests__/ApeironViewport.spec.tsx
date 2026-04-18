@@ -276,7 +276,7 @@ describe('ApeironViewport Orchestration', () => {
         refBlaGrid: new Float64Array(10),
       });
       renderStore.setState({
-        precisionMode: 'f32',
+        renderMode: 'f32',
       });
     });
 

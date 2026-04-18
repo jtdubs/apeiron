@@ -17,6 +17,7 @@ export interface MathContext {
   refOrbitNodes: Float64Array | null;
   refMetadata: Float64Array | null;
   refBlaGrid: Float64Array | null;
+  effectiveMathMode: number;
   skipIter: number;
   debugViewMode: number;
 }

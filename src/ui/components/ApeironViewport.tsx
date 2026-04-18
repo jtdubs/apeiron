@@ -200,18 +200,6 @@ export const ApeironViewport: React.FC = () => {
             retention: 'lapse',
             smoothingAlpha: 0.1,
           }),
-          mathMode: registry.register({
-            id: 'engine.math_mode',
-            label: 'Compute Backend',
-            group: 'Engine',
-            type: 'enum',
-            retention: 'latch',
-            enumValues: {
-              0: 'f32',
-              1: 'f32p',
-              2: 'f64p',
-            },
-          }),
         };
 
         const loop = () => {
@@ -229,16 +217,6 @@ export const ApeironViewport: React.FC = () => {
 
           const state = viewportStore.getState();
           const theme = renderStore.getState();
-
-          let mathMode = 0;
-          if (state.refOrbitNodes !== null && theme.precisionMode !== 'f32') {
-            if (state.zoom < 1e-10) {
-              mathMode = 2; // DS
-            } else {
-              mathMode = 1; // f32 Perturb
-            }
-          }
-          devChannels.mathMode.set(mathMode);
 
           const descriptor = orchestrator.tick(
             state,

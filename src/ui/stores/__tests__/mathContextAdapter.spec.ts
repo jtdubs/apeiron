@@ -38,7 +38,7 @@ describe('mathContextAdapter', () => {
 
     mockTheme = {
       ...renderStore.getState(),
-      precisionMode: 'f32',
+      renderMode: 'f32',
     };
   });
 
@@ -59,10 +59,10 @@ describe('mathContextAdapter', () => {
     mockState.refOrbitNodes = new Float64Array(10);
     mockState.refMetadata = new Float64Array(10);
     mockState.refBlaGrid = new Float64Array(10);
-    mockTheme.precisionMode = 'perturbation';
+    mockTheme.renderMode = 'f32_perturbation';
     vi.mocked(calculateSkipIter).mockReturnValue(42);
 
-    const ctx = buildMathContext(mockState, mockTheme, 1920, 1080);
+    const ctx = buildMathContext(mockState, mockTheme, 1920, 1080, null, 1);
 
     // In perturbation, coordinates are purely the delta offsets relative to the floating origin
     expect(ctx.zr).toBeCloseTo(0.1);
@@ -92,7 +92,7 @@ describe('mathContextAdapter', () => {
     mockState.refOrbitNodes = new Float64Array(10);
     mockState.refMetadata = new Float64Array(10);
     mockState.refBlaGrid = new Float64Array(10);
-    mockTheme.precisionMode = 'perturbation';
+    mockTheme.renderMode = 'f32_perturbation';
     mockState.paletteMaxIter = 1000;
     vi.mocked(calculateSkipIter).mockReturnValue(200);
 
@@ -100,7 +100,7 @@ describe('mathContextAdapter', () => {
     const fractionYield = Math.floor(1000 * 0.33); // 330
     const expectedYield = Math.max(interactFloor, fractionYield) + 200; // 530
 
-    const ctx = buildMathContext(mockState, mockTheme, 1920, 1080);
+    const ctx = buildMathContext(mockState, mockTheme, 1920, 1080, null, 1);
 
     // Clamped budget calculation
     expect(ctx.paletteMaxIter).toBe(1000);

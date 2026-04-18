@@ -17,6 +17,7 @@ export class RenderOrchestrator {
     budget: TelemetryChannel;
     adrsScale: TelemetryChannel;
     adrsIter: TelemetryChannel;
+    mathMode: TelemetryChannel;
   };
 
   constructor() {
@@ -43,6 +44,18 @@ export class RenderOrchestrator {
         group: 'WebGPU',
         type: 'analog',
         retention: 'latch',
+      }),
+      mathMode: reg.register({
+        id: 'engine.math_mode',
+        label: 'Compute Backend',
+        group: 'Engine',
+        type: 'enum',
+        retention: 'latch',
+        enumValues: {
+          0: 'f32',
+          1: 'f32p',
+          2: 'f64p',
+        },
       }),
     };
   }
@@ -92,6 +105,29 @@ export class RenderOrchestrator {
       this.devChannels.budget.set(stepLimit);
     }
 
+    let effectiveMathMode = 0;
+    if (theme.renderMode === 'auto') {
+      if (state.refOrbitNodes !== null && state.zoom < 1e-10 && state.exponent === 2.0) {
+        effectiveMathMode = 2; // DS
+      } else if (state.refOrbitNodes !== null && state.zoom < 1e-5) {
+        effectiveMathMode = 1; // f32 Perturbation
+      } else {
+        effectiveMathMode = 0; // f32
+      }
+    } else {
+      effectiveMathMode =
+        theme.renderMode === 'f64_perturbation' && state.exponent === 2.0
+          ? 2
+          : theme.renderMode === 'f64_perturbation' || theme.renderMode === 'f32_perturbation'
+            ? 1
+            : 0;
+      if (effectiveMathMode > 0 && state.refOrbitNodes === null) {
+        effectiveMathMode = 0;
+      }
+    }
+
+    this.devChannels.mathMode.set(effectiveMathMode);
+
     // Isolate context generation
     const context = buildMathContext(
       state,
@@ -99,6 +135,7 @@ export class RenderOrchestrator {
       canvasWidth,
       canvasHeight,
       interactMaxIterOverride,
+      effectiveMathMode,
     );
 
     // Feed FSM

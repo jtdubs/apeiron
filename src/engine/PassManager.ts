@@ -70,10 +70,10 @@ export class AccumulationPass {
 
   public getPipeline(
     exponent: number,
-    usePerturbation: number,
+    mathComputeMode: number,
     coloringMode: number,
   ): GPUComputePipeline | null {
-    const key = `${exponent}_${usePerturbation}_${coloringMode}`;
+    const key = `${exponent}_${mathComputeMode}_${coloringMode}`;
     const cached = this.pipelineCache.get(key);
 
     if (cached) {
@@ -89,7 +89,7 @@ export class AccumulationPass {
           entryPoint: 'main_compute',
           constants: {
             0: exponent,
-            1: usePerturbation,
+            1: mathComputeMode,
             2: coloringMode,
           },
         },
@@ -491,15 +491,14 @@ export class PassManager {
       ? actualRefMaxIter
       : desc.context.computeMaxIter;
 
-    const usePerturbationAllowed = desc.theme?.precisionMode !== 'f32';
-    const usePerturbation = this.hasValidActiveRefOrbits && usePerturbationAllowed ? 1.0 : 0.0;
+    const mathComputeMode = desc.context.effectiveMathMode;
 
     const splitF64 = (a: number) => {
       const hi = Math.fround(a);
       const lo = Math.fround(a - hi);
       return [hi, lo];
     };
-    
+
     // Split the f64 camera center to retain deep-zoom precision on the GPU
     const [dc_high_x, dc_low_x] = splitF64(desc.context.cr);
     const [dc_high_y, dc_low_y] = splitF64(desc.context.ci);
@@ -625,7 +624,7 @@ export class PassManager {
           : 0.0;
     const accumPipeline = this.accumPass.getPipeline(
       desc.context.exponent,
-      usePerturbation,
+      mathComputeMode,
       coloringModeConst,
     );
 
