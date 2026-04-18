@@ -28,3 +28,6 @@ rust-math/target/
 
 # Generated files
 **/generated/
+
+# Research artifacts
+scratch/
