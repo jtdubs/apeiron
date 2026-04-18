@@ -40,6 +40,7 @@ glitches, you are explicitly required to review the `docs/math-backend-design.md
   commands or commits.
 - **Documentation**: If architectural paradigms are changed, immediately update the relevant docs.
 - **NPM Orchestration**: `npm` is our singular orchestrator for the entire workspace. All workflows across the frontend, headless Deno/Node tests, and Rust/WASM compilations MUST be safely abstracted behind simple `npm run <script>` commands within the root `package.json`. Node and NPM are natively available via `nvm`.
+- **Agent Environment (CRITICAL)**: Because CLI commands run in a non-interactive shell that bypasses standard dotfiles, you **MUST** prefix all terminal commands that require Node, Deno, or Cargo with `source ~/.agentrc &&`. Example: `source ~/.agentrc && npm run test`.
 
 ## 4. Task Lifecycle Protocol
 
