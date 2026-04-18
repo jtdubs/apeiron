@@ -13,7 +13,7 @@ As we build out complex, disjointed architecture layers (Rust `math-core`, Headl
 
 We will not rely on disparate bash execution or executing cargo scripts manually in sub-directories.
 
-- All Rust/WASM builds must be abstracted into an `npm run build:math` or equivalent script via toolchains like `wasm-pack`.
+- All Rust/WASM builds must be abstracted into an `npm run build:deps` or equivalent script via toolchains like `wasm-pack`.
 - All Node/Deno headless tests must be abstracted into `npm run test` or `npm run test:headless`.
 - The `package.json` file is the master index of our operational capability.
 

@@ -47,8 +47,8 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Build Rust/WASM Core
-        run: npm run build:math
+      - name: Build Shared Dependencies
+        run: npm run build:deps
 
       - name: Build React / Web UI
         run: npm run build

@@ -22,7 +22,7 @@ function watchRustMath(): Plugin {
         isBuilding = true;
         console.log('\n[\x1b[36mrust-math\x1b[0m] Compiling...');
 
-        const child = spawn('npm', ['run', 'build:math'], {
+        const child = spawn('npm', ['run', 'build:deps'], {
           stdio: 'inherit',
           shell: true,
         });
