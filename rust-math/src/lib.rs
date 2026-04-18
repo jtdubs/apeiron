@@ -23,6 +23,7 @@ pub struct MathPayload {
     orbit_nodes: js_sys::Float64Array,
     metadata: js_sys::Float64Array,
     bla_grid: js_sys::Float64Array,
+    bla_grid_ds: js_sys::Float64Array,
 }
 
 #[wasm_bindgen]
@@ -39,6 +40,16 @@ impl MathPayload {
     pub fn bla_grid(&self) -> js_sys::Float64Array {
         self.bla_grid.clone()
     }
+    #[wasm_bindgen(getter)]
+    pub fn bla_grid_ds(&self) -> js_sys::Float64Array {
+        self.bla_grid_ds.clone()
+    }
+}
+
+fn split_ds(val: f64) -> (f64, f64) {
+    let hi = val as f32 as f64;
+    let lo = val - hi;
+    (hi, lo)
 }
 
 #[wasm_bindgen]
@@ -49,6 +60,7 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> MathPayload
     let mut orbit_results = Vec::with_capacity(points.len() * floats_per_case);
     let mut meta_results = Vec::with_capacity(points.len() * META_STRIDE);
     let mut bla_results = Vec::with_capacity(points.len() * max_iterations as usize * BLA_LEVELS as usize * BLA_NODE_STRIDE as usize);
+    let mut bla_results_ds = Vec::with_capacity(points.len() * max_iterations as usize * BLA_LEVELS as usize * DSBLA_NODE_STRIDE as usize);
 
     for p in points {
         let mut x = BigDecimal::from_str(&p.zr).unwrap_or(BigDecimal::zero());
@@ -317,6 +329,20 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> MathPayload
                     pad2: 0.0,
                 };
                 bn.push_to(&mut bla_results);
+
+                let (ar_hi, ar_lo) = split_ds(node.0);
+                let (ai_hi, ai_lo) = split_ds(node.1);
+                let (br_hi, br_lo) = split_ds(node.2);
+                let (bi_hi, bi_lo) = split_ds(node.3);
+
+                let ds_bn = crate::layout::DSBLANode {
+                    ar_hi, ar_lo, ai_hi, ai_lo,
+                    br_hi, br_lo, bi_hi, bi_lo,
+                    err: node.4,
+                    len: (1 << l) as f64,
+                    pad1: 0.0, pad2: 0.0, pad3: 0.0, pad4: 0.0, pad5: 0.0, pad6: 0.0,
+                };
+                ds_bn.push_to(&mut bla_results_ds);
             }
         }
     }
@@ -325,6 +351,7 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> MathPayload
         orbit_nodes: js_sys::Float64Array::from(&orbit_results[..]),
         metadata: js_sys::Float64Array::from(&meta_results[..]),
         bla_grid: js_sys::Float64Array::from(&bla_results[..]),
+        bla_grid_ds: js_sys::Float64Array::from(&bla_results_ds[..]),
     }
 }
 

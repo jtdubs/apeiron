@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 065: Implement Double-Single BLA Acceleration for f64p Mode
@@ -32,8 +32,8 @@ Safely re-enable Bilinear Approximation (BLA) skipping for the Double-Single (f6
 
 ## Verification Steps
 
-- [ ] Write logic in `rust-math/src/lib.rs` to spit out the `DSBLANode` tree.
-- [ ] Incorporate `advance_via_bla_ds()` into `math_accum.wgsl`.
-- [ ] Run `tests/engine/Phase4Test.deno.ts` and verify that `f64p` converges to the identical scalar divergence count (`~46`) seen without BLA, but evaluates significantly faster.
-- [ ] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
-- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/reference/bilinear_approximation_whitepaper.md` and `docs/product/requirements.md` before closing this task.
+- [x] Write logic in `rust-math/src/lib.rs` to spit out the `DSBLANode` tree.
+- [x] Incorporate `advance_via_bla_ds()` into `math_accum.wgsl`.
+- [x] Run `tests/engine/Phase4Test.deno.ts` and verify that `f64p` converges to the identical scalar divergence count (`~46`) seen without BLA, but evaluates significantly faster.
+- [x] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
+- [x] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/reference/bilinear_approximation_whitepaper.md` and `docs/product/requirements.md` before closing this task.

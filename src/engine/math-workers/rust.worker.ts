@@ -22,6 +22,7 @@ export type WorkerOutputMessage =
       orbit_nodes: Float64Array;
       metadata: Float64Array;
       bla_grid: Float64Array;
+      bla_grid_ds: Float64Array;
     }
   | {
       id: number;
@@ -36,16 +37,16 @@ export type WorkerOutputMessage =
 let wasmInit: Promise<unknown> | null = null;
 
 self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
-  const { id, type, casesJson, paletteMaxIter } = e.data;
+  const msg = e.data;
 
-  if (type === 'COMPUTE') {
+  if (msg.type === 'COMPUTE') {
     if (!wasmInit) {
       wasmInit = initWasm();
     }
     await wasmInit;
 
     const t0 = performance.now();
-    const payload = compute_mandelbrot(casesJson, paletteMaxIter);
+    const payload = compute_mandelbrot(msg.casesJson, msg.paletteMaxIter);
     const t1 = performance.now();
     console.log(`[math-core] BLA Tree & Orbit Array compiled in ${(t1 - t0).toFixed(2)}ms`);
 
@@ -53,6 +54,7 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     const orbit_nodes = new Float64Array(payload.orbit_nodes);
     const metadata = new Float64Array(payload.metadata);
     const bla_grid = new Float64Array(payload.bla_grid);
+    const bla_grid_ds = new Float64Array(payload.bla_grid_ds);
 
     // Free the WASM memory pointer
     payload.free();
@@ -66,8 +68,9 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
         orbit_nodes,
         metadata,
         bla_grid,
+        bla_grid_ds,
       } as WorkerOutputMessage,
-      [orbit_nodes.buffer, metadata.buffer, bla_grid.buffer],
+      [orbit_nodes.buffer, metadata.buffer, bla_grid.buffer, bla_grid_ds.buffer],
     );
   } else if (e.data.type === 'REFINE_REFERENCE') {
     if (!wasmInit) {

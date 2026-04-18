@@ -25,6 +25,7 @@ export class WebGPUTestHarness {
     refOrbitNodes?: Float64Array,
     refMetadata?: Float64Array,
     refBlaGrid?: Float64Array,
+    refBlaGridDs?: Float64Array,
     maxIter: number = 100,
     usePerturbation: boolean = true,
     exponent: number = 2.0,
@@ -46,6 +47,7 @@ export class WebGPUTestHarness {
         refOrbitNodes,
         refMetadata,
         refBlaGrid,
+        refBlaGridDs,
         exponent: exponent,
         usePerturbation: usePerturbation ? 1.0 : 0.0,
       },
@@ -62,6 +64,7 @@ export class WebGPUTestHarness {
       refOrbitNodes?: Float64Array;
       refMetadata?: Float64Array;
       refBlaGrid?: Float64Array;
+      refBlaGridDs?: Float64Array;
       checkpointData?: Float32Array;
       exponent?: number;
       usePerturbation?: number;
@@ -150,6 +153,7 @@ export class WebGPUTestHarness {
     let refOrbitNodesBuffer: GPUBuffer | null = null;
     let refMetadataBuffer: GPUBuffer | null = null;
     let refBlaGridBuffer: GPUBuffer | null = null;
+    let refBlaGridDsBuffer: GPUBuffer | null = null;
 
     const createRefBuffer = (data: Float64Array | undefined) => {
       if (data) {
@@ -176,10 +180,12 @@ export class WebGPUTestHarness {
       refOrbitNodesBuffer = createRefBuffer(options.refOrbitNodes);
       refMetadataBuffer = createRefBuffer(options.refMetadata);
       refBlaGridBuffer = createRefBuffer(options.refBlaGrid);
+      refBlaGridDsBuffer = createRefBuffer(options.refBlaGridDs);
     } else {
       refOrbitNodesBuffer = createRefBuffer(undefined);
       refMetadataBuffer = createRefBuffer(undefined);
       refBlaGridBuffer = createRefBuffer(undefined);
+      refBlaGridDsBuffer = createRefBuffer(undefined);
     }
 
     const completionFlagBuffer = this.device.createBuffer({
@@ -205,6 +211,7 @@ export class WebGPUTestHarness {
       if (entryPoint === 'unit_test_bla_advance') {
         entries.push({ binding: 8, resource: { buffer: refMetadataBuffer } });
         entries.push({ binding: 9, resource: { buffer: refBlaGridBuffer } });
+        entries.push({ binding: 10, resource: { buffer: refBlaGridDsBuffer } });
       }
     } else if (entryPoint === 'unit_test_engine_math') {
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
@@ -213,6 +220,7 @@ export class WebGPUTestHarness {
       entries.push({ binding: 6, resource: { buffer: completionFlagBuffer } });
       entries.push({ binding: 8, resource: { buffer: refMetadataBuffer } });
       entries.push({ binding: 9, resource: { buffer: refBlaGridBuffer } });
+      entries.push({ binding: 10, resource: { buffer: refBlaGridDsBuffer } });
     }
 
     const bindGroup = this.device.createBindGroup({
@@ -244,6 +252,7 @@ export class WebGPUTestHarness {
     refOrbitNodesBuffer.destroy();
     refMetadataBuffer.destroy();
     refBlaGridBuffer.destroy();
+    refBlaGridDsBuffer.destroy();
 
     return result;
   }
@@ -314,6 +323,7 @@ export class TestRenderSession {
         refOrbitNodes: null,
         refMetadata: null,
         refBlaGrid: null,
+        refBlaGridDs: null,
         effectiveMathMode: 0,
         skipIter: 0,
         debugViewMode: 0,

@@ -46,8 +46,8 @@ async function runPhase4Test() {
 
   const casesJson = JSON.stringify([
     {
-      zr: "0",
-      zi: "0",
+      zr: '0',
+      zi: '0',
       cr: cr.toString(),
       ci: ci.toString(),
       exponent: 2.0,
@@ -58,6 +58,7 @@ async function runPhase4Test() {
     orbit_nodes: Float64Array;
     metadata: Float64Array;
     bla_grid: Float64Array;
+    bla_grid_ds: Float64Array;
   }>((resolve, reject) => {
     worker.onmessage = (e) => {
       if (e.data.type === 'COMPUTE_RESULT') resolve(e.data);
@@ -98,6 +99,7 @@ async function runPhase4Test() {
     undefined,
     undefined,
     undefined,
+    undefined,
     1000,
     false,
     2.0,
@@ -120,6 +122,7 @@ async function runPhase4Test() {
     refOrbitNodes: groundTruth.orbit_nodes,
     refMetadata: groundTruth.metadata,
     refBlaGrid: groundTruth.bla_grid,
+    refBlaGridDs: groundTruth.bla_grid_ds,
     exponent: 2.0,
     usePerturbation: 1.0,
   });
@@ -141,6 +144,7 @@ async function runPhase4Test() {
     refOrbitNodes: groundTruth.orbit_nodes,
     refMetadata: groundTruth.metadata,
     refBlaGrid: groundTruth.bla_grid,
+    refBlaGridDs: groundTruth.bla_grid_ds,
     exponent: 2.0,
     usePerturbation: 2.0,
   });

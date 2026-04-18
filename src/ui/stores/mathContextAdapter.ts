@@ -60,6 +60,7 @@ export function buildMathContext(
     refOrbitNodes: state.refOrbitNodes,
     refMetadata: state.refMetadata,
     refBlaGrid: state.refBlaGrid,
+    refBlaGridDs: state.refBlaGridDs,
     effectiveMathMode,
     skipIter,
     debugViewMode: state.debugViewMode,

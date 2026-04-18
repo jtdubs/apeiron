@@ -84,12 +84,29 @@ describe('PerturbationOrchestrator', () => {
 
     expect(mockWorker.postMessage).toHaveBeenCalledTimes(1);
 
-    // Check payload
-    const payload = mockWorker.postMessage.mock.calls[0][0];
-    expect(payload.type).toBe('COMPUTE');
-    expect(payload.paletteMaxIter).toBe(500);
-    const parsed = JSON.parse(payload.casesJson)[0];
-    expect(parsed.cr).toBe('-0.7'); // -1.0 + 0.3
+    // Check initial payload
+    const payload1 = mockWorker.postMessage.mock.calls[0][0];
+    expect(payload1.type).toBe('REFINE_REFERENCE');
+    expect(payload1.cr).toBe('-0.7'); // -1.0 + 0.3
+
+    // Simulate returning a refined reference
+    mockWorker.onmessage({
+      data: {
+        id: payload1.id,
+        type: 'REFINE_RESULT',
+        cr: -0.7,
+        ci: 0.0,
+        refType: 'TEST',
+        period: 1,
+        pre_period: 0,
+      },
+    });
+
+    const payload2 = mockWorker.postMessage.mock.calls[1][0];
+    expect(payload2.type).toBe('COMPUTE');
+    expect(payload2.paletteMaxIter).toBe(500);
+    const parsed = JSON.parse(payload2.casesJson)[0];
+    expect(parsed.cr).toBe('-0.7');
   });
 
   it('queues pending work if worker is currently busy', () => {
@@ -118,23 +135,29 @@ describe('PerturbationOrchestrator', () => {
 
       expect(mockWorker.postMessage).toHaveBeenCalledTimes(1);
 
-      // Finish first computation
+      // Finish first computation (REFINE_RESULT)
+      // Because pending work exists, it will ABORT the COMPUTE phase of this
+      // obsolete job and immediately dispatch the pending work's REFINE_REFERENCE!
+      const firstJobId = mockWorker.postMessage.mock.calls[0][0].id;
       mockWorker.onmessage({
         data: {
-          type: 'COMPUTE_RESULT',
-          orbit_nodes: new Float64Array(1),
-          metadata: new Float64Array(1),
-          bla_grid: new Float64Array(1),
+          id: firstJobId,
+          type: 'REFINE_RESULT',
+          cr: -0.95, // mock refined
+          ci: 0.0,
+          refType: 'TEST',
+          period: 1,
+          pre_period: 0,
         },
       });
 
-      // It immediately dispatches the pending queue!
+      // It immediately dispatches the pending queue (which will be a REFINE_REFERENCE)
       expect(mockWorker.postMessage).toHaveBeenCalledTimes(2);
 
       // The pending payload handles the latest cr: 0.5
-      const payload2 = mockWorker.postMessage.mock.calls[1][0];
-      const parsed2 = JSON.parse(payload2.casesJson)[0];
-      expect(parsed2.cr).toBe('-0.5'); // -1.0 + 0.5
+      const payload3 = mockWorker.postMessage.mock.calls[1][0];
+      expect(payload3.type).toBe('REFINE_REFERENCE');
+      expect(payload3.cr).toBe('-0.5'); // -1.0 + 0.5
     }
   });
 
@@ -183,10 +206,12 @@ describe('PerturbationOrchestrator', () => {
     const fakeBlaGrid = new Float64Array([2]);
     mockWorker.onmessage({
       data: {
+        id: 1234, // ignored in test fallback path
         type: 'COMPUTE_RESULT',
         orbit_nodes: fakeOrbitNodes,
         metadata: fakeMetadata,
         bla_grid: fakeBlaGrid,
+        bla_grid_ds: new Float64Array(0),
       },
     });
 

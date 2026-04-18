@@ -119,15 +119,17 @@ export class PerturbationOrchestrator {
       if (this.pendingWorkerJob !== null) {
         this.dispatchPendingWork();
       } else if (this.currentWorkerJob && this.currentWorkerJob.id === e.data.id) {
-        console.log(`[PerturbationOrchestrator] Refined anchor: ${e.data.refType} (period: ${e.data.period}, pre-period: ${e.data.pre_period})`);
-        
+        console.log(
+          `[PerturbationOrchestrator] Refined anchor: ${e.data.refType} (period: ${e.data.period}, pre-period: ${e.data.pre_period})`,
+        );
+
         // Progress job to COMPUTE phase using the newly minted mathematically pure reference
         this.currentWorkerJob.isRefining = false;
         this.currentWorkerJob.absCr = e.data.cr.toString();
         this.currentWorkerJob.absCi = e.data.ci.toString();
         // Force Z back to 0 so the calculation executes from the anchor origin
-        this.currentWorkerJob.absZr = "0";
-        this.currentWorkerJob.absZi = "0";
+        this.currentWorkerJob.absZr = '0';
+        this.currentWorkerJob.absZi = '0';
 
         const casesJson = JSON.stringify([
           {
@@ -178,6 +180,7 @@ export class PerturbationOrchestrator {
             refOrbitNodes: e.data.orbit_nodes,
             refMetadata: e.data.metadata,
             refBlaGrid: e.data.bla_grid,
+            refBlaGridDs: e.data.bla_grid_ds,
           };
         });
 
@@ -237,7 +240,12 @@ export class PerturbationOrchestrator {
       }
     } else {
       if (state.refOrbitNodes !== null) {
-        viewportStore.setState({ refOrbitNodes: null, refMetadata: null, refBlaGrid: null });
+        viewportStore.setState({
+          refOrbitNodes: null,
+          refMetadata: null,
+          refBlaGrid: null,
+          refBlaGridDs: null,
+        });
       }
     }
   }

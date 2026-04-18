@@ -3,7 +3,8 @@
     "ORBIT_STRIDE": { "value": 8, "type": "u32" },
     "META_STRIDE": { "value": 8, "type": "u32" },
     "BLA_LEVELS": { "value": 16, "type": "u32" },
-    "BLA_NODE_STRIDE": { "value": 8, "type": "u32" }
+    "BLA_NODE_STRIDE": { "value": 8, "type": "u32" },
+    "DSBLA_NODE_STRIDE": { "value": 16, "type": "u32" }
   },
   "structs": {
     "ReferenceOrbitNode": {
@@ -41,6 +42,26 @@
         { "name": "len", "type": "f32" },
         { "name": "pad1", "type": "f32" },
         { "name": "pad2", "type": "f32" }
+      ]
+    },
+    "DSBLANode": {
+      "fields": [
+        { "name": "ar_hi", "type": "f32" },
+        { "name": "ar_lo", "type": "f32" },
+        { "name": "ai_hi", "type": "f32" },
+        { "name": "ai_lo", "type": "f32" },
+        { "name": "br_hi", "type": "f32" },
+        { "name": "br_lo", "type": "f32" },
+        { "name": "bi_hi", "type": "f32" },
+        { "name": "bi_lo", "type": "f32" },
+        { "name": "err", "type": "f32" },
+        { "name": "len", "type": "f32" },
+        { "name": "pad1", "type": "f32" },
+        { "name": "pad2", "type": "f32" },
+        { "name": "pad3", "type": "f32" },
+        { "name": "pad4", "type": "f32" },
+        { "name": "pad5", "type": "f32" },
+        { "name": "pad6", "type": "f32" }
       ]
     },
     "CameraParams": {

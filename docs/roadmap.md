@@ -120,7 +120,7 @@
 ## Phase 19: Mathematical Maturity & Infinity Limits
 
 - [x] [Task 070: Reference Selection Optimization](tasks/completed/070-reference-selection-optimization.md)
-- [ ] [Task 065: Double-Single BLA Acceleration](tasks/065-f64p-double-single-bla.md)
+- [x] [Task 065: Double-Single BLA Acceleration](tasks/completed/065-f64p-double-single-bla.md)
 - [ ] [Task 072: Implement Bivariate Taylor Approximation (BTA)](tasks/072-bta-implementation.md)
 - [ ] [Task 071: Rebasing & Reference Chains Implementation](tasks/071-rebasing-implementation.md)
 - [ ] [Task 068: FloatExp Numerical Format](tasks/068-floatexp-research.md)

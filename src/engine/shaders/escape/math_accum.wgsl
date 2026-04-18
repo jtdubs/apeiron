@@ -256,6 +256,7 @@ fn calculate_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, max_i
 @group(0) @binding(6) var<storage, read_write> completion_flag: array<u32>;
 @group(0) @binding(8) var<storage, read> orbit_metadata: array<vec2<u32>>;
 @group(0) @binding(9) var<storage, read> bla_grid: array<vec2<u32>>;
+@group(0) @binding(10) var<storage, read> dsbla_grid: array<vec2<u32>>;
 
 fn unpack_f64_to_f32(raw: vec2<u32>) -> f32 {
     let low = raw.x;
@@ -291,6 +292,16 @@ fn unpack_f64_to_ds(raw: vec2<u32>) -> vec2<f32> {
 
 struct BlaResult {
   dz: vec2<f32>,
+  der: vec2<f32>,
+  iter: f32,
+  prev_z_mag: f32,
+  escaped: bool,
+  escape_data: vec4<f32>,
+  advanced: bool
+}
+
+struct BlaResultDs {
+  dz: vec4<f32>,
   der: vec2<f32>,
   iter: f32,
   prev_z_mag: f32,
@@ -411,6 +422,118 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
     }
     
     return BlaResult(dz, der, iter, prev_z_mag, false, vec4<f32>(0.0), false);
+}
+
+fn advance_via_bla_ds(dz_in: vec4<f32>, der_in: vec2<f32>, delta_c: vec4<f32>, start_c: vec2<f32>, iter_in: f32, target_iter: f32, ref_escaped_iter: f32, max_iterations: f32, pixel_idx: u32, tia_sum: f32) -> BlaResultDs {
+    var dz = dz_in; // vec4<f32>
+    var dz_f32 = vec2<f32>(dz.x, dz.z);
+    let delta_c_f32 = vec2<f32>(delta_c.x, delta_c.z);
+    var der = der_in;
+    var iter = iter_in;
+    var advanced_by_bla = false;
+    let dz_len_sq = dz.x * dz.x + dz.z * dz.z; // High part only for checks
+    let dc_len_sq = delta_c.x * delta_c.x + delta_c.z * delta_c.z; // High part only for checks
+    var prev_z_mag = 0.0;
+    
+    if (dz_len_sq < 1e-6 && dc_len_sq < 1e-6) {
+        for(var l_: i32 = 15; l_ >= 0; l_ -= 1) {
+            let l = u32(l_);
+            let b_len = f32(1u << l);
+            
+            if ((iter + b_len) <= target_iter && (iter + b_len) <= camera.ref_max_iter && (iter + b_len) < ref_escaped_iter) {
+                let bn = get_dsbla_node(u32(iter), l);
+                let target_err = bn.err;
+                
+                if (target_err < 1e20) {
+                    let max_delta_sq = max(dz_len_sq, dc_len_sq);
+                    let err_factor = target_err * max_delta_sq;
+                    
+                    // Linearity Check: EL * max(|dz|^2, |dc|^2) < tolerance
+                    // Stricter tolerance for Double-Single Math
+                    let static_tolerance = 1e-12;
+                    
+                    if (err_factor < static_tolerance) {
+                        let a_ds = vec4<f32>(bn.ar_hi, bn.ar_lo, bn.ai_hi, bn.ai_lo);
+                        let b_ds = vec4<f32>(bn.br_hi, bn.br_lo, bn.bi_hi, bn.bi_lo);
+                        
+                        let a_dz = complex_mul_ds(a_ds, dz);
+                        let b_dc = complex_mul_ds(b_ds, delta_c);
+                        let potential_dz = complex_add_ds(a_dz, b_dc);
+                        let potential_dz_f32 = vec2<f32>(potential_dz.x, potential_dz.z);
+                        
+                        let target_node = get_orbit_node(u32(iter + b_len));
+                        
+                        // Proxy Collapse Prevention (Zhuoran Test) using High precision components
+                        let curr_z_x = target_node.x + potential_dz.x;
+                        let curr_z_y = target_node.y + potential_dz.z;
+                        let curr_mag = curr_z_x * curr_z_x + curr_z_y * curr_z_y;
+                        
+                        let potential_dz_len = potential_dz.x * potential_dz.x + potential_dz.z * potential_dz.z;
+                        
+                        if ((iter + b_len) > 2.0 && curr_mag < potential_dz_len) {
+                           continue;
+                        }
+                        
+                        dz = potential_dz;
+                        dz_f32 = potential_dz_f32;
+                        
+                        let new_der = complex_mul(vec2<f32>(bn.ar_hi, bn.ai_hi), der);
+                        var new_der_x = new_der.x;
+                        var new_der_y = new_der.y;
+                        
+                        let der_max = max(abs(new_der_x), abs(new_der_y));
+                        if (der_max > 1e18) {
+                            let scale = 1e18 / der_max;
+                            der.x = new_der_x * scale;
+                            der.y = new_der_y * scale;
+                        } else {
+                            der.x = new_der_x;
+                            der.y = new_der_y;
+                        }
+                        
+                        iter += b_len;
+                        advanced_by_bla = true;
+                        
+                        let final_node = get_orbit_node(u32(iter));
+                        prev_z_mag = length(vec2<f32>(final_node.x + dz.x, final_node.y + dz.z));
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    
+    if (advanced_by_bla) {
+        let cur_mag = dz_f32.x * dz_f32.x + dz_f32.y * dz_f32.y;
+        if (cur_mag > 1000000.0) {
+            let ref_final_node = get_orbit_node(u32(iter));
+            let final_x = ref_final_node.x + dz_f32.x;
+            let final_y = ref_final_node.y + dz_f32.y;
+            let ret = get_escape_data(iter, final_x, final_y, der.x, der.y, 0.0, tia_sum);
+            checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
+            return BlaResultDs(dz, der, iter, prev_z_mag, true, ret, true);
+        }
+        let ref_final_node = get_orbit_node(u32(iter));
+        let final_x = ref_final_node.x + dz_f32.x;
+        let final_y = ref_final_node.y + dz_f32.y;
+        let point_mag = final_x * final_x + final_y * final_y;
+        
+        if (point_mag > 4.0) {
+            let ret = get_escape_data(iter, final_x, final_y, der.x, der.y, 0.0, tia_sum);
+            checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
+            return BlaResultDs(dz, der, iter, prev_z_mag, true, ret, true);
+        }
+        
+        if (iter >= ref_escaped_iter && ref_escaped_iter < max_iterations) {
+            let cur_node = get_orbit_node(u32(iter));
+            let ret = continue_mandelbrot_iterations(vec2<f32>(cur_node.x + dz_f32.x, cur_node.y + dz_f32.y), start_c, iter, max_iterations, der.x, der.y, tia_sum, pixel_idx);
+            return BlaResultDs(dz, der, iter, prev_z_mag, true, ret, true);
+        }
+        
+        return BlaResultDs(dz, der, iter, prev_z_mag, false, vec4<f32>(0.0), true);
+    }
+    
+    return BlaResultDs(dz, der, iter, prev_z_mag, false, vec4<f32>(0.0), false);
 }
 
 struct PerturbationInit {
@@ -556,6 +679,23 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     
     // Switch to Double-Single Emulated precision natively when math_compute_mode == 2
     if (math_compute_mode == 2u) {
+        if (fractal_exponent == 2.0) {
+            let bla_res = advance_via_bla_ds(dz_ds, vec2<f32>(der_x, der_y), dc_ds, start_c, iter, max_iterations, ref_escaped_iter, max_iterations, pixel_idx, tia_sum);
+            if (bla_res.advanced) {
+                if (bla_res.escaped) {
+                    return bla_res.escape_data;
+                }
+                dz_ds = bla_res.dz;
+                der_x = bla_res.der.x;
+                der_y = bla_res.der.y;
+                iter = bla_res.iter;
+                prev_z_mag = bla_res.prev_z_mag;
+                steps += 1.0;
+                dz = vec2<f32>(dz_ds.x, dz_ds.z);
+                continue;
+            }
+        }
+    
         let base_index = u32(iter) * ORBIT_STRIDE;
         let zx_ds = unpack_f64_to_ds(ref_orbits[base_index + 0u]);
         let zy_ds = unpack_f64_to_ds(ref_orbits[base_index + 1u]);
