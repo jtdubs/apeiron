@@ -61,6 +61,7 @@ export function buildMathContext(
     refMetadata: state.refMetadata,
     refBlaGrid: state.refBlaGrid,
     refBlaGridDs: state.refBlaGridDs,
+    refBtaGrid: state.refBtaGrid,
     effectiveMathMode,
     skipIter,
     debugViewMode: state.debugViewMode,

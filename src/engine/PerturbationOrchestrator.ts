@@ -181,6 +181,7 @@ export class PerturbationOrchestrator {
             refMetadata: e.data.metadata,
             refBlaGrid: e.data.bla_grid,
             refBlaGridDs: e.data.bla_grid_ds,
+            refBtaGrid: e.data.bta_grid,
           };
         });
 
@@ -245,6 +246,7 @@ export class PerturbationOrchestrator {
           refMetadata: null,
           refBlaGrid: null,
           refBlaGridDs: null,
+          refBtaGrid: null,
         });
       }
     }

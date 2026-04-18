@@ -26,6 +26,7 @@ export class WebGPUTestHarness {
     refMetadata?: Float64Array,
     refBlaGrid?: Float64Array,
     refBlaGridDs?: Float64Array,
+    refBtaGrid?: Float64Array,
     maxIter: number = 100,
     usePerturbation: boolean = true,
     exponent: number = 2.0,
@@ -48,6 +49,7 @@ export class WebGPUTestHarness {
         refMetadata,
         refBlaGrid,
         refBlaGridDs,
+        refBtaGrid,
         exponent: exponent,
         usePerturbation: usePerturbation ? 1.0 : 0.0,
       },
@@ -65,6 +67,7 @@ export class WebGPUTestHarness {
       refMetadata?: Float64Array;
       refBlaGrid?: Float64Array;
       refBlaGridDs?: Float64Array;
+      refBtaGrid?: Float64Array;
       checkpointData?: Float32Array;
       exponent?: number;
       usePerturbation?: number;
@@ -154,21 +157,42 @@ export class WebGPUTestHarness {
     let refMetadataBuffer: GPUBuffer | null = null;
     let refBlaGridBuffer: GPUBuffer | null = null;
     let refBlaGridDsBuffer: GPUBuffer | null = null;
+    let refBtaGridBuffer: GPUBuffer | null = null;
 
-    const createRefBuffer = (data: Float64Array | undefined) => {
+    const createRefBuffer = (data: Float64Array | ArrayBuffer | undefined) => {
       if (data) {
-        const buf = this.device.createBuffer({
-          size: data.byteLength,
-          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-        });
-        this.device.queue.writeBuffer(buf, 0, data.buffer, data.byteOffset, data.byteLength);
-        return buf;
+        let bufferObj: ArrayBuffer;
+        let byteLen = 0;
+        if (data instanceof ArrayBuffer) {
+          bufferObj = data;
+          byteLen = data.byteLength;
+        } else if (data.buffer) {
+          bufferObj = data.buffer as ArrayBuffer;
+          byteLen = data.byteLength;
+        } else {
+          const fallbackData = data as unknown as { length: number };
+          const arr = new Uint8Array(
+            fallbackData.length ? (fallbackData as unknown as ArrayLike<number>) : [],
+          );
+          bufferObj = arr.buffer;
+          byteLen = arr.byteLength;
+        }
+
+        if (byteLen > 0) {
+          const buf = this.device.createBuffer({
+            size: byteLen,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+          });
+          this.device.queue.writeBuffer(buf, 0, bufferObj);
+          return buf;
+        }
       }
       const buf = this.device.createBuffer({
-        size: 16,
+        size: 16, // Minimum buffer size
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       });
-      this.device.queue.writeBuffer(buf, 0, new Float32Array([0.0, 0.0, 0.0, 0.0]));
+      // A safe non-empty, non-zero buffer source
+      this.device.queue.writeBuffer(buf, 0, new Uint8Array(16));
       return buf;
     };
 
@@ -181,11 +205,13 @@ export class WebGPUTestHarness {
       refMetadataBuffer = createRefBuffer(options.refMetadata);
       refBlaGridBuffer = createRefBuffer(options.refBlaGrid);
       refBlaGridDsBuffer = createRefBuffer(options.refBlaGridDs);
+      refBtaGridBuffer = createRefBuffer(options.refBtaGrid);
     } else {
       refOrbitNodesBuffer = createRefBuffer(undefined);
       refMetadataBuffer = createRefBuffer(undefined);
       refBlaGridBuffer = createRefBuffer(undefined);
       refBlaGridDsBuffer = createRefBuffer(undefined);
+      refBtaGridBuffer = createRefBuffer(undefined);
     }
 
     const completionFlagBuffer = this.device.createBuffer({
@@ -209,25 +235,34 @@ export class WebGPUTestHarness {
       entries.push({ binding: 3, resource: { buffer: refOrbitNodesBuffer } });
       entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
       if (entryPoint === 'unit_test_bla_advance') {
-        entries.push({ binding: 8, resource: { buffer: refMetadataBuffer } });
-        entries.push({ binding: 9, resource: { buffer: refBlaGridBuffer } });
-        entries.push({ binding: 10, resource: { buffer: refBlaGridDsBuffer } });
+        // unit_test_bla_advance uses: camera(0), ref_orbits(3), checkpoint(5), completion_flag(6), bta_grid(11) (and trivially 1, 2)
+        entries.push({ binding: 6, resource: { buffer: completionFlagBuffer } });
+        entries.push({ binding: 11, resource: { buffer: refBtaGridBuffer } });
       }
     } else if (entryPoint === 'unit_test_engine_math') {
+      // unit_test_engine_math uses: camera(0), ref_orbits(3), checkpoint(5), completion_flag(6), orbit_metadata(8), bla_grid(9), dsbla_grid(10) (and trivially 1, 2)
+      // Note: we just unconditionally push exactly the 9 bindings required by the layout
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
       entries.push({ binding: 3, resource: { buffer: refOrbitNodesBuffer } });
       entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
       entries.push({ binding: 6, resource: { buffer: completionFlagBuffer } });
       entries.push({ binding: 8, resource: { buffer: refMetadataBuffer } });
-      entries.push({ binding: 9, resource: { buffer: refBlaGridBuffer } });
       entries.push({ binding: 10, resource: { buffer: refBlaGridDsBuffer } });
+      entries.push({ binding: 11, resource: { buffer: refBtaGridBuffer } });
     }
 
+    this.device.pushErrorScope('validation');
     const bindGroup = this.device.createBindGroup({
       layout: computePipeline.getBindGroupLayout(0),
       entries,
     });
+    const bgError = await this.device.popErrorScope();
+    if (bgError) {
+      console.error(`BindGroup Error for ${entryPoint}:`, bgError.message);
+      console.dir(entries.map((e) => ({ binding: e.binding })));
+    }
 
+    this.device.pushErrorScope('validation');
     const commandEncoder = this.device.createCommandEncoder();
     const passEncoder = commandEncoder.beginComputePass();
     passEncoder.setPipeline(computePipeline);
@@ -238,6 +273,13 @@ export class WebGPUTestHarness {
 
     commandEncoder.copyBufferToBuffer(outputStorageBuffer, 0, stagingBuffer, 0, outputSize);
     this.device.queue.submit([commandEncoder.finish()]);
+
+    await this.device.queue.onSubmittedWorkDone();
+
+    const gpuError = await this.device.popErrorScope();
+    if (gpuError) {
+      console.error(`WebGPU Validation Error in ${entryPoint}:`, gpuError.message);
+    }
 
     await stagingBuffer.mapAsync(GPUMapMode.READ);
     const arrayBuffer = stagingBuffer.getMappedRange();
@@ -253,6 +295,7 @@ export class WebGPUTestHarness {
     refMetadataBuffer.destroy();
     refBlaGridBuffer.destroy();
     refBlaGridDsBuffer.destroy();
+    refBtaGridBuffer.destroy();
 
     return result;
   }
@@ -324,6 +367,7 @@ export class TestRenderSession {
         refMetadata: null,
         refBlaGrid: null,
         refBlaGridDs: null,
+        refBtaGrid: null,
         effectiveMathMode: 0,
         skipIter: 0,
         debugViewMode: 0,

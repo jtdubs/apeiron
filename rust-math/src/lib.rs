@@ -24,6 +24,7 @@ pub struct MathPayload {
     metadata: js_sys::Float64Array,
     bla_grid: js_sys::Float64Array,
     bla_grid_ds: js_sys::Float64Array,
+    bta_grid: js_sys::Float64Array,
 }
 
 #[wasm_bindgen]
@@ -44,6 +45,10 @@ impl MathPayload {
     pub fn bla_grid_ds(&self) -> js_sys::Float64Array {
         self.bla_grid_ds.clone()
     }
+    #[wasm_bindgen(getter)]
+    pub fn bta_grid(&self) -> js_sys::Float64Array {
+        self.bta_grid.clone()
+    }
 }
 
 fn split_ds(val: f64) -> (f64, f64) {
@@ -57,6 +62,7 @@ pub struct NativeMathPayload {
     pub metadata: Vec<f64>,
     pub bla_grid: Vec<f64>,
     pub bla_grid_ds: Vec<f64>,
+    pub bta_grid: Vec<f64>,
 }
 
 pub fn compute_mandelbrot_internal(points_json: &str, max_iterations: u32) -> NativeMathPayload {
@@ -67,6 +73,7 @@ pub fn compute_mandelbrot_internal(points_json: &str, max_iterations: u32) -> Na
     let mut meta_results = Vec::with_capacity(points.len() * META_STRIDE);
     let mut bla_results = Vec::with_capacity(points.len() * max_iterations as usize * BLA_LEVELS as usize * BLA_NODE_STRIDE as usize);
     let mut bla_results_ds = Vec::with_capacity(points.len() * max_iterations as usize * BLA_LEVELS as usize * DSBLA_NODE_STRIDE as usize);
+    let mut bta_results = Vec::with_capacity(points.len() * max_iterations as usize * BLA_LEVELS as usize * BTA_NODE_STRIDE as usize);
 
     for p in points {
         let mut x = BigDecimal::from_str(&p.zr).unwrap_or(BigDecimal::zero());
@@ -277,10 +284,13 @@ pub fn compute_mandelbrot_internal(points_json: &str, max_iterations: u32) -> Na
         // DP table for blocks: level -> iter -> block
         // Block is (ar, ai, br, bi, err)
         let mut bla_grid = vec![vec![(0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64); max_iterations as usize]; max_levels];
+        // BTA Block is (ar, ai, br, bi, cr, ci, dr, di, er, ei, err)
+        let mut bta_grid = vec![vec![(0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64); max_iterations as usize]; max_levels];
 
         // Level 0 (size 1)
         for i in 0..(max_iterations as usize) {
             bla_grid[0][i] = (2.0 * blx[i], 2.0 * bly[i], 1.0, 0.0, 1.0);
+            bta_grid[0][i] = (2.0 * blx[i], 2.0 * bly[i], 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
         }
 
         // Higher levels L
@@ -310,9 +320,59 @@ pub fn compute_mandelbrot_internal(points_json: &str, max_iterations: u32) -> Na
                     } else {
                         bla_grid[l][i] = (ar, ai, br, bi, err);
                     }
+
+                    // --- BTA Doubling ---
+                    let bt1 = bta_grid[l - 1][i];
+                    let bt2 = bta_grid[l - 1][i + step];
+                    
+                    let a1 = (bt1.0, bt1.1);
+                    let b1_c = (bt1.2, bt1.3);
+                    let c1 = (bt1.4, bt1.5);
+                    let d1 = (bt1.6, bt1.7);
+                    let e1 = (bt1.8, bt1.9);
+                    
+                    let a2 = (bt2.0, bt2.1);
+                    let b2_c = (bt2.2, bt2.3);
+                    let c2 = (bt2.4, bt2.5);
+                    let d2 = (bt2.6, bt2.7);
+                    let e2 = (bt2.8, bt2.9);
+                    
+                    let cmul = |x: (f64, f64), y: (f64, f64)| -> (f64, f64) {
+                        (x.0 * y.0 - x.1 * y.1, x.0 * y.1 + x.1 * y.0)
+                    };
+                    let cadd = |x: (f64, f64), y: (f64, f64)| -> (f64, f64) {
+                        (x.0 + y.0, x.1 + y.1)
+                    };
+                    let csq = |x: (f64, f64)| -> (f64, f64) {
+                        (x.0 * x.0 - x.1 * x.1, 2.0 * x.0 * x.1)
+                    };
+                    
+                    // A_c = A_2 A_1
+                    let ac = cmul(a2, a1);
+                    // B_c = A_2 B_1 + B_2
+                    let bc = cadd(cmul(a2, b1_c), b2_c);
+                    // C_c = A_2 C_1 + C_2 A_1^2
+                    let cc = cadd(cmul(a2, c1), cmul(c2, csq(a1)));
+                    // D_c = A_2 D_1 + 2 C_2 A_1 B_1 + D_2 A_1
+                    let tmp1 = cmul(a2, d1);
+                    let tmp2 = cmul(cmul((2.0, 0.0), c2), cmul(a1, b1_c));
+                    let tmp3 = cmul(d2, a1);
+                    let dc = cadd(cadd(tmp1, tmp2), tmp3);
+                    // E_c = A_2 E_1 + C_2 B_1^2 + D_2 B_1 + E_2
+                    let etmp1 = cmul(a2, e1);
+                    let etmp2 = cmul(c2, csq(b1_c));
+                    let etmp3 = cmul(d2, b1_c);
+                    let ec = cadd(cadd(cadd(etmp1, etmp2), etmp3), e2);
+                    
+                    if a2_mag > 1e20 || b2_mag_sq > 1e40 || err > 1e25 {
+                        bta_grid[l][i] = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, f64::INFINITY);
+                    } else {
+                        bta_grid[l][i] = (ac.0, ac.1, bc.0, bc.1, cc.0, cc.1, dc.0, dc.1, ec.0, ec.1, err);
+                    }
                 } else {
                     // Out of bounds, flag invalid with err = INFINITY
                     bla_grid[l][i] = (0.0, 0.0, 0.0, 0.0, f64::INFINITY);
+                    bta_grid[l][i] = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, f64::INFINITY);
                 }
             }
         }
@@ -349,6 +409,19 @@ pub fn compute_mandelbrot_internal(points_json: &str, max_iterations: u32) -> Na
                     pad1: 0.0, pad2: 0.0, pad3: 0.0, pad4: 0.0, pad5: 0.0, pad6: 0.0,
                 };
                 ds_bn.push_to(&mut bla_results_ds);
+
+                let bta_n = bta_grid[l][i];
+                let bta_out = crate::layout::BtaNode {
+                    ar: bta_n.0, ai: bta_n.1,
+                    br: bta_n.2, bi: bta_n.3,
+                    cr: bta_n.4, ci: bta_n.5,
+                    dr: bta_n.6, di: bta_n.7,
+                    er: bta_n.8, ei: bta_n.9,
+                    err: bta_n.10,
+                    len: (1 << l) as f64,
+                    pad1: 0.0, pad2: 0.0, pad3: 0.0, pad4: 0.0,
+                };
+                bta_out.push_to(&mut bta_results);
             }
         }
     }
@@ -358,6 +431,7 @@ pub fn compute_mandelbrot_internal(points_json: &str, max_iterations: u32) -> Na
         metadata: meta_results,
         bla_grid: bla_results,
         bla_grid_ds: bla_results_ds,
+        bta_grid: bta_results,
     }
 }
 
@@ -369,6 +443,7 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> MathPayload
         metadata: js_sys::Float64Array::from(&native.metadata[..]),
         bla_grid: js_sys::Float64Array::from(&native.bla_grid[..]),
         bla_grid_ds: js_sys::Float64Array::from(&native.bla_grid_ds[..]),
+        bta_grid: js_sys::Float64Array::from(&native.bta_grid[..]),
     }
 }
 

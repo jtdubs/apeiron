@@ -257,6 +257,7 @@ fn calculate_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, max_i
 @group(0) @binding(8) var<storage, read> orbit_metadata: array<vec2<u32>>;
 @group(0) @binding(9) var<storage, read> bla_grid: array<vec2<u32>>;
 @group(0) @binding(10) var<storage, read> dsbla_grid: array<vec2<u32>>;
+@group(0) @binding(11) var<storage, read> bta_grid: array<vec2<u32>>;
 
 fn unpack_f64_to_f32(raw: vec2<u32>) -> f32 {
     let low = raw.x;
@@ -332,8 +333,8 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
             let b_len = f32(1u << l);
             
             if ((iter + b_len) <= target_iter && (iter + b_len) <= camera.ref_max_iter && (iter + b_len) < ref_escaped_iter) {
-                let bla_node = get_bla_node(u32(iter), l);
-                let target_err = bla_node.err;
+                let bta_node = get_bta_node(u32(iter), l);
+                let target_err = bta_node.err;
                 
                 if (target_err < 1e20) {
                     let max_delta_sq = max(dz_len_sq, dc_len_sq);
@@ -343,12 +344,29 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
                     let static_tolerance = 1e-6;
                     
                     if (err_factor < static_tolerance) {
-                        let ar = bla_node.ar; let ai = bla_node.ai;
-                        let br = bla_node.br; let bi = bla_node.bi;
+                        let dz02 = complex_sq(dz);
+                        let dz0dc = complex_mul(dz, delta_c);
+                        let dc2 = complex_sq(delta_c);
+
+                        let a_dz = complex_mul(vec2<f32>(bta_node.ar, bta_node.ai), dz);
+                        let b_dc = complex_mul(vec2<f32>(bta_node.br, bta_node.bi), delta_c);
+                        let c_dz02 = complex_mul(vec2<f32>(bta_node.cr, bta_node.ci), dz02);
+                        let d_dz0dc = complex_mul(vec2<f32>(bta_node.dr, bta_node.di), dz0dc);
+                        let e_dc2 = complex_mul(vec2<f32>(bta_node.er, bta_node.ei), dc2);
                         
-                        let a_dz = complex_mul(vec2<f32>(ar, ai), dz);
-                        let b_dc = complex_mul(vec2<f32>(br, bi), delta_c);
-                        let potential_dz = complex_add(a_dz, b_dc);
+                        let linear_term = complex_add(a_dz, b_dc);
+                        let quad_term = complex_add(complex_add(c_dz02, d_dz0dc), e_dc2);
+
+                        // Health check / glitch detection using relative magnitude
+                        let quad_mag = quad_term.x * quad_term.x + quad_term.y * quad_term.y;
+                        let linear_mag = linear_term.x * linear_term.x + linear_term.y * linear_term.y;
+                        
+                        // Terminate skip if quadratic term introduces an error larger than tolerance
+                        if (quad_mag > 1e-14 * linear_mag) {
+                            continue;
+                        }
+
+                        let potential_dz = complex_add(linear_term, quad_term);
                         
                         let target_node = get_orbit_node(u32(iter + b_len));
                         
@@ -365,7 +383,7 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
                         
                         dz = potential_dz;
                         
-                        let new_der = complex_mul(vec2<f32>(ar, ai), der);
+                        let new_der = complex_mul(vec2<f32>(bta_node.ar, bta_node.ai), der);
                         var new_der_x = new_der.x;
                         var new_der_y = new_der.y;
                         
@@ -908,24 +926,31 @@ fn unit_test_sa_init(@builtin(global_invocation_id) global_id: vec3<u32>) {
 @compute @workgroup_size(64)
 fn unit_test_bla_advance(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let idx = global_id.x;
-  if (idx * 4u >= arrayLength(&data_in)) {
+  if (idx * 8u >= arrayLength(&data_in)) {
       return;
   }
+  let dz_in = vec2<f32>(data_in[idx * 8u], data_in[idx * 8u + 1u]);
+  let iter_in = data_in[idx * 8u + 2u];
   
-  let dz_in = vec2<f32>(data_in[idx * 4u], data_in[idx * 4u + 1u]);
-  let iter_in = data_in[idx * 4u + 2u];
+  let delta_c = vec2<f32>(data_in[idx * 8u + 3u], data_in[idx * 8u + 4u]);
+  let start_c = vec2<f32>(data_in[idx * 8u + 5u], data_in[idx * 8u + 6u]);
+  let target_iter = data_in[idx * 8u + 7u];
   
-  // We mock a tiny delta C
-  let delta_c = vec2<f32>(1e-15, 1e-15);
   let der_in = vec2<f32>(1.0, 0.0);
-  let start_c = vec2<f32>(-1.748, 0.0);
   
-  let bla = advance_via_bla(dz_in, der_in, delta_c, start_c, iter_in, 100.0, 1000.0, 1000.0, idx, 0.0);
+  let bla = advance_via_bla(dz_in, der_in, delta_c, start_c, iter_in, target_iter, camera.ref_max_iter, camera.compute_max_iter, idx, 0.0);
   
   data_out[idx * 4u] = bla.dz.x;
   data_out[idx * 4u + 1u] = bla.dz.y;
   data_out[idx * 4u + 2u] = bla.iter;
-  data_out[idx * 4u + 3u] = select(0.0, 1.0, bla.advanced);
+  
+  // We can write testing values instead of just advanced
+  if (!bla.advanced) {
+      let bta_node = get_bta_node(0u, 15u);
+      data_out[idx * 4u + 3u] = bta_node.err;
+  } else {
+      data_out[idx * 4u + 3u] = -1.0;
+  }
 }
 
 @compute @workgroup_size(16, 16)

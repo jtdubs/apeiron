@@ -137,3 +137,42 @@ fn test_bla_ds_split() {
     let ds_reconstructed = l1_ar_hi + l1_ar_lo;
     assert!((l1_ar_f64 - ds_reconstructed).abs() < 1e-14, "Double-Single split lost precision");
 }
+
+#[test]
+fn test_bta_generation_values() {
+    // Test base BTA values against analytical Taylor series expansion rules for Mandelbrot
+    let points_json = r#"[{"zr": "1", "zi": "0", "cr": "-0.5", "ci": "0", "exponent": 2.0}]"#;
+    // z0 = 1, z1 = 0.5
+    let payload = compute_mandelbrot_internal(points_json, 2);
+    let orbit = payload.orbit_nodes;
+    let z0_x = orbit[0];
+    let z0_y = orbit[1];
+    
+    let bta = payload.bta_grid;
+    // Level 0, step 0 corresponds to 1 iteration advance
+    // The perturbation equation is dz_{n+1} = 2*z_n*dz + dc + dz^2
+    // So A = 2*z_n, B = 1, C = 1, D = 0, E = 0
+    let ar0 = bta[0]; // Offset 0 is ar
+    let ai0 = bta[1]; // Offset 1 is ai
+    let br0 = bta[2]; // Offset 2 is br
+    let bi0 = bta[3]; // Offset 3 is bi
+    let cr0 = bta[4]; // Offset 4 is cr
+    let ci0 = bta[5]; // Offset 5 is ci
+    let dr0 = bta[6]; // Offset 6 is dr
+    let di0 = bta[7]; // Offset 7 is di
+    let er0 = bta[8]; // Offset 8 is er
+    let ei0 = bta[9]; // Offset 9 is ei
+    let err0 = bta[10]; // Offset 10 is err
+    
+    assert_eq!(ar0, 2.0 * z0_x, "BTA ar should be 2*z0_x at level 0");
+    assert_eq!(ai0, 2.0 * z0_y, "BTA ai should be 2*z0_y at level 0");
+    assert_eq!(br0, 1.0, "BTA br should be 1.0 at level 0");
+    assert_eq!(bi0, 0.0, "BTA bi should be 0.0 at level 0");
+    assert_eq!(cr0, 1.0, "BTA cr should be 1.0 at level 0 (coefficient for dz^2)");
+    assert_eq!(ci0, 0.0, "BTA ci should be 0.0 at level 0");
+    assert_eq!(dr0, 0.0, "BTA dr should be 0.0 at level 0");
+    assert_eq!(di0, 0.0, "BTA di should be 0.0 at level 0");
+    assert_eq!(er0, 0.0, "BTA er should be 0.0 at level 0");
+    assert_eq!(ei0, 0.0, "BTA ei should be 0.0 at level 0");
+    assert_eq!(err0, 1.0, "BTA err should be 1.0 at level 0");
+}

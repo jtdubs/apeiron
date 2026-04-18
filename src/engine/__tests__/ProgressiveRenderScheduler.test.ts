@@ -17,6 +17,7 @@ function createMockContext(overrides?: Partial<MathContext>): MathContext {
     refMetadata: null,
     refBlaGrid: null,
     refBlaGridDs: null,
+    refBtaGrid: null,
     effectiveMathMode: overrides?.effectiveMathMode ?? 0,
     skipIter: 0,
     debugViewMode: 0,

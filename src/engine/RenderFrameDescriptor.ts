@@ -18,6 +18,7 @@ export interface MathContext {
   refMetadata: Float64Array | null;
   refBlaGrid: Float64Array | null;
   refBlaGridDs: Float64Array | null;
+  refBtaGrid: Float64Array | null;
   effectiveMathMode: number;
   skipIter: number;
   debugViewMode: number;

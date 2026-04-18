@@ -23,6 +23,7 @@ export type WorkerOutputMessage =
       metadata: Float64Array;
       bla_grid: Float64Array;
       bla_grid_ds: Float64Array;
+      bta_grid: Float64Array;
     }
   | {
       id: number;
@@ -55,6 +56,7 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     const metadata = new Float64Array(payload.metadata);
     const bla_grid = new Float64Array(payload.bla_grid);
     const bla_grid_ds = new Float64Array(payload.bla_grid_ds);
+    const bta_grid = new Float64Array(payload.bta_grid);
 
     // Free the WASM memory pointer
     payload.free();
@@ -69,8 +71,9 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
         metadata,
         bla_grid,
         bla_grid_ds,
+        bta_grid,
       } as WorkerOutputMessage,
-      [orbit_nodes.buffer, metadata.buffer, bla_grid.buffer, bla_grid_ds.buffer],
+      [orbit_nodes.buffer, metadata.buffer, bla_grid.buffer, bla_grid_ds.buffer, bta_grid.buffer],
     );
   } else if (e.data.type === 'REFINE_REFERENCE') {
     if (!wasmInit) {

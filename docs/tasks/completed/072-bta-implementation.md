@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 072: Implement Bivariate Taylor Approximation (BTA)
