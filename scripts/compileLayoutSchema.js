@@ -87,15 +87,15 @@ function generate() {
     let _unpOffset = 0;
     for (const f of sDef.fields) {
       if (f.type === 'vec4<f32>') {
-        tsUnpackerBody += `  out.${f.name} = [buffer[offset + ${_unpOffset}], buffer[offset + ${_unpOffset + 1}], buffer[offset + ${_unpOffset + 2}], buffer[offset + ${_unpOffset + 3}]];\n`;
+        tsUnpackerBody += `  out.${f.name} = [buffer[base_offset + ${_unpOffset}], buffer[base_offset + ${_unpOffset + 1}], buffer[base_offset + ${_unpOffset + 2}], buffer[base_offset + ${_unpOffset + 3}]];\n`;
       } else {
-        tsUnpackerBody += `  out.${f.name} = buffer[offset + ${_unpOffset}];\n`;
+        tsUnpackerBody += `  out.${f.name} = buffer[base_offset + ${_unpOffset}];\n`;
       }
       _unpOffset += tsLength(f);
     }
 
     tsPackers += `export function pack${sName}(obj: ${sName}): Float32Array {\n${tsPackerBody}  return arr;\n}\n\n`;
-    tsPackers += `export function unpack${sName}(buffer: Float32Array | Float64Array, offset: number, out: ${sName}) {\n${tsUnpackerBody}}\n\n`;
+    tsPackers += `export function unpack${sName}(buffer: Float32Array | Float64Array, index: number, out: ${sName}) {\n  const base_offset = index * ${sName}_SIZE;\n${tsUnpackerBody}}\n\n`;
 
     wgslStructs += `struct ${sName} {\n${wgslFields}}\n\n`;
     rustStructs += `#[repr(C)]\n#[derive(Debug, Clone, Copy)]\npub struct ${sName} {\n${rustFields}}\n\n`;
@@ -122,16 +122,16 @@ function generate() {
     if (sName === 'OrbitMetadata') {
       let body = '';
       for (let i = 0; i < structSize; i++) {
-        body += `${i > 0 ? ',\n    ' : '    '}unpack_f64_to_f32(ref_orbits[base_index + ${i}u])`;
+        body += `${i > 0 ? ',\n    ' : '    '}unpack_f64_to_f32(orbit_metadata[base_index + ${i}u])`;
       }
-      wgslAccessors += `fn get_orbit_metadata(ref_offset: u32, max_iter: u32) -> OrbitMetadata {\n  let base_index = ref_offset + (max_iter * ORBIT_STRIDE);\n  return OrbitMetadata(\n${body}\n  );\n}\n\n`;
+      wgslAccessors += `fn get_orbit_metadata(base_index: u32) -> OrbitMetadata {\n  return OrbitMetadata(\n${body}\n  );\n}\n\n`;
     }
     if (sName === 'BLANode') {
       let body = '';
       for (let i = 0; i < structSize; i++) {
-        body += `${i > 0 ? ',\n    ' : '    '}unpack_f64_to_f32(ref_orbits[node_idx + ${i}u])`;
+        body += `${i > 0 ? ',\n    ' : '    '}unpack_f64_to_f32(bla_grid[node_idx + ${i}u])`;
       }
-      wgslAccessors += `fn get_bla_node(bla_offset: u32, iter: u32, level: u32) -> BLANode {\n  let node_idx = bla_offset + (iter * BLA_LEVELS + level) * BLA_NODE_STRIDE;\n  return BLANode(\n${body}\n  );\n}\n\n`;
+      wgslAccessors += `fn get_bla_node(base_index: u32, iter: u32, level: u32) -> BLANode {\n  let node_idx = base_index + (iter * BLA_LEVELS + level) * BLA_NODE_STRIDE;\n  return BLANode(\n${body}\n  );\n}\n\n`;
     }
   }
 

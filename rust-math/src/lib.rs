@@ -19,13 +19,36 @@ pub struct Point {
 }
 
 #[wasm_bindgen]
-pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Float64Array {
+pub struct MathPayload {
+    orbit_nodes: js_sys::Float64Array,
+    metadata: js_sys::Float64Array,
+    bla_grid: js_sys::Float64Array,
+}
+
+#[wasm_bindgen]
+impl MathPayload {
+    #[wasm_bindgen(getter)]
+    pub fn orbit_nodes(&self) -> js_sys::Float64Array {
+        self.orbit_nodes.clone()
+    }
+    #[wasm_bindgen(getter)]
+    pub fn metadata(&self) -> js_sys::Float64Array {
+        self.metadata.clone()
+    }
+    #[wasm_bindgen(getter)]
+    pub fn bla_grid(&self) -> js_sys::Float64Array {
+        self.bla_grid.clone()
+    }
+}
+
+#[wasm_bindgen]
+pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> MathPayload {
     let points: Vec<Point> = serde_json::from_str(points_json).unwrap_or_else(|_| vec![]);
     
-    // Vector packing format relies on strongly typed constants inside layout.rs
-    // which represent ORBIT_STRIDE, META_STRIDE, BLA_LEVELS, BLA_NODE_STRIDE.
-    let floats_per_case = (max_iterations as usize * FLOATS_PER_ITER) + META_STRIDE;
-    let mut results = Vec::with_capacity(points.len() * floats_per_case);
+    let floats_per_case = max_iterations as usize * ORBIT_STRIDE;
+    let mut orbit_results = Vec::with_capacity(points.len() * floats_per_case);
+    let mut meta_results = Vec::with_capacity(points.len() * META_STRIDE);
+    let mut bla_results = Vec::with_capacity(points.len() * max_iterations as usize * BLA_LEVELS as usize * BLA_NODE_STRIDE as usize);
 
     for p in points {
         let mut x = BigDecimal::from_str(&p.zr).unwrap_or(BigDecimal::zero());
@@ -189,7 +212,7 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
         }
 
         for v in orbit.iter() {
-            results.push(*v);
+            orbit_results.push(*v);
         }
 
         let pushed_values = orbit.len() / ORBIT_STRIDE;
@@ -205,7 +228,7 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
             ci: ci.to_f64().unwrap_or(0.0),
         };
         for _ in 0..remaining {
-            pad_node.push_to(&mut results);
+            pad_node.push_to(&mut orbit_results);
         }
 
         let meta = crate::layout::OrbitMetadata {
@@ -218,7 +241,7 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
             abs_cr: p.cr.parse::<f64>().unwrap_or(0.0),
             abs_ci: p.ci.parse::<f64>().unwrap_or(0.0),
         };
-        meta.push_to(&mut results);
+        meta.push_to(&mut meta_results);
         // --- BLA Block Grid Compilation ---
         // We compile a dense uniform matrix of dimensions [max_iterations, MAX_LEVELS]
         // where level L implies a block size of 2^L.
@@ -293,10 +316,14 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> js_sys::Flo
                     pad1: 0.0,
                     pad2: 0.0,
                 };
-                bn.push_to(&mut results);
+                bn.push_to(&mut bla_results);
             }
         }
     }
 
-    js_sys::Float64Array::from(&results[..])
+    MathPayload {
+        orbit_nodes: js_sys::Float64Array::from(&orbit_results[..]),
+        metadata: js_sys::Float64Array::from(&meta_results[..]),
+        bla_grid: js_sys::Float64Array::from(&bla_results[..]),
+    }
 }

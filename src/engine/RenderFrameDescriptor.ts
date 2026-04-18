@@ -14,7 +14,9 @@ export interface MathContext {
   paletteMaxIter: number; // The target static max iteration cap (used for consistent palette mapping)
   sliceAngle: number;
   exponent: number;
-  refOrbits: Float64Array | null;
+  refOrbitNodes: Float64Array | null;
+  refMetadata: Float64Array | null;
+  refBlaGrid: Float64Array | null;
   skipIter: number;
   debugViewMode: number;
 }

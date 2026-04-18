@@ -7,19 +7,19 @@ import process from 'node:process';
 import { initEngine } from '../src/engine/initEngine.ts';
 
 import { WebGPUTestHarness } from './WebGPUTestHarness.ts';
-import { WorkerInputMessage, WorkerOutputMessage } from '../src/engine/math-workers/rust.worker.ts';
-import {
-  ORBIT_STRIDE,
-  META_STRIDE,
-  FLOATS_PER_ITER,
-} from '../src/engine/generated/MemoryLayout.ts';
+import { WorkerInputMessage } from '../src/engine/math-workers/rust.worker.ts';
+import { ORBIT_STRIDE, META_STRIDE } from '../src/engine/generated/MemoryLayout.ts';
 
 interface SharedState {
   engine: any;
   harness: WebGPUTestHarness;
-  groundTruth: Float64Array;
-  offsetsGroundTruth: Float64Array;
-  alignedRefOrbits: Float64Array;
+  groundTruthOrbitNodes: Float64Array;
+  groundTruthMetadata: Float64Array;
+  groundTruthBlaGrid: Float64Array;
+  offsetsGroundTruthMetadata: Float64Array;
+  alignedRefOrbitNodes: Float64Array;
+  alignedRefMetadata: Float64Array;
+  alignedRefBlaGrid: Float64Array;
   clusterCases: any[];
   inputs: Float32Array;
   perturbGpuResult: Float32Array;
@@ -45,8 +45,8 @@ async function initSharedState(): Promise<SharedState | null> {
     const casesJson = fs.readFileSync(casesPath, 'utf8');
 
     const groundTruth = await new Promise<Float64Array>((resolve, reject) => {
-      worker.onmessage = (e: MessageEvent<WorkerOutputMessage>) => {
-        if (e.data.type === 'COMPUTE_RESULT') resolve(e.data.result);
+      worker.onmessage = (e: MessageEvent<any>) => {
+        if (e.data.type === 'COMPUTE_RESULT') resolve(e.data);
       };
       worker.onerror = (e) => reject(e);
       worker.postMessage({
@@ -146,9 +146,9 @@ async function initSharedState(): Promise<SharedState | null> {
 
     const offsetsGroundTruth = await new Promise<Float64Array>((resolve, reject) => {
       const localWorker = new Worker(new URL(`file://${workerPath}`).href, { type: 'module' });
-      localWorker.onmessage = (e: MessageEvent<WorkerOutputMessage>) => {
+      localWorker.onmessage = (e: MessageEvent<any>) => {
         if (e.data.type === 'COMPUTE_RESULT') {
-          resolve(e.data.result);
+          resolve(e.data);
           localWorker.terminate();
         }
       };
@@ -161,16 +161,35 @@ async function initSharedState(): Promise<SharedState | null> {
       } as WorkerInputMessage);
     });
 
-    const blockSize = 100 * FLOATS_PER_ITER + META_STRIDE;
+    // Reconstruct blocks for three decoupled buffers
+    const orbitBlockSize = 100 * ORBIT_STRIDE;
+    const metaBlockSize = META_STRIDE;
+    const blaBlockSize = 100 * 10 * 8; // BLA_LEVELS * BLA_NODE_STRIDE
+
     const variantsPerCase = 6;
-    const alignedRefOrbits = new Float64Array(clusterCases.length * blockSize);
+    const alignedRefOrbitNodes = new Float64Array(clusterCases.length * orbitBlockSize);
+    const alignedRefMetadata = new Float64Array(clusterCases.length * metaBlockSize);
+    const alignedRefBlaGrid = new Float64Array(clusterCases.length * blaBlockSize);
+
     for (let c = 0; c < rawCases.length; c++) {
       for (let variant = 0; variant < variantsPerCase; variant++) {
         const clusterIdx = c * variantsPerCase + variant;
-        const srcStart = c * blockSize;
-        alignedRefOrbits.set(
-          groundTruth.subarray(srcStart, srcStart + blockSize),
-          clusterIdx * blockSize,
+
+        const orbitStart = c * orbitBlockSize;
+        const metaStart = c * metaBlockSize;
+        const blaStart = c * blaBlockSize;
+
+        alignedRefOrbitNodes.set(
+          groundTruth.orbit_nodes.subarray(orbitStart, orbitStart + orbitBlockSize),
+          clusterIdx * orbitBlockSize,
+        );
+        alignedRefMetadata.set(
+          groundTruth.metadata.subarray(metaStart, metaStart + metaBlockSize),
+          clusterIdx * metaBlockSize,
+        );
+        alignedRefBlaGrid.set(
+          groundTruth.bla_grid.subarray(blaStart, blaStart + blaBlockSize),
+          clusterIdx * blaBlockSize,
         );
       }
     }
@@ -184,17 +203,32 @@ async function initSharedState(): Promise<SharedState | null> {
     for (let i = 0; i <= clusterCases.length; i++) {
       if (i === clusterCases.length || clusterCases[i].exponent !== currentExp) {
         const batchInputs = inputs.subarray(expStartIdx * 6, i * 6);
-        const batchRefOrbits = alignedRefOrbits.subarray(expStartIdx * blockSize, i * blockSize);
+        const batchRefOrbitNodes = alignedRefOrbitNodes.subarray(
+          expStartIdx * orbitBlockSize,
+          i * orbitBlockSize,
+        );
+        const batchRefMetadata = alignedRefMetadata.subarray(
+          expStartIdx * metaBlockSize,
+          i * metaBlockSize,
+        );
+        const batchRefBlaGrid = alignedRefBlaGrid.subarray(
+          expStartIdx * blaBlockSize,
+          i * blaBlockSize,
+        );
 
         const pRes = await harness.executeTestCompute(
           batchInputs,
-          batchRefOrbits,
+          batchRefOrbitNodes,
+          batchRefMetadata,
+          batchRefBlaGrid,
           100,
           true,
           currentExp,
         );
         const fRes = await harness.executeTestCompute(
           batchInputs,
+          undefined,
+          undefined,
           undefined,
           100,
           false,
@@ -214,9 +248,13 @@ async function initSharedState(): Promise<SharedState | null> {
     return {
       engine,
       harness,
-      groundTruth,
-      offsetsGroundTruth,
-      alignedRefOrbits,
+      groundTruthOrbitNodes: groundTruth.orbit_nodes,
+      groundTruthMetadata: groundTruth.metadata,
+      groundTruthBlaGrid: groundTruth.bla_grid,
+      offsetsGroundTruthMetadata: offsetsGroundTruth.metadata,
+      alignedRefOrbitNodes,
+      alignedRefMetadata,
+      alignedRefBlaGrid,
       clusterCases,
       inputs,
       perturbGpuResult,
@@ -232,17 +270,12 @@ Deno.test('Fuzzy Match Tolerance Checker (against Ground Truth)', async () => {
   const state = await initSharedState();
   if (!state) return;
 
-  const { clusterCases, offsetsGroundTruth, perturbGpuResult, f32GpuResult } = state;
+  const { clusterCases, offsetsGroundTruthMetadata, perturbGpuResult, f32GpuResult } = state;
   let passed = true;
-  const max_iterations = 100;
-  const blockSizeG = max_iterations * FLOATS_PER_ITER + META_STRIDE;
 
   for (let i = 0; i < clusterCases.length; i++) {
-    const start = i * blockSizeG;
-    const metadataOffset = start + max_iterations * ORBIT_STRIDE;
-    // The escape iter is pushed as the 4th element of metadata:
-    // 0: cycle_found, 1: pad, 2: pad, 3: escaped_iter
-    const expectedIter = offsetsGroundTruth[metadataOffset + 3];
+    const metadataOffset = i * META_STRIDE;
+    const expectedIter = offsetsGroundTruthMetadata[metadataOffset + 3];
 
     const perturbIter = perturbGpuResult[i * 4];
     const pDe = perturbGpuResult[i * 4 + 1];
@@ -296,7 +329,15 @@ Deno.test({
 
     const { harness } = state;
     const deepInput = new Float32Array([0.0, 0.0, -1.748, 0.0, 1e-15, 1e-15]);
-    const res = await harness.executeTestCompute(deepInput, undefined, 500, false, 2.0);
+    const res = await harness.executeTestCompute(
+      deepInput,
+      undefined,
+      undefined,
+      undefined,
+      500,
+      false,
+      2.0,
+    );
     const de = res[1];
     const nx = res[2];
     const ny = res[3];
@@ -471,7 +512,15 @@ Deno.test({
     ]);
 
     const maxIter = 1000;
-    const res = await harness.executeTestCompute(inputs, undefined, maxIter, false, 2.0);
+    const res = await harness.executeTestCompute(
+      inputs,
+      undefined,
+      undefined,
+      undefined,
+      maxIter,
+      false,
+      2.0,
+    );
 
     const iter0 = res[0]; // (0,0)
     const iter1 = res[4]; // (-1,0)
@@ -503,7 +552,7 @@ Deno.test({
     const state = await initSharedState();
     if (!state) return;
 
-    const { harness, alignedRefOrbits } = state;
+    const { harness, alignedRefOrbitNodes, alignedRefMetadata, alignedRefBlaGrid } = state;
     // Choose an exterior deep point that takes > 50 iterations to escape.
     // c = -1.748 + 1e-15i, dz = 1e-15, exponent = 2.0
     const inputs = new Float32Array([0.0, 0.0, -1.748, 0.0, 1e-15, 1e-15]);
@@ -511,7 +560,9 @@ Deno.test({
     // First, we run Standard Perturbation (no skipping) - the control group
     const standardRes = await harness.executeTestCompute(
       inputs,
-      alignedRefOrbits.subarray(0, 100 * FLOATS_PER_ITER + META_STRIDE), // Provide valid ref orbits from point 0
+      alignedRefOrbitNodes.subarray(0, 100 * ORBIT_STRIDE), // Provide valid ref orbits from point 0
+      alignedRefMetadata.subarray(0, META_STRIDE),
+      alignedRefBlaGrid.subarray(0, 100 * 10 * 8),
       100, // maxIter
       true, // usePerturbation
       2.0, // exponent
@@ -521,7 +572,9 @@ Deno.test({
     // It shouldn't change the escape path results noticeably.
     const skipRes = await harness.executeTestCompute(
       inputs,
-      alignedRefOrbits.subarray(0, 100 * ORBIT_STRIDE + META_STRIDE),
+      alignedRefOrbitNodes.subarray(0, 100 * ORBIT_STRIDE),
+      alignedRefMetadata.subarray(0, META_STRIDE),
+      alignedRefBlaGrid.subarray(0, 100 * 10 * 8),
       100,
       true,
       2.0,

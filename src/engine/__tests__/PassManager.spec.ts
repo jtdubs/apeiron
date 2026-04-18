@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { calculateSkipIter } from '../seriesApproximation';
-import { META_STRIDE, FLOATS_PER_ITER } from '../generated/MemoryLayout';
+import { ORBIT_STRIDE } from '../generated/MemoryLayout';
 import { AccumulationPass } from '../PassManager';
 
 globalThis.GPUBufferUsage = {
@@ -92,17 +92,16 @@ describe('PassManager Pure Function Uniform Building', () => {
 
     it('correctly calculates the mathematical skip limit against simulated trajectory bounds', () => {
       const iterCount = 100;
-      const floatsPerCase = 136;
-      const refOrbits = new Float64Array(iterCount * floatsPerCase + META_STRIDE);
+      const refOrbitNodes = new Float64Array(iterCount * ORBIT_STRIDE);
 
       for (let i = 0; i < iterCount; i++) {
-        refOrbits[META_STRIDE + i * FLOATS_PER_ITER + 2] = 1.0;
-        refOrbits[META_STRIDE + i * FLOATS_PER_ITER + 3] = 0.0;
-        refOrbits[META_STRIDE + i * FLOATS_PER_ITER + 6] = i >= 19 ? 1e15 : 0.0;
-        refOrbits[META_STRIDE + i * FLOATS_PER_ITER + 7] = 0.0;
+        refOrbitNodes[i * ORBIT_STRIDE + 2] = 1.0; // ar
+        refOrbitNodes[i * ORBIT_STRIDE + 3] = 0.0; // ai
+        refOrbitNodes[i * ORBIT_STRIDE + 6] = i >= 19 ? 1e15 : 0.0; // cr
+        refOrbitNodes[i * ORBIT_STRIDE + 7] = 0.0; // ci
       }
 
-      const skip = calculateSkipIter(refOrbits, 1e-5, 0, 0, 1000, 1000, 0, 'perturbation');
+      const skip = calculateSkipIter(refOrbitNodes, 1e-5, 0, 0, 1000, 1000, 0, 'perturbation');
       expect(skip).toBe(18);
     });
   });

@@ -12,7 +12,7 @@ export function buildMathContext(
   canvasHeight: number,
   interactMaxIterOverride?: number | null,
 ): MathContext {
-  const isPerturb = state.refOrbits !== null && theme.precisionMode !== 'f32';
+  const isPerturb = state.refOrbitNodes !== null && theme.precisionMode !== 'f32';
 
   const zr = isPerturb ? state.deltaZr : parseFloat(state.anchorZr) + state.deltaZr;
   const zi = isPerturb ? state.deltaZi : parseFloat(state.anchorZi) + state.deltaZi;
@@ -24,7 +24,7 @@ export function buildMathContext(
   const skipIter =
     canvasWidth > 0 && canvasHeight > 0
       ? calculateSkipIter(
-          state.refOrbits,
+          state.refOrbitNodes,
           state.zoom,
           state.deltaCr,
           state.deltaCi,
@@ -56,7 +56,9 @@ export function buildMathContext(
     zoom: state.zoom,
     sliceAngle: state.sliceAngle,
     exponent: state.exponent,
-    refOrbits: state.refOrbits,
+    refOrbitNodes: state.refOrbitNodes,
+    refMetadata: state.refMetadata,
+    refBlaGrid: state.refBlaGrid,
     skipIter,
     debugViewMode: state.debugViewMode,
   };

@@ -74,7 +74,9 @@ describe('ApeironViewport Orchestration', () => {
       sliceAngle: 0,
       exponent: 2.0,
       paletteMaxIter: 150,
-      refOrbits: null,
+      refOrbitNodes: null,
+      refMetadata: null,
+      refBlaGrid: null,
     });
   });
 
@@ -118,7 +120,14 @@ describe('ApeironViewport Orchestration', () => {
 
     // Simulate worker returning data
     act(() => {
-      workerOnMessage({ data: { type: 'COMPUTE_RESULT', result: new Float64Array(10) } });
+      workerOnMessage({
+        data: {
+          type: 'COMPUTE_RESULT',
+          orbit_nodes: new Float64Array(10),
+          metadata: new Float64Array(10),
+          bla_grid: new Float64Array(10),
+        },
+      });
     });
 
     // NOW it resets the delta and updates the anchor to match the job
@@ -157,7 +166,14 @@ describe('ApeironViewport Orchestration', () => {
 
     // Simulate worker return
     act(() => {
-      workerOnMessage({ data: { type: 'COMPUTE_RESULT', result: new Float64Array(10) } });
+      workerOnMessage({
+        data: {
+          type: 'COMPUTE_RESULT',
+          orbit_nodes: new Float64Array(10),
+          metadata: new Float64Array(10),
+          bla_grid: new Float64Array(10),
+        },
+      });
     });
 
     expect(viewportStore.getState().deltaCr).toBe(0.0);
@@ -169,19 +185,23 @@ describe('ApeironViewport Orchestration', () => {
     act(() => {
       viewportStore.setState({
         zoom: 1e-5,
-        refOrbits: new Float64Array(10),
+        refOrbitNodes: new Float64Array(10),
+        refMetadata: new Float64Array(10),
+        refBlaGrid: new Float64Array(10),
       });
     });
 
     render(<ApeironViewport />);
-    expect(viewportStore.getState().refOrbits).not.toBeNull();
+    expect(viewportStore.getState().refOrbitNodes).not.toBeNull();
 
     act(() => {
       viewportStore.getState().updateViewport(0, 0, 10000, 0); // deltaZoom = 10000 -> zoom becomes 0.1
     });
 
     // Subscriptions should instantly clear refOrbits to prevent GPU explosion
-    expect(viewportStore.getState().refOrbits).toBeNull();
+    expect(viewportStore.getState().refOrbitNodes).toBeNull();
+    expect(viewportStore.getState().refMetadata).toBeNull();
+    expect(viewportStore.getState().refBlaGrid).toBeNull();
   });
 
   it('updates sliceAngle constraints during middle-mouse 4D dragging', async () => {
@@ -251,7 +271,9 @@ describe('ApeironViewport Orchestration', () => {
     act(() => {
       viewportStore.setState({
         zoom: 1e-5,
-        refOrbits: new Float64Array(10),
+        refOrbitNodes: new Float64Array(10),
+        refMetadata: new Float64Array(10),
+        refBlaGrid: new Float64Array(10),
       });
       renderStore.setState({
         precisionMode: 'f32',
@@ -308,7 +330,14 @@ describe('ApeironViewport Orchestration', () => {
 
     // Provide the handshake for Epoch 1
     act(() => {
-      workerOnMessage({ data: { type: 'COMPUTE_RESULT', result: new Float64Array(10) } });
+      workerOnMessage({
+        data: {
+          type: 'COMPUTE_RESULT',
+          orbit_nodes: new Float64Array(10),
+          metadata: new Float64Array(10),
+          bla_grid: new Float64Array(10),
+        },
+      });
     });
 
     // Once Epoch 1 finishes, it discards rendering it and instantly fires Epoch 2
@@ -316,7 +345,14 @@ describe('ApeironViewport Orchestration', () => {
 
     // Provide handshake for Epoch 2
     act(() => {
-      workerOnMessage({ data: { type: 'COMPUTE_RESULT', result: new Float64Array(10) } });
+      workerOnMessage({
+        data: {
+          type: 'COMPUTE_RESULT',
+          orbit_nodes: new Float64Array(10),
+          metadata: new Float64Array(10),
+          bla_grid: new Float64Array(10),
+        },
+      });
     });
 
     // Everything should now be settled at Epoch 2 math

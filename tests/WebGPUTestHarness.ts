@@ -22,7 +22,9 @@ export class WebGPUTestHarness {
 
   public async executeTestCompute(
     input: Float32Array,
-    refOrbits?: Float64Array,
+    refOrbitNodes?: Float64Array,
+    refMetadata?: Float64Array,
+    refBlaGrid?: Float64Array,
     maxIter: number = 100,
     usePerturbation: boolean = true,
     exponent: number = 2.0,
@@ -41,7 +43,9 @@ export class WebGPUTestHarness {
           compute_max_iter: maxIter,
           skip_iter: 0.0,
         },
-        refOrbits: refOrbits,
+        refOrbitNodes,
+        refMetadata,
+        refBlaGrid,
         exponent: exponent,
         usePerturbation: usePerturbation ? 1.0 : 0.0,
       },
@@ -55,7 +59,9 @@ export class WebGPUTestHarness {
     input: Float32Array,
     options: {
       cameraData?: CameraParams;
-      refOrbits?: Float64Array;
+      refOrbitNodes?: Float64Array;
+      refMetadata?: Float64Array;
+      refBlaGrid?: Float64Array;
       checkpointData?: Float32Array;
       exponent?: number;
       usePerturbation?: number;
@@ -141,36 +147,39 @@ export class WebGPUTestHarness {
     }
     this.device.queue.writeBuffer(checkpointBuffer, 0, mockCheckpoint);
 
-    // Some WGSL functions require the reference orbit `binding 3` during tests indirectly (like SA and BLA)
-    let refOrbitsActualBuffer: GPUBuffer | null = null;
-    if (
-      (entryPoint === 'unit_test_sa_init' ||
-        entryPoint === 'unit_test_bla_advance' ||
-        entryPoint === 'unit_test_engine_math') &&
-      options.refOrbits
-    ) {
-      const refArray = options.refOrbits;
-      refOrbitsActualBuffer = this.device.createBuffer({
-        size: refArray.byteLength,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      });
-      this.device.queue.writeBuffer(
-        refOrbitsActualBuffer,
-        0,
-        refArray.buffer,
-        refArray.byteOffset,
-        refArray.byteLength,
-      );
-    } else {
-      refOrbitsActualBuffer = this.device.createBuffer({
+    let refOrbitNodesBuffer: GPUBuffer | null = null;
+    let refMetadataBuffer: GPUBuffer | null = null;
+    let refBlaGridBuffer: GPUBuffer | null = null;
+
+    const createRefBuffer = (data: Float64Array | undefined) => {
+      if (data) {
+        const buf = this.device.createBuffer({
+          size: data.byteLength,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        this.device.queue.writeBuffer(buf, 0, data.buffer, data.byteOffset, data.byteLength);
+        return buf;
+      }
+      const buf = this.device.createBuffer({
         size: 16,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       });
-      this.device.queue.writeBuffer(
-        refOrbitsActualBuffer,
-        0,
-        new Float32Array([0.0, 0.0, 0.0, 0.0]),
-      );
+      this.device.queue.writeBuffer(buf, 0, new Float32Array([0.0, 0.0, 0.0, 0.0]));
+      return buf;
+    };
+
+    if (
+      entryPoint === 'unit_test_sa_init' ||
+      entryPoint === 'unit_test_bla_advance' ||
+      entryPoint === 'unit_test_engine_math'
+    ) {
+      refOrbitNodesBuffer = createRefBuffer(options.refOrbitNodes);
+      refMetadataBuffer = createRefBuffer(options.refMetadata);
+      refBlaGridBuffer = createRefBuffer(options.refBlaGrid);
+    } else {
+      refOrbitNodesBuffer = createRefBuffer(undefined);
+      refMetadataBuffer = createRefBuffer(undefined);
+      refBlaGridBuffer = createRefBuffer(undefined);
     }
 
     const completionFlagBuffer = this.device.createBuffer({
@@ -191,13 +200,18 @@ export class WebGPUTestHarness {
       entries.push({ binding: 6, resource: { buffer: completionFlagBuffer } });
     } else if (entryPoint === 'unit_test_sa_init' || entryPoint === 'unit_test_bla_advance') {
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
-      entries.push({ binding: 3, resource: { buffer: refOrbitsActualBuffer } });
+      entries.push({ binding: 3, resource: { buffer: refOrbitNodesBuffer } });
       entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
+      if (entryPoint === 'unit_test_bla_advance') {
+        entries.push({ binding: 9, resource: { buffer: refBlaGridBuffer } });
+      }
     } else if (entryPoint === 'unit_test_engine_math') {
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
-      entries.push({ binding: 3, resource: { buffer: refOrbitsActualBuffer } });
+      entries.push({ binding: 3, resource: { buffer: refOrbitNodesBuffer } });
       entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
       entries.push({ binding: 6, resource: { buffer: completionFlagBuffer } });
+      entries.push({ binding: 8, resource: { buffer: refMetadataBuffer } });
+      entries.push({ binding: 9, resource: { buffer: refBlaGridBuffer } });
     }
 
     const bindGroup = this.device.createBindGroup({
@@ -226,7 +240,9 @@ export class WebGPUTestHarness {
     cameraTestBuffer.destroy();
     checkpointBuffer.destroy();
     completionFlagBuffer.destroy();
-    refOrbitsActualBuffer.destroy();
+    refOrbitNodesBuffer.destroy();
+    refMetadataBuffer.destroy();
+    refBlaGridBuffer.destroy();
 
     return result;
   }
@@ -294,7 +310,9 @@ export class TestRenderSession {
         paletteMaxIter: 100,
         sliceAngle: 0,
         exponent: 2,
-        refOrbits: null,
+        refOrbitNodes: null,
+        refMetadata: null,
+        refBlaGrid: null,
         skipIter: 0,
         debugViewMode: 0,
         ...options.context,

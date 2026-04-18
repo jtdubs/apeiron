@@ -253,6 +253,8 @@ fn calculate_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, max_i
 @group(0) @binding(4) var readTex: texture_2d<f32>;
 @group(0) @binding(5) var<storage, read_write> checkpoint: array<CheckpointState>;
 @group(0) @binding(6) var<storage, read_write> completion_flag: array<u32>;
+@group(0) @binding(8) var<storage, read> orbit_metadata: array<vec2<u32>>;
+@group(0) @binding(9) var<storage, read> bla_grid: array<vec2<u32>>;
 
 fn unpack_f64_to_f32(raw: vec2<u32>) -> f32 {
     let low = raw.x;
@@ -287,12 +289,13 @@ struct BlaResult {
 // Instead of evaluating individual iterations, we utilize a pre-computed recursive tree of matrices
 // (stored in `ref_orbits` layout) to exponentially cross spatial checkpoints (up to 2^15 layers) 
 // rapidly skipping thousands of sequential geometric iterations in just a few matrix operations.
-fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, start_c: vec2<f32>, iter_in: f32, target_iter: f32, ref_offset: u32, ref_escaped_iter: f32, max_iterations: f32, pixel_idx: u32, tia_sum: f32) -> BlaResult {
+fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, start_c: vec2<f32>, iter_in: f32, target_iter: f32, case_idx: u32, ref_escaped_iter: f32, max_iterations: f32, pixel_idx: u32, tia_sum: f32) -> BlaResult {
+    let orbit_base = case_idx * u32(camera.ref_max_iter) * ORBIT_STRIDE;
+    let bla_base = case_idx * u32(camera.ref_max_iter) * BLA_LEVELS * BLA_NODE_STRIDE;
     var dz = dz_in;
     var der = der_in;
     var iter = iter_in;
     var advanced_by_bla = false;
-    let bla_offset = ref_offset + u32(camera.ref_max_iter) * ORBIT_STRIDE + META_STRIDE;
     let dz_len_sq = dz.x * dz.x + dz.y * dz.y;
     let dc_len_sq = delta_c.x * delta_c.x + delta_c.y * delta_c.y;
     var prev_z_mag = 0.0;
@@ -303,7 +306,7 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
             let b_len = f32(1u << l);
             
             if ((iter + b_len) <= target_iter && (iter + b_len) <= camera.ref_max_iter && (iter + b_len) < ref_escaped_iter) {
-                let bla_node = get_bla_node(bla_offset, u32(iter), l);
+                let bla_node = get_bla_node(bla_base, u32(iter), l);
                 let target_err = bla_node.err;
                 
                 if (target_err < 1e20) {
@@ -340,7 +343,7 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
                         iter += b_len;
                         advanced_by_bla = true;
                         
-                        let final_node = get_orbit_node(ref_offset + u32(iter) * ORBIT_STRIDE);
+                        let final_node = get_orbit_node(orbit_base + u32(iter) * ORBIT_STRIDE);
                         prev_z_mag = length(vec2<f32>(final_node.x + dz.x, final_node.y + dz.y));
                         break;
                     }
@@ -356,7 +359,7 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
             checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
             return BlaResult(dz, der, iter, prev_z_mag, true, ret, true);
         }
-        let ref_final_node = get_orbit_node(ref_offset + u32(iter) * ORBIT_STRIDE);
+        let ref_final_node = get_orbit_node(orbit_base + u32(iter) * ORBIT_STRIDE);
         let final_x = ref_final_node.x + dz.x;
         let final_y = ref_final_node.y + dz.y;
         let point_mag = final_x * final_x + final_y * final_y;
@@ -368,7 +371,7 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
         }
         
         if (iter >= ref_escaped_iter && ref_escaped_iter < max_iterations) {
-            let cur_node = get_orbit_node(ref_offset + u32(iter) * ORBIT_STRIDE);
+            let cur_node = get_orbit_node(orbit_base + u32(iter) * ORBIT_STRIDE);
             let ret = continue_mandelbrot_iterations(vec2<f32>(cur_node.x + dz.x, cur_node.y + dz.y), start_c, iter, max_iterations, der.x, der.y, tia_sum, pixel_idx);
             return BlaResult(dz, der, iter, prev_z_mag, true, ret, true);
         }
@@ -395,7 +398,8 @@ struct PerturbationInit {
 // Orchestrates optimal starting parameter selection. If midway through a progressive render,
 // this resumes the `pixel_idx` from the previously stored accumulation checkpoint.
 // Otherwise, initiates Series Approximation jumps to skip identically flat inner-fractal orbits.
-fn init_perturbation_state(delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u32, pixel_idx: u32) -> PerturbationInit {
+fn init_perturbation_state(delta_z: vec2<f32>, delta_c: vec2<f32>, case_idx: u32, pixel_idx: u32) -> PerturbationInit {
+  let orbit_base = case_idx * u32(camera.ref_max_iter) * ORBIT_STRIDE;
   var dz = delta_z;
   var iter = 0.0;
   var der = vec2<f32>(1.0, 0.0);
@@ -412,13 +416,13 @@ fn init_perturbation_state(delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u
       der.y = checkpoint[pixel_idx].der_y;
       tia_sum = checkpoint[pixel_idx].tia_sum;
       
-      let node = get_orbit_node(ref_offset + u32(iter) * ORBIT_STRIDE);
+      let node = get_orbit_node(orbit_base + u32(iter) * ORBIT_STRIDE);
       prev_z_mag = length(vec2<f32>(node.x + dz.x, node.y + dz.y));
   } else if (camera.skip_iter > 0.0) {
       iter = camera.skip_iter;
       let skip = u32(iter);
       
-      let node = get_orbit_node(ref_offset + skip * ORBIT_STRIDE);
+      let node = get_orbit_node(orbit_base + skip * ORBIT_STRIDE);
       let ar = node.ar; let ai = node.ai;
       let br = node.br; let bi = node.bi;
       let cr = node.cr; let ci = node.ci;
@@ -442,7 +446,7 @@ fn init_perturbation_state(delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u
          return PerturbationInit(dz, der, iter, prev_z_mag, tia_sum, true, ret);
       }
   } else {
-     let node = get_orbit_node(ref_offset);
+     let node = get_orbit_node(orbit_base);
      let initial_x = node.x + dz.x;
      let initial_y = node.y + dz.y;
      prev_z_mag = length(vec2<f32>(initial_x, initial_y));
@@ -462,14 +466,15 @@ fn init_perturbation_state(delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u
 // Orchestrates the Arbitrary Precision deep-zoom runtime. Rather than iterating pure `z`, 
 // we track a `delta_z` against a mathematically perfect `ref_node` computed historically on the CPU.
 // Employs both SA and BLA to efficiently skip identical depths down into extreme macro scales (>1e30 magnification).
-fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u32, max_iterations: f32, ref_cycle: f32, ref_escaped_iter: f32, pixel_idx: u32) -> vec4<f32> {
+fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, case_idx: u32, max_iterations: f32, ref_cycle: f32, ref_escaped_iter: f32, pixel_idx: u32) -> vec4<f32> {
+  let orbit_base = case_idx * u32(camera.ref_max_iter) * ORBIT_STRIDE;
   if (ref_cycle == 1.0 && delta_c.x == 0.0 && delta_c.y == 0.0 && delta_z.x == 0.0 && delta_z.y == 0.0) {
      let ret = vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
       checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
       return ret;
   }
   
-  let init_state = init_perturbation_state(delta_z, delta_c, ref_offset, pixel_idx);
+  let init_state = init_perturbation_state(delta_z, delta_c, case_idx, pixel_idx);
   if (init_state.escaped) {
       return init_state.escape_data;
   }
@@ -490,7 +495,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
 
   while (iter < max_iterations && steps < target_steps) {
     if (fractal_exponent == 2.0) {
-        let bla_res = advance_via_bla(dz, vec2<f32>(der_x, der_y), delta_c, start_c, iter, max_iterations, ref_offset, ref_escaped_iter, max_iterations, pixel_idx, tia_sum);
+        let bla_res = advance_via_bla(dz, vec2<f32>(der_x, der_y), delta_c, start_c, iter, max_iterations, case_idx, ref_escaped_iter, max_iterations, pixel_idx, tia_sum);
         if (bla_res.advanced) {
             if (bla_res.escaped) {
                 return bla_res.escape_data;
@@ -505,7 +510,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
         }
     }
 
-    let ref_node = get_orbit_node(ref_offset + u32(iter) * ORBIT_STRIDE);
+    let ref_node = get_orbit_node(orbit_base + u32(iter) * ORBIT_STRIDE);
     let zx = ref_node.x;
     let zy = ref_node.y;
     
@@ -536,7 +541,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
 
     dz = dz_next;
     
-    let next_node = get_orbit_node(ref_offset + u32(iter + 1.0) * ORBIT_STRIDE);
+    let next_node = get_orbit_node(orbit_base + u32(iter + 1.0) * ORBIT_STRIDE);
     let next_zx = next_node.x;
     let next_zy = next_node.y;
     let cur_x = next_zx + dz.x;
@@ -580,10 +585,10 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
   return vec4<f32>(-2.0, 0.0, 0.0, 0.0);
 }
 
-fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, ref_offset: u32, pixel_idx: u32) -> vec4<f32> {
+fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, case_idx: u32, pixel_idx: u32) -> vec4<f32> {
   if (use_perturbation > 0.5) {
-     let floats_per_case = u32(camera.ref_max_iter) * FLOATS_PER_ITER + META_STRIDE;
-     let orbit_meta = get_orbit_metadata(ref_offset, u32(camera.ref_max_iter));
+     let meta_base = case_idx * META_STRIDE;
+     let orbit_meta = get_orbit_metadata(meta_base);
      let cycle = orbit_meta.cycle_found;
      let ref_escaped_iter = orbit_meta.escaped_iter;
      
@@ -595,7 +600,7 @@ fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32
          return continue_mandelbrot_iterations(vec2<f32>(0.0,0.0), start_c, 0.0, camera.compute_max_iter, 1.0, 0.0, 0.0, pixel_idx);
      }
      
-     return calculate_perturbation(start_z, start_c, delta_z, delta_c, ref_offset, camera.ref_max_iter, cycle, ref_escaped_iter, pixel_idx);
+     return calculate_perturbation(start_z, start_c, delta_z, delta_c, case_idx, camera.ref_max_iter, cycle, ref_escaped_iter, pixel_idx);
   } else {
      return calculate_mandelbrot_iterations(start_z, start_c, camera.compute_max_iter, pixel_idx);
   }
@@ -745,7 +750,7 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let delta_z = vec2<f32>(camera.zr, camera.zi) + uv_mapped * sin_theta;
   let delta_c = vec2<f32>(camera.cr, camera.ci) + uv_mapped * cos_theta;
   
-  let orbit_meta = get_orbit_metadata(0u, u32(camera.ref_max_iter));
+  let orbit_meta = get_orbit_metadata(0u);
   let abs_zr = orbit_meta.abs_zr;
   let abs_zi = orbit_meta.abs_zi;
   let abs_cr = orbit_meta.abs_cr;
@@ -816,10 +821,8 @@ fn unit_test_engine_math(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let delta_c = vec2<f32>(data_in[idx * 6u + 4u], data_in[idx * 6u + 5u]);
   let delta_z = vec2<f32>(0.0, 0.0);
   
-  let floats_per_case = u32(camera.ref_max_iter) * FLOATS_PER_ITER + META_STRIDE;
-  let ref_offset = idx * floats_per_case;
-
-  let ret = execute_engine_math(input_z, input_c, delta_z, delta_c, ref_offset, idx);
+  let case_idx = idx;
+  let ret = execute_engine_math(input_z, input_c, delta_z, delta_c, case_idx, idx);
   
   data_out[idx * 4u] = ret.x;
   data_out[idx * 4u + 1u] = ret.y;

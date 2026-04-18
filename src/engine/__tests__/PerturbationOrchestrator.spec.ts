@@ -120,7 +120,12 @@ describe('PerturbationOrchestrator', () => {
 
       // Finish first computation
       mockWorker.onmessage({
-        data: { type: 'COMPUTE_RESULT', result: new Float64Array(1) },
+        data: {
+          type: 'COMPUTE_RESULT',
+          orbit_nodes: new Float64Array(1),
+          metadata: new Float64Array(1),
+          bla_grid: new Float64Array(1),
+        },
       });
 
       // It immediately dispatches the pending queue!
@@ -173,9 +178,16 @@ describe('PerturbationOrchestrator', () => {
     }
 
     // Finish computation
-    const fakeOrbits = new Float64Array([42]);
+    const fakeOrbitNodes = new Float64Array([42]);
+    const fakeMetadata = new Float64Array([1]);
+    const fakeBlaGrid = new Float64Array([2]);
     mockWorker.onmessage({
-      data: { type: 'COMPUTE_RESULT', result: fakeOrbits },
+      data: {
+        type: 'COMPUTE_RESULT',
+        orbit_nodes: fakeOrbitNodes,
+        metadata: fakeMetadata,
+        bla_grid: fakeBlaGrid,
+      },
     });
 
     expect(viewportStore.setState).toHaveBeenCalled();
@@ -184,6 +196,8 @@ describe('PerturbationOrchestrator', () => {
     // And since the user is CURRENTLY at -0.9 (from our fake store state above),
     // the NEW delta should be -0.9 - (-1.5) = +0.6!
     expect(mockViewportStoreSetStateOutput.deltaCr).toBeCloseTo(0.6);
-    expect(mockViewportStoreSetStateOutput.refOrbits).toBe(fakeOrbits);
+    expect(mockViewportStoreSetStateOutput.refOrbitNodes).toBe(fakeOrbitNodes);
+    expect(mockViewportStoreSetStateOutput.refMetadata).toBe(fakeMetadata);
+    expect(mockViewportStoreSetStateOutput.refBlaGrid).toBe(fakeBlaGrid);
   });
 });

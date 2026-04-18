@@ -104,7 +104,7 @@ export class PerturbationOrchestrator {
   }
 
   private handleWorkerMessage(e: MessageEvent) {
-    if (e.data.type === 'COMPUTE_RESULT' && e.data.result) {
+    if (e.data.type === 'COMPUTE_RESULT' && e.data.orbit_nodes) {
       if (this.pendingWorkerJob !== null) {
         // User panned while we were waiting, discard obsolete result
         this.dispatchPendingWork();
@@ -132,7 +132,9 @@ export class PerturbationOrchestrator {
             deltaZi: newDeltaZi,
             deltaCr: newDeltaCr,
             deltaCi: newDeltaCi,
-            refOrbits: e.data.result,
+            refOrbitNodes: e.data.orbit_nodes,
+            refMetadata: e.data.metadata,
+            refBlaGrid: e.data.bla_grid,
           };
         });
 
@@ -190,8 +192,8 @@ export class PerturbationOrchestrator {
         }, 150);
       }
     } else {
-      if (state.refOrbits !== null) {
-        viewportStore.setState({ refOrbits: null });
+      if (state.refOrbitNodes !== null) {
+        viewportStore.setState({ refOrbitNodes: null, refMetadata: null, refBlaGrid: null });
       }
     }
   }

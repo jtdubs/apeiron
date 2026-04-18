@@ -10,7 +10,9 @@ export type WorkerInputMessage = {
 export type WorkerOutputMessage = {
   id: number;
   type: 'COMPUTE_RESULT';
-  result: Float64Array;
+  orbit_nodes: Float64Array;
+  metadata: Float64Array;
+  bla_grid: Float64Array;
 };
 
 let wasmInit: Promise<unknown> | null = null;
@@ -25,14 +27,17 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     await wasmInit;
 
     const t0 = performance.now();
-    const resultData = compute_mandelbrot(casesJson, paletteMaxIter);
+    const payload = compute_mandelbrot(casesJson, paletteMaxIter);
     const t1 = performance.now();
     console.log(`[math-core] BLA Tree & Orbit Array compiled in ${(t1 - t0).toFixed(2)}ms`);
 
     // Explicitly copy the WASM-memory backed array into a native, standalone JS ArrayBuffer.
-    // If we don't copy it, structured cloning will fail with a DataCloneError, or transferring it
-    // will catastrophically detach the entire WASM memory block.
-    const resultCopy = new Float64Array(resultData);
+    const orbit_nodes = new Float64Array(payload.orbit_nodes);
+    const metadata = new Float64Array(payload.metadata);
+    const bla_grid = new Float64Array(payload.bla_grid);
+
+    // Free the WASM memory pointer
+    payload.free();
 
     // TS sometimes confuses self with Window instead of DedicatedWorkerGlobalScope
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,9 +45,11 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
       {
         id,
         type: 'COMPUTE_RESULT',
-        result: resultCopy,
+        orbit_nodes,
+        metadata,
+        bla_grid,
       } as WorkerOutputMessage,
-      [resultCopy.buffer], // Safe to transfer since it's a native copy
+      [orbit_nodes.buffer, metadata.buffer, bla_grid.buffer],
     );
   }
 };

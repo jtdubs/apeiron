@@ -11,7 +11,9 @@ export function contextsEqual(a: MathContext, b: MathContext): boolean {
     a.computeMaxIter === b.computeMaxIter &&
     a.paletteMaxIter === b.paletteMaxIter &&
     a.exponent === b.exponent &&
-    a.refOrbits === b.refOrbits &&
+    a.refOrbitNodes === b.refOrbitNodes &&
+    a.refMetadata === b.refMetadata &&
+    a.refBlaGrid === b.refBlaGrid &&
     a.skipIter === b.skipIter
   );
 }

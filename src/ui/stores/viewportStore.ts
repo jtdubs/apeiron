@@ -29,12 +29,18 @@ export interface ViewportState {
   zoom: number;
   exponent: number;
   paletteMaxIter: number;
-  refOrbits: Float64Array | null;
+  refOrbitNodes: Float64Array | null;
+  refMetadata: Float64Array | null;
+  refBlaGrid: Float64Array | null;
   interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST';
   debugViewMode: number;
   isTelemetryOpen: boolean;
 
-  setRefOrbits: (orbits: Float64Array | null) => void;
+  setRefBuffers: (
+    orbitNodes: Float64Array | null,
+    metadata: Float64Array | null,
+    blaGrid: Float64Array | null,
+  ) => void;
   setInteractionState: (state: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST') => void;
   setDebugViewMode: (mode: number) => void;
   setIsTelemetryOpen: (isOpen: boolean) => void;
@@ -69,13 +75,16 @@ export const viewportStore = createStore<ViewportState>((set) => ({
   zoom: 1.5,
   exponent: 2.0,
   paletteMaxIter: calculateMaxIter(1.5),
-  refOrbits: null,
+  refOrbitNodes: null,
+  refMetadata: null,
+  refBlaGrid: null,
   interactionState: 'STATIC',
   debugViewMode: 0,
   isTelemetryOpen:
     typeof window !== 'undefined' && localStorage.getItem('apeiron_telemetry_open') === 'true',
 
-  setRefOrbits: (orbits) => set({ refOrbits: orbits }),
+  setRefBuffers: (orbitNodes, metadata, blaGrid) =>
+    set({ refOrbitNodes: orbitNodes, refMetadata: metadata, refBlaGrid: blaGrid }),
   setInteractionState: (interactionState) => set({ interactionState }),
   setDebugViewMode: (debugViewMode) => set({ debugViewMode }),
   setIsTelemetryOpen: (isTelemetryOpen) => {

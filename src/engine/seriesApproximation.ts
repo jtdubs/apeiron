@@ -1,12 +1,11 @@
 import {
-  META_STRIDE,
-  FLOATS_PER_ITER,
+  ORBIT_STRIDE,
   unpackReferenceOrbitNode,
   type ReferenceOrbitNode,
 } from './generated/MemoryLayout';
 
 export function calculateSkipIter(
-  refOrbits: Float64Array | null,
+  refOrbitNodes: Float64Array | null,
   zoom: number,
   deltaCr: number,
   deltaCi: number,
@@ -15,7 +14,7 @@ export function calculateSkipIter(
   sliceAngle: number,
   precisionMode: string,
 ): number {
-  if (Math.abs(Math.sin(sliceAngle)) >= 1e-6 || !refOrbits || precisionMode === 'f32') {
+  if (Math.abs(Math.sin(sliceAngle)) >= 1e-6 || !refOrbitNodes || precisionMode === 'f32') {
     return 0;
   }
 
@@ -25,13 +24,13 @@ export function calculateSkipIter(
   const dc_mag = Math.sqrt(dcr_max * dcr_max + dci_max * dci_max);
   const dc_mag_3 = dc_mag * dc_mag * dc_mag;
 
-  const refLength = (refOrbits.length - META_STRIDE) / FLOATS_PER_ITER;
+  const refLength = refOrbitNodes.length / ORBIT_STRIDE;
 
   let skipIter = 0;
   const node: ReferenceOrbitNode = {};
 
   for (let i = 0; i < refLength; i++) {
-    unpackReferenceOrbitNode(refOrbits, META_STRIDE + i * FLOATS_PER_ITER, node);
+    unpackReferenceOrbitNode(refOrbitNodes, i, node);
 
     const cr = node.cr!;
     const ci = node.ci!;

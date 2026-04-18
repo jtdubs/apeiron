@@ -30,7 +30,9 @@ describe('mathContextAdapter', () => {
       zoom: 1.0,
       exponent: 2,
       paletteMaxIter: 500,
-      refOrbits: null,
+      refOrbitNodes: null,
+      refMetadata: null,
+      refBlaGrid: null,
       interactionState: 'STATIC',
     };
 
@@ -54,7 +56,9 @@ describe('mathContextAdapter', () => {
   });
 
   it('builds floating-origin perturbation context accurately', () => {
-    mockState.refOrbits = new Float64Array(10);
+    mockState.refOrbitNodes = new Float64Array(10);
+    mockState.refMetadata = new Float64Array(10);
+    mockState.refBlaGrid = new Float64Array(10);
     mockTheme.precisionMode = 'perturbation';
     vi.mocked(calculateSkipIter).mockReturnValue(42);
 
@@ -85,7 +89,9 @@ describe('mathContextAdapter', () => {
 
   it('factors skipIter into the throttle budget when in interacting perturbation', () => {
     mockState.interactionState = 'INTERACT_SAFE';
-    mockState.refOrbits = new Float64Array(10);
+    mockState.refOrbitNodes = new Float64Array(10);
+    mockState.refMetadata = new Float64Array(10);
+    mockState.refBlaGrid = new Float64Array(10);
     mockTheme.precisionMode = 'perturbation';
     mockState.paletteMaxIter = 1000;
     vi.mocked(calculateSkipIter).mockReturnValue(200);

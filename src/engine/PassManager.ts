@@ -1,7 +1,7 @@
 import type { RenderFrameDescriptor } from './RenderFrameDescriptor';
 import {
-  META_STRIDE,
-  FLOATS_PER_ITER,
+  ORBIT_STRIDE,
+  CameraParams_SIZE,
   packCameraParams,
   packResolveUniforms,
 } from './generated/MemoryLayout';
@@ -13,7 +13,9 @@ export class AccumulationPass {
   private mathModule: GPUShaderModule;
   private pipelineCache: Map<string, GPUComputePipeline | Promise<GPUComputePipeline>>;
   public uniformsBuffer: GPUBuffer;
-  private dummyRefOrbitsBuffer: GPUBuffer;
+  private dummyRefOrbitNodesBuffer: GPUBuffer;
+  private dummyRefMetadataBuffer: GPUBuffer;
+  private dummyRefBlaGridBuffer: GPUBuffer;
 
   constructor(device: GPUDevice, mathShaderCode: string) {
     this.device = device;
@@ -21,15 +23,35 @@ export class AccumulationPass {
     this.pipelineCache = new Map();
 
     this.uniformsBuffer = device.createBuffer({
-      size: 80, // 20 floats × 4 bytes (CameraParams)
+      size: CameraParams_SIZE,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    this.dummyRefOrbitsBuffer = device.createBuffer({
+    this.dummyRefOrbitNodesBuffer = device.createBuffer({
       size: 16,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
-    device.queue.writeBuffer(this.dummyRefOrbitsBuffer, 0, new Float32Array([0.0, 0.0, 0.0, 0.0]));
+    device.queue.writeBuffer(
+      this.dummyRefOrbitNodesBuffer,
+      0,
+      new Float32Array([0.0, 0.0, 0.0, 0.0]),
+    );
+
+    this.dummyRefMetadataBuffer = device.createBuffer({
+      size: 16,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(
+      this.dummyRefMetadataBuffer,
+      0,
+      new Float32Array([0.0, 0.0, 0.0, 0.0]),
+    );
+
+    this.dummyRefBlaGridBuffer = device.createBuffer({
+      size: 16,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(this.dummyRefBlaGridBuffer, 0, new Float32Array([0.0, 0.0, 0.0, 0.0]));
   }
 
   public initBackgroundCache() {
@@ -84,7 +106,9 @@ export class AccumulationPass {
 
   public getBindGroup(
     pipeline: GPUComputePipeline,
-    activeRefOrbitsBuffer: GPUBuffer | null,
+    activeRefOrbitNodesBuffer: GPUBuffer | null,
+    activeRefMetadataBuffer: GPUBuffer | null,
+    activeRefBlaGridBuffer: GPUBuffer | null,
     prevFrameView: GPUTextureView,
     checkpointBuffer: GPUBuffer,
     completionFlagBuffer: GPUBuffer,
@@ -97,13 +121,27 @@ export class AccumulationPass {
         {
           binding: 3,
           resource: {
-            buffer: activeRefOrbitsBuffer ? activeRefOrbitsBuffer : this.dummyRefOrbitsBuffer,
+            buffer: activeRefOrbitNodesBuffer
+              ? activeRefOrbitNodesBuffer
+              : this.dummyRefOrbitNodesBuffer,
           },
         },
         { binding: 4, resource: prevFrameView },
         { binding: 5, resource: { buffer: checkpointBuffer } },
         { binding: 6, resource: { buffer: completionFlagBuffer } },
         { binding: 7, resource: targetView },
+        {
+          binding: 8,
+          resource: {
+            buffer: activeRefMetadataBuffer ? activeRefMetadataBuffer : this.dummyRefMetadataBuffer,
+          },
+        },
+        {
+          binding: 9,
+          resource: {
+            buffer: activeRefBlaGridBuffer ? activeRefBlaGridBuffer : this.dummyRefBlaGridBuffer,
+          },
+        },
       ],
     });
   }
@@ -241,9 +279,11 @@ export class PassManager {
   private checkpointBuffer: GPUBuffer | null = null;
   private pingPongTargetIsB = false;
 
-  private activeRefOrbitsBuffer: GPUBuffer | null = null;
+  private activeRefOrbitNodesBuffer: GPUBuffer | null = null;
+  private activeRefMetadataBuffer: GPUBuffer | null = null;
+  private activeRefBlaGridBuffer: GPUBuffer | null = null;
   private hasValidActiveRefOrbits = false;
-  private lastRefOrbits: Float64Array | null | undefined = undefined;
+  private lastRefOrbitNodes: Float64Array | null | undefined = undefined;
 
   // Version counters replace string-based diffing.
   // Incremented externally via invalidate() when a genuine re-render is needed.
@@ -379,35 +419,69 @@ export class PassManager {
     const renderHeight = Math.max(1, Math.floor(height * desc.command.renderScale));
 
     // ── Ref orbits ───────────────────────────────────────────────────────────
-    if (desc.context.refOrbits !== undefined && desc.context.refOrbits !== this.lastRefOrbits) {
-      if (desc.context.refOrbits) {
-        if (this.activeRefOrbitsBuffer) this.activeRefOrbitsBuffer.destroy();
-        this.activeRefOrbitsBuffer = this.device.createBuffer({
-          size: desc.context.refOrbits.byteLength,
+    if (
+      desc.context.refOrbitNodes !== undefined &&
+      desc.context.refOrbitNodes !== this.lastRefOrbitNodes
+    ) {
+      if (desc.context.refOrbitNodes) {
+        if (this.activeRefOrbitNodesBuffer) this.activeRefOrbitNodesBuffer.destroy();
+        this.activeRefOrbitNodesBuffer = this.device.createBuffer({
+          size: desc.context.refOrbitNodes.byteLength,
           usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
         this.device.queue.writeBuffer(
-          this.activeRefOrbitsBuffer,
+          this.activeRefOrbitNodesBuffer,
           0,
-          desc.context.refOrbits.buffer,
-          desc.context.refOrbits.byteOffset,
-          desc.context.refOrbits.byteLength,
+          desc.context.refOrbitNodes.buffer,
+          desc.context.refOrbitNodes.byteOffset,
+          desc.context.refOrbitNodes.byteLength,
         );
+
+        if (this.activeRefMetadataBuffer) this.activeRefMetadataBuffer.destroy();
+        this.activeRefMetadataBuffer = this.device.createBuffer({
+          size: desc.context.refMetadata!.byteLength,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        this.device.queue.writeBuffer(
+          this.activeRefMetadataBuffer,
+          0,
+          desc.context.refMetadata!.buffer,
+          desc.context.refMetadata!.byteOffset,
+          desc.context.refMetadata!.byteLength,
+        );
+
+        if (this.activeRefBlaGridBuffer) this.activeRefBlaGridBuffer.destroy();
+        this.activeRefBlaGridBuffer = this.device.createBuffer({
+          size: desc.context.refBlaGrid!.byteLength,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        this.device.queue.writeBuffer(
+          this.activeRefBlaGridBuffer,
+          0,
+          desc.context.refBlaGrid!.buffer,
+          desc.context.refBlaGrid!.byteOffset,
+          desc.context.refBlaGrid!.byteLength,
+        );
+
         this.hasValidActiveRefOrbits = true;
       } else if (this.hasValidActiveRefOrbits) {
-        if (this.activeRefOrbitsBuffer) this.activeRefOrbitsBuffer.destroy();
-        this.activeRefOrbitsBuffer = null;
+        if (this.activeRefOrbitNodesBuffer) this.activeRefOrbitNodesBuffer.destroy();
+        this.activeRefOrbitNodesBuffer = null;
+        if (this.activeRefMetadataBuffer) this.activeRefMetadataBuffer.destroy();
+        this.activeRefMetadataBuffer = null;
+        if (this.activeRefBlaGridBuffer) this.activeRefBlaGridBuffer.destroy();
+        this.activeRefBlaGridBuffer = null;
         this.hasValidActiveRefOrbits = false;
       }
-      this.lastRefOrbits = desc.context.refOrbits;
+      this.lastRefOrbitNodes = desc.context.refOrbitNodes;
     }
 
     // ── Camera uniforms ──────────────────────────────────────────────────────
     // Written every frame — the RAF loop only calls render() when needed, so
     // we skip the camState string-diff and always upload the current values.
     const actualRefMaxIter =
-      this.hasValidActiveRefOrbits && desc.context.refOrbits
-        ? (desc.context.refOrbits.length - META_STRIDE) / FLOATS_PER_ITER
+      this.hasValidActiveRefOrbits && desc.context.refOrbitNodes
+        ? desc.context.refOrbitNodes.length / ORBIT_STRIDE
         : desc.context.computeMaxIter;
     const paletteMaxIter = this.hasValidActiveRefOrbits
       ? actualRefMaxIter
@@ -569,7 +643,9 @@ export class PassManager {
 
     const accumBindGroup = this.accumPass.getBindGroup(
       accumPipeline,
-      this.activeRefOrbitsBuffer,
+      this.activeRefOrbitNodesBuffer,
+      this.activeRefMetadataBuffer,
+      this.activeRefBlaGridBuffer,
       readTex!.createView(),
       this.checkpointBuffer!,
       this.completionFlagBuffer!,

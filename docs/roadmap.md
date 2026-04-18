@@ -112,3 +112,4 @@
 ## Phase 18: Engine Decoupling
 
 - [x] [Task 061: Decouple Frame Budget from Execution](tasks/completed/061-decouple-frame-budget.md)
+- [x] [Task 048: Decouple WASM to WebGPU Buffer Exchanges](tasks/completed/048-decouple-worker-buffers.md)
