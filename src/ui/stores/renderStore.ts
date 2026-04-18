@@ -1,4 +1,5 @@
 import { createStore } from 'zustand/vanilla';
+import { persist } from 'zustand/middleware';
 
 export const THEMES = {
   monochrome: {
@@ -98,67 +99,75 @@ export interface RenderState {
   ) => void;
 }
 
-export const renderStore = createStore<RenderState>((set) => ({
-  themeVersion: 0,
-  // Default 'neon'
-  paletteA: [0.5, 0.5, 0.5],
-  paletteB: [0.5, 0.5, 0.5],
-  paletteC: [1.0, 1.0, 1.0],
-  paletteD: [0.0, 0.33, 0.67],
-  paletteName: 'watermelon',
+export const renderStore = createStore<RenderState>()(
+  persist(
+    (set) => ({
+      themeVersion: 0,
+      // Default 'neon'
+      paletteA: [0.5, 0.5, 0.5],
+      paletteB: [0.5, 0.5, 0.5],
+      paletteC: [1.0, 1.0, 1.0],
+      paletteD: [0.0, 0.33, 0.67],
+      paletteName: 'watermelon',
 
-  lightAzimuth: 45.0,
-  lightElevation: 45.0,
-  diffuse: 1.0,
-  shininess: 32.0,
-  heightScale: 0.1,
-  ambient: 0.2,
+      lightAzimuth: 45.0,
+      lightElevation: 45.0,
+      diffuse: 1.0,
+      shininess: 32.0,
+      heightScale: 0.1,
+      ambient: 0.2,
 
-  renderMode: 'auto',
-  coloringMode: 'iteration',
-  surfaceMode: '3d-topography',
-  glowFalloff: 20.0,
-  glowScatter: 1.0,
-  contourFrequency: 20.0,
-  contourThickness: 0.8,
-  colorDensity: 3.0,
-  colorPhase: 0.0,
-  setRenderMode: (mode) =>
-    set((state) => ({ renderMode: mode, themeVersion: state.themeVersion + 1 })),
-  setColoringMode: (mode) =>
-    set((state) => ({ coloringMode: mode, themeVersion: state.themeVersion + 1 })),
-  setSurfaceMode: (mode) =>
-    set((state) => ({ surfaceMode: mode, themeVersion: state.themeVersion + 1 })),
-  setGlowFalloff: (val) =>
-    set((state) => ({ glowFalloff: val, themeVersion: state.themeVersion + 1 })),
-  setGlowScatter: (val) =>
-    set((state) => ({ glowScatter: val, themeVersion: state.themeVersion + 1 })),
-  setContourFrequency: (val) =>
-    set((state) => ({ contourFrequency: val, themeVersion: state.themeVersion + 1 })),
-  setContourThickness: (val) =>
-    set((state) => ({ contourThickness: val, themeVersion: state.themeVersion + 1 })),
-  setColorDensity: (val) =>
-    set((state) => ({ colorDensity: val, themeVersion: state.themeVersion + 1 })),
-  setColorPhase: (val) =>
-    set((state) => ({ colorPhase: val, themeVersion: state.themeVersion + 1 })),
+      renderMode: 'auto',
+      coloringMode: 'iteration',
+      surfaceMode: '3d-topography',
+      glowFalloff: 20.0,
+      glowScatter: 1.0,
+      contourFrequency: 20.0,
+      contourThickness: 0.8,
+      colorDensity: 3.0,
+      colorPhase: 0.0,
+      setRenderMode: (mode) =>
+        set((state) => ({ renderMode: mode, themeVersion: state.themeVersion + 1 })),
+      setColoringMode: (mode) =>
+        set((state) => ({ coloringMode: mode, themeVersion: state.themeVersion + 1 })),
+      setSurfaceMode: (mode) =>
+        set((state) => ({ surfaceMode: mode, themeVersion: state.themeVersion + 1 })),
+      setGlowFalloff: (val) =>
+        set((state) => ({ glowFalloff: val, themeVersion: state.themeVersion + 1 })),
+      setGlowScatter: (val) =>
+        set((state) => ({ glowScatter: val, themeVersion: state.themeVersion + 1 })),
+      setContourFrequency: (val) =>
+        set((state) => ({ contourFrequency: val, themeVersion: state.themeVersion + 1 })),
+      setContourThickness: (val) =>
+        set((state) => ({ contourThickness: val, themeVersion: state.themeVersion + 1 })),
+      setColorDensity: (val) =>
+        set((state) => ({ colorDensity: val, themeVersion: state.themeVersion + 1 })),
+      setColorPhase: (val) =>
+        set((state) => ({ colorPhase: val, themeVersion: state.themeVersion + 1 })),
 
-  setPalette: (a, b, c, d, name) =>
-    set((state) => ({
-      paletteA: a,
-      paletteB: b,
-      paletteC: c,
-      paletteD: d,
-      ...(name && { paletteName: name }),
-      themeVersion: state.themeVersion + 1,
-    })),
-  setLighting: (azimuth, elevation, diffuse, shininess, heightScale, ambient) =>
-    set((state) => ({
-      lightAzimuth: azimuth,
-      lightElevation: elevation,
-      diffuse,
-      shininess,
-      heightScale,
-      ambient,
-      themeVersion: state.themeVersion + 1,
-    })),
-}));
+      setPalette: (a, b, c, d, name) =>
+        set((state) => ({
+          paletteA: a,
+          paletteB: b,
+          paletteC: c,
+          paletteD: d,
+          ...(name && { paletteName: name }),
+          themeVersion: state.themeVersion + 1,
+        })),
+      setLighting: (azimuth, elevation, diffuse, shininess, heightScale, ambient) =>
+        set((state) => ({
+          lightAzimuth: azimuth,
+          lightElevation: elevation,
+          diffuse,
+          shininess,
+          heightScale,
+          ambient,
+          themeVersion: state.themeVersion + 1,
+        })),
+    }),
+    {
+      name: 'apeiron-render-store',
+      // Ensure functions aren't persisted and non-serializable states are handled
+    },
+  ),
+);
