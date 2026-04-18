@@ -528,7 +528,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
   var steps = 0.0;
 
   while (iter < max_iterations && steps < target_steps) {
-    if (fractal_exponent == 2.0) {
+    if (fractal_exponent == 2.0 && math_compute_mode < 2u) {
         let bla_res = advance_via_bla(dz, vec2<f32>(der_x, der_y), delta_c, start_c, iter, max_iterations, ref_escaped_iter, max_iterations, pixel_idx, tia_sum);
         if (bla_res.advanced) {
             if (bla_res.escaped) {

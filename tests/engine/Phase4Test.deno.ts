@@ -46,10 +46,10 @@ async function runPhase4Test() {
 
   const casesJson = JSON.stringify([
     {
-      zr: 0,
-      zi: 0,
-      cr: cr,
-      ci: ci,
+      zr: "0",
+      zi: "0",
+      cr: cr.toString(),
+      ci: ci.toString(),
       exponent: 2.0,
     },
   ]);
@@ -67,7 +67,7 @@ async function runPhase4Test() {
       id: 1,
       type: 'COMPUTE',
       casesJson,
-      maxIterations: 1000, // A typical max_iteration value
+      paletteMaxIter: 1000, // A typical max_iteration value
     });
   });
   worker.terminate();
@@ -82,8 +82,8 @@ async function runPhase4Test() {
     0.0, // start z
     cr,
     ci, // start c (for f32 fallback)
-    0.0,
-    0.0, // delta_c (dead center of viewport)
+    4.5e-5,
+    4.5e-5, // delta_c (edge of viewport)
   ]);
 
   console.log('--- Phase 4: Headless Mathematical Validation ---');
