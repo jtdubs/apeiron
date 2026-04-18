@@ -1,3 +1,4 @@
+// @ts-expect-error: Deno standard library URL resolution is intentionally allowed in Deno tests
 import { assertAlmostEquals } from 'https://deno.land/std@0.220.0/assert/mod.ts';
 import path from 'node:path';
 

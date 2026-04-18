@@ -18,6 +18,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["tests", "src/__tests__", "src/**/__tests__"],
-  "exclude": ["**/*.deno.ts"]
+  "include": ["tests", "src/__tests__", "src/**/__tests__"]
 }
