@@ -51,4 +51,31 @@ describe('RenderOrchestrator f32 Precision Transition', () => {
     // mode 1 is f32p. If it returns 0, it means we are staying in standard f32 too long.
     expect(effectiveMathMode).toBe(1);
   });
+
+  it('invalidates progressive context but maintains math mode when exponent changes smoothly', () => {
+    const orchestrator = new RenderOrchestrator();
+
+    // Force non-interacting and target met so it transitions out of initial frame
+    const desc1 = orchestrator.tick(state, theme, 16.6, true, 800, 600, 1);
+    expect(desc1?.command.loadCheckpoint).toBe(false); // First slice
+
+    // Second tick without change should accumulate/deepen and load checkpoint
+    const desc2 = orchestrator.tick(state, theme, 16.6, true, 800, 600, 1);
+    expect(desc2?.command.loadCheckpoint).toBe(true);
+
+    // Third tick with exponent tweak
+    state.exponent = 2.01;
+    const spy = vi.spyOn(adapter, 'buildMathContext');
+    const desc3 = orchestrator.tick(state, theme, 16.6, true, 800, 600, 1);
+
+    expect(spy).toHaveBeenCalled();
+    const callArgs = spy.mock.calls[spy.mock.calls.length - 1];
+    const effectiveMathMode = callArgs[5];
+
+    // Mode should still be 1 (f32 perturbation) since zoom < 5e-4
+    expect(effectiveMathMode).toBe(1);
+
+    // Should invalidate scheduler due to context change
+    expect(desc3?.command.loadCheckpoint).toBe(false);
+  });
 });

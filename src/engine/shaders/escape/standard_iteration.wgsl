@@ -29,7 +29,7 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
   // Synchronizes iterator bounds with the ProgressiveRenderScheduler to allow
   let target_steps = camera.step_limit;
   var steps = 0.0;
-  let d = fractal_exponent;
+  let d = camera.exponent;
   var prev_z_mag = length(vec2<f32>(x, y));
   let c_mag = length(start_c);
   
@@ -104,7 +104,7 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
 }
 
 fn calculate_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, max_iterations: f32, pixel_idx: u32) -> vec4<f32> {
-  if (fractal_exponent == 2.0 && start_z.x == 0.0 && start_z.y == 0.0) {
+  if (exponent_branch_mode == 1.0 && start_z.x == 0.0 && start_z.y == 0.0) {
     if (is_interior_analytic(start_c.x, start_c.y)) {
       let ret = vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
       checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);

@@ -7,7 +7,7 @@ import type {
   ExecutionCommand,
 } from '../src/engine/RenderFrameDescriptor.ts';
 import type { CameraParams } from '../src/engine/generated/MemoryLayout.ts';
-import { packCameraParams } from '../src/engine/generated/MemoryLayout.ts';
+import { packCameraParams, CameraParams_SIZE } from '../src/engine/generated/MemoryLayout.ts';
 
 export class WebGPUTestHarness {
   private device: GPUDevice;
@@ -82,7 +82,12 @@ export class WebGPUTestHarness {
         module: computeModule,
         entryPoint: entryPoint,
         constants: {
-          0: options.exponent ?? 2.0,
+          0:
+            options.exponent === undefined || options.exponent === 2.0
+              ? 1.0
+              : Number.isInteger(options.exponent) && options.exponent > 1.0
+                ? 2.0
+                : 0.0,
           1: options.usePerturbation ?? 1.0,
         },
       },
@@ -109,7 +114,7 @@ export class WebGPUTestHarness {
     });
 
     const cameraTestBuffer = this.device.createBuffer({
-      size: 96,
+      size: CameraParams_SIZE * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -122,9 +127,13 @@ export class WebGPUTestHarness {
       render_scale: 1.0,
       step_limit: 100.0,
       canvas_width: 1.0,
+      exponent: options.exponent ?? 2.0,
     };
 
-    const packedCamera = packCameraParams(options.cameraData ?? cameraFallback);
+    const cData = options.cameraData ?? cameraFallback;
+    cData.exponent = cData.exponent ?? options.exponent ?? 2.0;
+
+    const packedCamera = packCameraParams(cData);
     this.device.queue.writeBuffer(cameraTestBuffer, 0, packedCamera);
 
     const checkpointBuffer = this.device.createBuffer({
@@ -226,7 +235,9 @@ export class WebGPUTestHarness {
     ];
 
     // Auto layout parsing logic
-    if (entryPoint === 'unit_test_state_resume') {
+    if (entryPoint === 'unit_test_polynomial') {
+      entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
+    } else if (entryPoint === 'unit_test_state_resume') {
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
       entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
       entries.push({ binding: 6, resource: { buffer: completionFlagBuffer } });

@@ -8,7 +8,7 @@
 // #import "./bla_stepper.wgsl"
 // #import "./perturbation.wgsl"
 
-@id(0) override fractal_exponent: f32 = 2.0;
+@id(0) override exponent_branch_mode: f32 = 0.0;
 @id(1) override math_compute_mode: u32 = 0u;
 @id(2) override coloring_mode: f32 = 0.0;
 
@@ -80,7 +80,7 @@ fn unit_test_polynomial(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let z = vec2<f32>(data_in[idx * 4u], data_in[idx * 4u + 1u]);
   let c_val = vec2<f32>(data_in[idx * 4u + 2u], data_in[idx * 4u + 3u]);
   
-  let d = fractal_exponent;
+  let d = camera.exponent;
   let p_res = step_polynomial(z, c_val, d);
   let der_res = step_derivative(z, c_val, d); // Note: feeding c_val as dummy 'der' for testing
   

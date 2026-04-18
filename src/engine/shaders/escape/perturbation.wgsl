@@ -116,7 +116,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
   var steps = 0.0;
 
   while (iter < max_iterations && steps < target_steps) {
-    if (fractal_exponent == 2.0 && math_compute_mode < 2u) {
+    if (exponent_branch_mode == 1.0 && math_compute_mode < 2u) {
         let bla_res = advance_via_bla(dz, vec2<f32>(der_x, der_y), delta_c, start_c, iter, max_iterations, ref_escaped_iter, max_iterations, pixel_idx, tia_sum);
         if (bla_res.advanced) {
             if (bla_res.escaped) {
@@ -137,11 +137,11 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     let zy = ref_node.y;
     
     var dz_next: vec2<f32>;
-    let d = fractal_exponent;
+    let d = camera.exponent;
     
     // Switch to Double-Single Emulated precision natively when math_compute_mode == 2
     if (math_compute_mode == 2u) {
-        if (fractal_exponent == 2.0) {
+        if (exponent_branch_mode == 1.0) {
             let bla_res = advance_via_bla_ds(dz_ds, vec2<f32>(der_x, der_y), dc_ds, start_c, iter, max_iterations, ref_escaped_iter, max_iterations, pixel_idx, tia_sum);
             if (bla_res.advanced) {
                 if (bla_res.escaped) {

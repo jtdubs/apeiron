@@ -89,6 +89,16 @@ export const ScrubbableNumber: React.FC<ScrubbableNumberProps> = ({
         newValue = state.value * Math.pow(10, dir * state.step * 10);
       } else {
         newValue = state.value + dir * state.step * 10;
+        if (state.step > 0) {
+          let quantized = Math.round(newValue / state.step) * state.step;
+          const nearestInt = Math.round(quantized);
+          // Magnetic stickiness to integers (radius of 3 steps)
+          if (Math.abs(quantized - nearestInt) < state.step * 3) {
+            quantized = nearestInt;
+          }
+          const precision = Math.max(0, Math.ceil(-Math.log10(state.step)));
+          newValue = Number(quantized.toFixed(precision));
+        }
       }
       newValue = Math.max(state.min, Math.min(state.max, newValue));
       state.onChange(newValue);
@@ -118,6 +128,16 @@ export const ScrubbableNumber: React.FC<ScrubbableNumberProps> = ({
         newValue = startValue * Math.pow(10, dx * step);
       } else {
         newValue = startValue + dx * step;
+        if (step > 0) {
+          let quantized = Math.round(newValue / step) * step;
+          const nearestInt = Math.round(quantized);
+          // Magnetic stickiness to integers for performance optimizations
+          if (Math.abs(quantized - nearestInt) < step * 3) {
+            quantized = nearestInt;
+          }
+          const precision = Math.max(0, Math.ceil(-Math.log10(step)));
+          newValue = Number(quantized.toFixed(precision));
+        }
       }
       newValue = Math.max(min, Math.min(max, newValue));
       onChange(newValue);

@@ -73,7 +73,7 @@ export class AccumulationPass {
   }
 
   public initBackgroundCache() {
-    for (let exp = 1; exp <= 8; exp++) {
+    for (let exp = 0; exp <= 2; exp++) {
       for (const pert of [0.0, 1.0]) {
         for (const col of [0.0, 1.0, 2.0]) {
           this.getPipeline(exp, pert, col);
@@ -83,11 +83,11 @@ export class AccumulationPass {
   }
 
   public getPipeline(
-    exponent: number,
+    exponentBranchMode: number,
     mathComputeMode: number,
     coloringMode: number,
   ): GPUComputePipeline | null {
-    const key = `${exponent}_${mathComputeMode}_${coloringMode}`;
+    const key = `${exponentBranchMode}_${mathComputeMode}_${coloringMode}`;
     const cached = this.pipelineCache.get(key);
 
     if (cached) {
@@ -102,7 +102,7 @@ export class AccumulationPass {
           module: this.mathModule,
           entryPoint: 'main_compute',
           constants: {
-            0: exponent,
+            0: exponentBranchMode,
             1: mathComputeMode,
             2: coloringMode,
           },
@@ -548,6 +548,7 @@ export class PassManager {
     const [dc_high_y, dc_low_y] = splitF64(desc.context.ci);
 
     const cameraData = packCameraParams({
+      exponent: desc.context.exponent,
       zr: desc.context.zr,
       zi: desc.context.zi,
       cr: desc.context.cr,
@@ -666,8 +667,14 @@ export class PassManager {
         : desc.theme?.coloringMode === 'banded'
           ? 2.0
           : 0.0;
+    let exponentBranchMode = 0.0;
+    if (desc.context.exponent === 2.0) {
+      exponentBranchMode = 1.0;
+    } else if (Number.isInteger(desc.context.exponent) && desc.context.exponent > 1.0) {
+      exponentBranchMode = 2.0;
+    }
     const accumPipeline = this.accumPass.getPipeline(
-      desc.context.exponent,
+      exponentBranchMode,
       mathComputeMode,
       coloringModeConst,
     );

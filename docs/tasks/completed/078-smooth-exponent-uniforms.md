@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 078: Smooth Exponent Uniform Migration
@@ -31,8 +31,8 @@ Decouple the numerical fractal exponent from the WebGPU pipeline override consta
 
 ## Verification Steps
 
-- [ ] Write a headless test or adjust `RenderOrchestrator.spec.ts` asserting that changing `exponent` by `0.01` does NOT change the cached pipeline mode, but DOES invalidate the progressive scheduler context.
-- [ ] Ensure `npm run test` passes without breaking the `PassManager` pipeline allocation.
-- [ ] Run the UI and scrub the exponent smoothly across fractional boundaries; FPS should remain locked with identical response times.
-- [ ] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
-- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/[relevant-design].md` and `docs/product/requirements.md` before closing this task.
+- [x] Write a headless test or adjust `RenderOrchestrator.spec.ts` asserting that changing `exponent` by `0.01` does NOT change the cached pipeline mode, but DOES invalidate the progressive scheduler context.
+- [x] Ensure `npm run test` passes without breaking the `PassManager` pipeline allocation.
+- [x] Run the UI and scrub the exponent smoothly across fractional boundaries; FPS should remain locked with identical response times.
+- [x] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
+- [x] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/[relevant-design].md` and `docs/product/requirements.md` before closing this task.

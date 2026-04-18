@@ -81,6 +81,7 @@ export class PerturbationOrchestrator {
   private lastDeltaCr = 0;
   private lastDeltaCi = 0;
   private lastZoom = 0;
+  private lastExponent = 2.0;
 
   private dispatchPendingWork() {
     if (this.pendingWorkerJob) {
@@ -221,6 +222,7 @@ export class PerturbationOrchestrator {
       this.lastDeltaCr = state.deltaCr;
       this.lastDeltaCi = state.deltaCi;
       this.lastZoom = state.zoom;
+      this.lastExponent = state.exponent;
       return;
     }
 
@@ -229,11 +231,13 @@ export class PerturbationOrchestrator {
       if (
         state.deltaCr !== this.lastDeltaCr ||
         state.deltaCi !== this.lastDeltaCi ||
-        state.zoom !== this.lastZoom
+        state.zoom !== this.lastZoom ||
+        state.exponent !== this.lastExponent
       ) {
         this.lastDeltaCr = state.deltaCr;
         this.lastDeltaCi = state.deltaCi;
         this.lastZoom = state.zoom;
+        this.lastExponent = state.exponent;
 
         if (this.timeoutId) window.clearTimeout(this.timeoutId);
         this.timeoutId = window.setTimeout(() => {

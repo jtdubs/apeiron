@@ -117,6 +117,7 @@
 - [x] [Task 062: Isolate and resolve "Solid Screen" Rendering at 1e-5 Zoom](tasks/completed/062-perturbation-solid-screen-glitch.md)
 - [x] [Task 064: Unified Render Mode and Pipeline Specialization](tasks/completed/064-unified-render-mode.md)
 - [x] [Task 075: Refactor `core_compute.wgsl` Monolith Extraction](tasks/completed/075-math-accum-reorg.md)
+- [x] [Task 078: Smooth Exponent Uniform Migration](tasks/completed/078-smooth-exponent-uniforms.md)
 
 ## Phase 19: Mathematical Maturity & Infinity Limits
 

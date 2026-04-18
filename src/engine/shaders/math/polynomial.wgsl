@@ -5,7 +5,7 @@
 // Evaluates the Mandelbrot spatial derivative:  z_der = d * z^(d-1) * z_der + 1
 // Necessary for Distance Estimation which measures distance mapping distortion to trace boundary edges.
 fn step_derivative(z: vec2<f32>, der: vec2<f32>, d: f32) -> vec2<f32> {
-  if (d == 2.0) {
+  if (exponent_branch_mode == 1.0) {
       let der_sq = 2.0 * complex_mul(z, der);
       return vec2<f32>(der_sq.x + 1.0, der_sq.y);
   }
@@ -22,9 +22,9 @@ fn step_derivative(z: vec2<f32>, der: vec2<f32>, d: f32) -> vec2<f32> {
 // Uses discrete branches to skip heavy trigonometric functions (`atan2`, `pow`) via binomial
 // expansion if exponent `d` is exactly `2.0` or a whole integer.
 fn step_polynomial(z: vec2<f32>, c: vec2<f32>, d: f32) -> vec2<f32> {
-    if (d == 2.0) {
+    if (exponent_branch_mode == 1.0) {
         return complex_add(complex_sq(z), c);
-    } else if (d == floor(d) && d > 1.0) {
+    } else if (exponent_branch_mode == 2.0) {
         var z_temp = z;
         for(var i: f32 = 1.0; i < d; i += 1.0) {
             z_temp = complex_mul(z_temp, z);
@@ -47,7 +47,7 @@ fn step_mandelbrot(z: vec2<f32>, c: vec2<f32>, der: vec2<f32>, d: f32) -> vec4<f
 fn get_escape_data(iter: f32, zx: f32, zy: f32, der_x: f32, der_y: f32, offset: f32, tia_sum: f32) -> vec4<f32> {
   let mag_sq = zx * zx + zy * zy;
   let log_z = 0.5 * log(mag_sq);
-  let p = max(fractal_exponent, 2.0);
+  let p = max(camera.exponent, 2.0);
   let smooth_iter = iter + offset - log2(log_z) / log2(p);
   
   let mag = sqrt(mag_sq);
