@@ -322,7 +322,17 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
                         
                         let a_dz = complex_mul(vec2<f32>(ar, ai), dz);
                         let b_dc = complex_mul(vec2<f32>(br, bi), delta_c);
-                        dz = complex_add(a_dz, b_dc);
+                        let potential_dz = complex_add(a_dz, b_dc);
+                        
+                        let target_node = get_orbit_node(u32(iter + b_len));
+                        let ref_mag = target_node.x * target_node.x + target_node.y * target_node.y;
+                        let potential_dz_len = potential_dz.x * potential_dz.x + potential_dz.y * potential_dz.y;
+                        
+                        if ((iter + b_len) > 2.0 && potential_dz_len > ref_mag) {
+                           continue;
+                        }
+                        
+                        dz = potential_dz;
                         
                         let new_der = complex_mul(vec2<f32>(ar, ai), der);
                         var new_der_x = new_der.x;
@@ -544,6 +554,18 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     let cur_y = next_zy + dz.y;
     
     let cur_z_mag = length(vec2<f32>(cur_x, cur_y));
+    
+    if (cur_x != cur_x || cur_y != cur_y || dz.x != dz.x || dz_next.x != dz_next.x) {
+      let ret = vec4<f32>(-5.0, 0.0, 0.0, 0.0);
+      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
+      return ret;
+    }
+
+    let ref_mag = next_zx * next_zx + next_zy * next_zy;
+    if (iter > 2.0 && (dz.x * dz.x + dz.y * dz.y) > ref_mag) {
+       return continue_mandelbrot_iterations(vec2<f32>(cur_x, cur_y), start_c, iter, max_iterations, der_x, der_y, tia_sum, pixel_idx);
+    }
+
     if (coloring_mode > 0.5) {
       let n_mag = pow(prev_z_mag, d);
       let den = n_mag + c_mag - abs(n_mag - c_mag);
@@ -785,6 +807,15 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
           return;
       }
   } else {
+      if (ret.x == -4.0) {
+          textureStore(g_buffer_out, coord, vec4<f32>(1.0, 0.0, 0.0, 1.0));
+          return;
+      }
+      if (ret.x == -5.0 || ret.x != ret.x || ret.y != ret.y) {
+          textureStore(g_buffer_out, coord, vec4<f32>(1.0, 0.0, 1.0, 1.0));
+          return;
+      }
+      
       // Progressive Frame Accumulation
       if (ret.x < -1.0) {
           if (camera.blend_weight > 0.0) {

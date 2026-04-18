@@ -113,3 +113,4 @@
 
 - [x] [Task 061: Decouple Frame Budget from Execution](tasks/completed/061-decouple-frame-budget.md)
 - [x] [Task 048: Decouple WASM to WebGPU Buffer Exchanges](tasks/completed/048-decouple-worker-buffers.md)
+- [x] [Task 062: Isolate and resolve "Solid Screen" Rendering at 1e-5 Zoom](tasks/completed/062-perturbation-solid-screen-glitch.md)
