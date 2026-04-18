@@ -70,7 +70,7 @@ To attain functionally infinite recursion depths, the Apeiron architecture struc
 
 ### Level 3: Perturbation Theory & BLA
 - **Depth Limit:** ~ $10^{-15}$
-- **Architecture:** Bypasses brute-force iteration by calculating a central Reference Orbit in `f64` within the Rust Backend. WebGPU evaluates neighboring pixels using high-performance Bilinear Approximations (BLA) and offset tracking (`ΔZ`).
+- **Architecture:** Bypasses brute-force iteration by calculating a central Reference Orbit in `f64` within the Rust Backend. WebGPU evaluates neighboring pixels using high-performance Bivariate Linear Approximations (BLA) and offset tracking (`ΔZ`).
 - **Limitation:** The Rust WASM worker is capped by native `f64` limitations. Beyond $10^{-15}$, Rust mathematically cannot target the required UI center coordinate, collapsing the Reference Orbit into noise.
 
 ### Level 4: Arbitrary Precision (GMP/BigFloat)
