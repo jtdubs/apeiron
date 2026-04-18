@@ -114,10 +114,9 @@ export const viewportStore = createStore<ViewportState>((set) => ({
     set((state) => {
       let newZoom = state.zoom * deltaZoom;
 
-      // Temporary clamp to 1e-7 to prevent users from hitting f32 mantissa pixelation
-      // This will be unlocked progressively as we ascend the Deep Zoom Escalation Ladder (Task 047/063)
-      if (newZoom < 1e-7) {
-        newZoom = 1e-7;
+      // DS Math Emulation (Task 047) unlocks perturbation boundaries down to ~1e-14 before f64 splits fail
+      if (newZoom < 1e-14) {
+        newZoom = 1e-14;
       }
       if (newZoom > 5.0) {
         newZoom = 5.0; // Don't zoom too far out
