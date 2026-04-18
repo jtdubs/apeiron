@@ -23,35 +23,39 @@ export class AccumulationPass {
     this.pipelineCache = new Map();
 
     this.uniformsBuffer = device.createBuffer({
-      size: CameraParams_SIZE,
+      size: CameraParams_SIZE * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
     this.dummyRefOrbitNodesBuffer = device.createBuffer({
-      size: 16,
+      size: 32,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     device.queue.writeBuffer(
       this.dummyRefOrbitNodesBuffer,
       0,
-      new Float32Array([0.0, 0.0, 0.0, 0.0]),
+      new Float32Array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
     );
 
     this.dummyRefMetadataBuffer = device.createBuffer({
-      size: 16,
+      size: 32,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     device.queue.writeBuffer(
       this.dummyRefMetadataBuffer,
       0,
-      new Float32Array([0.0, 0.0, 0.0, 0.0]),
+      new Float32Array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
     );
 
     this.dummyRefBlaGridBuffer = device.createBuffer({
-      size: 16,
+      size: 32,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
-    device.queue.writeBuffer(this.dummyRefBlaGridBuffer, 0, new Float32Array([0.0, 0.0, 0.0, 0.0]));
+    device.queue.writeBuffer(
+      this.dummyRefBlaGridBuffer,
+      0,
+      new Float32Array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+    );
   }
 
   public initBackgroundCache() {
