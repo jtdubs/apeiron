@@ -15,11 +15,9 @@ interface SharedState {
   harness: WebGPUTestHarness;
   groundTruthOrbitNodes: Float64Array;
   groundTruthMetadata: Float64Array;
-  groundTruthBlaGrid: Float64Array;
   offsetsGroundTruthMetadata: Float64Array;
   alignedRefOrbitNodes: Float64Array;
   alignedRefMetadata: Float64Array;
-  alignedRefBlaGrid: Float64Array;
   alignedRefBlaGridDs: Float64Array;
   clusterCases: any[];
   inputs: Float32Array;
@@ -172,13 +170,11 @@ async function initSharedState(): Promise<SharedState | null> {
     // Reconstruct blocks for three decoupled buffers
     const orbitBlockSize = 100 * ORBIT_STRIDE;
     const metaBlockSize = META_STRIDE;
-    const blaBlockSize = 100 * 10 * 8; // BLA_LEVELS * BLA_NODE_STRIDE
 
     const dsBlaBlockSize = 100 * 10 * 16;
     const variantsPerCase = 6;
     const alignedRefOrbitNodes = new Float64Array(clusterCases.length * orbitBlockSize);
     const alignedRefMetadata = new Float64Array(clusterCases.length * metaBlockSize);
-    const alignedRefBlaGrid = new Float64Array(clusterCases.length * blaBlockSize);
     const alignedRefBlaGridDs = new Float64Array(clusterCases.length * dsBlaBlockSize);
 
     for (let c = 0; c < rawCases.length; c++) {
@@ -187,7 +183,7 @@ async function initSharedState(): Promise<SharedState | null> {
 
         const orbitStart = c * orbitBlockSize;
         const metaStart = c * metaBlockSize;
-        const blaStart = c * blaBlockSize;
+
         const dsBlaStart = c * dsBlaBlockSize;
 
         alignedRefOrbitNodes.set(
@@ -197,10 +193,6 @@ async function initSharedState(): Promise<SharedState | null> {
         alignedRefMetadata.set(
           groundTruth.metadata.subarray(metaStart, metaStart + metaBlockSize),
           clusterIdx * metaBlockSize,
-        );
-        alignedRefBlaGrid.set(
-          groundTruth.bla_grid.subarray(blaStart, blaStart + blaBlockSize),
-          clusterIdx * blaBlockSize,
         );
         alignedRefBlaGridDs.set(
           groundTruth.bla_grid_ds.subarray(dsBlaStart, dsBlaStart + dsBlaBlockSize),
@@ -219,7 +211,6 @@ async function initSharedState(): Promise<SharedState | null> {
         (i + 1) * orbitBlockSize,
       );
       const singleRefMeta = alignedRefMetadata.subarray(i * metaBlockSize, (i + 1) * metaBlockSize);
-      const singleRefBla = alignedRefBlaGrid.subarray(i * blaBlockSize, (i + 1) * blaBlockSize);
       const singleRefBlaDs = alignedRefBlaGridDs.subarray(
         i * dsBlaBlockSize,
         (i + 1) * dsBlaBlockSize,
@@ -230,7 +221,6 @@ async function initSharedState(): Promise<SharedState | null> {
         singleInput,
         singleRefOrbit,
         singleRefMeta,
-        singleRefBla,
         singleRefBlaDs,
         undefined,
         100,
@@ -239,7 +229,6 @@ async function initSharedState(): Promise<SharedState | null> {
       );
       const fRes = await harness.executeTestCompute(
         singleInput,
-        undefined,
         undefined,
         undefined,
         undefined,
@@ -258,11 +247,9 @@ async function initSharedState(): Promise<SharedState | null> {
       harness,
       groundTruthOrbitNodes: groundTruth.orbit_nodes,
       groundTruthMetadata: groundTruth.metadata,
-      groundTruthBlaGrid: groundTruth.bla_grid,
       offsetsGroundTruthMetadata: offsetsGroundTruth.metadata,
       alignedRefOrbitNodes,
       alignedRefMetadata,
-      alignedRefBlaGrid,
       alignedRefBlaGridDs,
       clusterCases,
       inputs,
@@ -340,7 +327,6 @@ Deno.test({
     const deepInput = new Float32Array([0.0, 0.0, -1.748, 0.0, 1e-15, 1e-15]);
     const res = await harness.executeTestCompute(
       deepInput,
-      undefined,
       undefined,
       undefined,
       undefined,
@@ -529,7 +515,6 @@ Deno.test({
       undefined,
       undefined,
       undefined,
-      undefined,
       maxIter,
       false,
       2.0,
@@ -565,13 +550,7 @@ Deno.test({
     const state = await initSharedState();
     if (!state) return;
 
-    const {
-      harness,
-      alignedRefOrbitNodes,
-      alignedRefMetadata,
-      alignedRefBlaGrid,
-      alignedRefBlaGridDs,
-    } = state;
+    const { harness, alignedRefOrbitNodes, alignedRefMetadata, alignedRefBlaGridDs } = state;
     // Choose an exterior deep point that takes > 50 iterations to escape.
     // c = -1.748 + 1e-15i, dz = 1e-15, exponent = 2.0
     const inputs = new Float32Array([0.0, 0.0, -1.748, 0.0, 1e-15, 1e-15]);
@@ -581,7 +560,6 @@ Deno.test({
       inputs,
       alignedRefOrbitNodes.subarray(0, 100 * ORBIT_STRIDE), // Provide valid ref orbits from point 0
       alignedRefMetadata.subarray(0, META_STRIDE),
-      alignedRefBlaGrid.subarray(0, 100 * 10 * 8),
       alignedRefBlaGridDs.subarray(0, 100 * 10 * 16),
       undefined,
       100, // maxIter
@@ -595,7 +573,6 @@ Deno.test({
       inputs,
       alignedRefOrbitNodes.subarray(0, 100 * ORBIT_STRIDE),
       alignedRefMetadata.subarray(0, META_STRIDE),
-      alignedRefBlaGrid.subarray(0, 100 * 10 * 8),
       alignedRefBlaGridDs.subarray(0, 100 * 10 * 16),
       undefined,
       100,

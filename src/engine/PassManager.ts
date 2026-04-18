@@ -138,7 +138,7 @@ export class AccumulationPass {
     pipeline: GPUComputePipeline,
     activeRefOrbitNodesBuffer: GPUBuffer | null,
     activeRefMetadataBuffer: GPUBuffer | null,
-    activeRefBlaGridBuffer: GPUBuffer | null,
+
     activeRefBlaGridDsBuffer: GPUBuffer | null,
     activeRefBtaGridBuffer: GPUBuffer | null,
     prevFrameView: GPUTextureView,
@@ -168,12 +168,7 @@ export class AccumulationPass {
             buffer: activeRefMetadataBuffer ? activeRefMetadataBuffer : this.dummyRefMetadataBuffer,
           },
         },
-        {
-          binding: 9,
-          resource: {
-            buffer: activeRefBlaGridBuffer ? activeRefBlaGridBuffer : this.dummyRefBlaGridBuffer,
-          },
-        },
+
         {
           binding: 10,
           resource: {
@@ -498,19 +493,6 @@ export class PassManager {
           desc.context.refMetadata!.byteLength,
         );
 
-        if (this.activeRefBlaGridBuffer) this.activeRefBlaGridBuffer.destroy();
-        this.activeRefBlaGridBuffer = this.device.createBuffer({
-          size: desc.context.refBlaGrid!.byteLength,
-          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-        });
-        this.device.queue.writeBuffer(
-          this.activeRefBlaGridBuffer,
-          0,
-          desc.context.refBlaGrid!.buffer,
-          desc.context.refBlaGrid!.byteOffset,
-          desc.context.refBlaGrid!.byteLength,
-        );
-
         if (this.activeRefBlaGridDsBuffer) this.activeRefBlaGridDsBuffer.destroy();
         this.activeRefBlaGridDsBuffer = this.device.createBuffer({
           size: desc.context.refBlaGridDs!.byteLength,
@@ -736,7 +718,7 @@ export class PassManager {
       accumPipeline,
       this.activeRefOrbitNodesBuffer,
       this.activeRefMetadataBuffer,
-      this.activeRefBlaGridBuffer,
+
       this.activeRefBlaGridDsBuffer,
       this.activeRefBtaGridBuffer,
       readTex!.createView(),

@@ -24,7 +24,7 @@ export class WebGPUTestHarness {
     input: Float32Array,
     refOrbitNodes?: Float64Array,
     refMetadata?: Float64Array,
-    refBlaGrid?: Float64Array,
+
     refBlaGridDs?: Float64Array,
     refBtaGrid?: Float64Array,
     maxIter: number = 100,
@@ -47,7 +47,7 @@ export class WebGPUTestHarness {
         },
         refOrbitNodes,
         refMetadata,
-        refBlaGrid,
+
         refBlaGridDs,
         refBtaGrid,
         exponent: exponent,
@@ -65,7 +65,7 @@ export class WebGPUTestHarness {
       cameraData?: CameraParams;
       refOrbitNodes?: Float64Array;
       refMetadata?: Float64Array;
-      refBlaGrid?: Float64Array;
+
       refBlaGridDs?: Float64Array;
       refBtaGrid?: Float64Array;
       checkpointData?: Float32Array;
@@ -155,7 +155,7 @@ export class WebGPUTestHarness {
 
     let refOrbitNodesBuffer: GPUBuffer | null = null;
     let refMetadataBuffer: GPUBuffer | null = null;
-    let refBlaGridBuffer: GPUBuffer | null = null;
+
     let refBlaGridDsBuffer: GPUBuffer | null = null;
     let refBtaGridBuffer: GPUBuffer | null = null;
 
@@ -203,13 +203,13 @@ export class WebGPUTestHarness {
     ) {
       refOrbitNodesBuffer = createRefBuffer(options.refOrbitNodes);
       refMetadataBuffer = createRefBuffer(options.refMetadata);
-      refBlaGridBuffer = createRefBuffer(options.refBlaGrid);
+
       refBlaGridDsBuffer = createRefBuffer(options.refBlaGridDs);
       refBtaGridBuffer = createRefBuffer(options.refBtaGrid);
     } else {
       refOrbitNodesBuffer = createRefBuffer(undefined);
       refMetadataBuffer = createRefBuffer(undefined);
-      refBlaGridBuffer = createRefBuffer(undefined);
+
       refBlaGridDsBuffer = createRefBuffer(undefined);
       refBtaGridBuffer = createRefBuffer(undefined);
     }
@@ -293,7 +293,7 @@ export class WebGPUTestHarness {
     completionFlagBuffer.destroy();
     refOrbitNodesBuffer.destroy();
     refMetadataBuffer.destroy();
-    refBlaGridBuffer.destroy();
+
     refBlaGridDsBuffer.destroy();
     refBtaGridBuffer.destroy();
 
@@ -365,7 +365,7 @@ export class TestRenderSession {
         exponent: 2,
         refOrbitNodes: null,
         refMetadata: null,
-        refBlaGrid: null,
+
         refBlaGridDs: null,
         refBtaGrid: null,
         effectiveMathMode: 0,

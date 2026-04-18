@@ -13,7 +13,6 @@ export function contextsEqual(a: MathContext, b: MathContext): boolean {
     a.exponent === b.exponent &&
     a.refOrbitNodes === b.refOrbitNodes &&
     a.refMetadata === b.refMetadata &&
-    a.refBlaGrid === b.refBlaGrid &&
     a.skipIter === b.skipIter
   );
 }

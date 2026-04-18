@@ -59,25 +59,30 @@ To render the interior of bounded sets beautifully (e.g., Distance Estimation to
 To attain functionally infinite recursion depths, the Apeiron architecture structurally shifts mathematical calculation tiers. This ladder documents the exact constraints unlocking sequential depth barriers.
 
 ### Level 1: Standard Hardware ($f32$)
-- **Depth Limit:** ~ $10^{-7}$
-- **Architecture:** Directly executes `continue_mandelbrot_iterations` inside WebGPU `f32` vectors.
-- **Limitation:** At $10^{-7}$, hardware completely exhausts $f32$ mantissa precision, failing to differentiate adjacent screen pixels and resolving as blocky chunks.
 
-### Level 2: Emulated Hardware (Double-Single or $f64$)
+- **Depth Limit:** ~ $10^{-6}$
+- **Architecture:** Directly executes standard `continue_mandelbrot_iterations` inside WebGPU `f32` vectors.
+- **Limitation:** At $10^{-6}$, hardware completely exhausts $f32$ mantissa precision, failing to differentiate adjacent screen pixels and resolving as blocky chunks.
+
+### Level 2: Perturbation Theory & BTA ($f32p$)
+
 - **Depth Limit:** ~ $10^{-14}$
-- **Architecture:** Emulates 48-bit logic by combining two `f32` uniforms (`hi`/`lo`) inside WebGPU. 
-- **Limitation:** While blockiness is healed, depths beyond $10^{-14}$ natively crash the standard mathematical evaluation entirely.
+- **Architecture:** Bypasses brute-force iteration by calculating a central Reference Orbit in arbitrary precision within the Rust Backend. WebGPU evaluates neighboring pixels using standard `f32` offset tracking (`ΔZ`), accelerated securely by a quadratic Bivariate Taylor Approximation (BTA) grid that predicts numerical curvature.
+- **Limitation:** Over thousands of perturbation iterations, the single-precision `f32` limits eventually fail to contain the mathematical rounding errors, causing the `ΔZ` tracking to experience proxy collapse.
 
-### Level 3: Perturbation Theory & BLA
-- **Depth Limit:** ~ $10^{-15}$
-- **Architecture:** Bypasses brute-force iteration by calculating a central Reference Orbit in `f64` within the Rust Backend. WebGPU evaluates neighboring pixels using high-performance Bivariate Linear Approximations (BLA) and offset tracking (`ΔZ`).
-- **Limitation:** The Rust WASM worker is capped by native `f64` limitations. Beyond $10^{-15}$, Rust mathematically cannot target the required UI center coordinate, collapsing the Reference Orbit into noise.
+### Level 3: Double-Single Perturbation & DS-BLA ($f64p$)
 
-### Level 4: Arbitrary Precision (GMP/BigFloat)
+- **Depth Limit:** ~ $10^{-20}$
+- **Architecture:** WebGPU upgrades to Emulated Double-Single Math (`f64p`), representing 64-bit precision across two `f32` hardware registers (`hi`/`lo`). To comply with strict GPU VGPR limit constraints, it drops quadratic BTA boundaries and relies exclusively on a pristine linear Double-Single Bilinear Approximation (DS-BLA) grid.
+- **Limitation:** Depths beyond $10^{-20}$ begin to exhaust even emulated 64-bit mathematical capacity, eventually requiring higher scale abstractions.
+
+### Level 4: Arbitrary Precision (BigDecimal)
+
 - **Depth Limit:** Infinite (Bounded by hardware memory/time)
-- **Architecture:** Rust discards native `f64` and pulls in an Arbitrary Precision library (e.g., `rug`, `malachite`). The Reference Orbit is analytically solved over minutes using 100+-digit precision strings, and the pristine deterministic `f64` offsets are pushed back to the GPU context for ultra-fast rendering.
-- **Limitation:** Over thousands of perturbation iterations, WebGPU's native `f32` tracking of the `ΔZ` offset will accumulate mathematical rounding errors ($\sim 10^{-15}$ for `f32`, $\sim 10^{-30}$ for DS).
+- **Architecture:** Rust employs the `bigdecimal` crate to analytically solve the Reference Orbits using 100-digit mathematical precision strings. The perfectly deterministic coordinates are cleanly exported as `f64` offsets and pushed to the WebGPU context for rendering.
+- **Limitation:** Even with an infinitely precise core orbit, continuous panning eventually causes the WebGPU `ΔZ` distance to become too massive compared to the Reference point, causing structural breakage.
 
 ### Level 5: Multi-Reference Rebasing
+
 - **Depth Limit:** Infinite
 - **Architecture:** As proxy parameters naturally diverge off the BLA linear approximations (Glitch Collapse where `|ΔZ| > |Z_n|`), the GPU cleanly ejects the failing coordinate bounding box. Rust calculates novel Arbitrary Precision secondary origins anchored precisely on the glitch regions. WebGPU context interpolates between 1..N continuous high-precision maps, entirely neutralizing mathematical divergence safely.

@@ -218,7 +218,6 @@ Deno.test('WGSL Layer 2 Flavor D - Series Approximation & BLA Execution', async 
 
   const testOrbitNodes = new Float64Array(1000);
   const testMetadata = new Float64Array(16);
-  const testBlaGrid = new Float64Array(800);
 
   // Test SA init tracking the delta and derivative algebraic starting states.
   // Input: dz_x, dz_y, dc_x, dc_y
@@ -226,7 +225,6 @@ Deno.test('WGSL Layer 2 Flavor D - Series Approximation & BLA Execution', async 
   const saRes = await harness.executeUnitTest('unit_test_sa_init', saInputs, {
     refOrbitNodes: testOrbitNodes,
     refMetadata: testMetadata,
-    refBlaGrid: testBlaGrid,
   });
   console.log('saRes:', saRes);
   if (Math.abs(saRes[0] - 1e-15) > 1e-6) throw new Error('SA offset failed');
@@ -237,7 +235,6 @@ Deno.test('WGSL Layer 2 Flavor D - Series Approximation & BLA Execution', async 
   const blaRes = await harness.executeUnitTest('unit_test_bla_advance', blaInputs, {
     refOrbitNodes: testOrbitNodes,
     refMetadata: testMetadata,
-    refBlaGrid: testBlaGrid,
   });
 
   // Just validating the BLA structural logic natively completes without NaN exceptions in headless.

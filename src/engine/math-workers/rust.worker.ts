@@ -21,7 +21,6 @@ export type WorkerOutputMessage =
       type: 'COMPUTE_RESULT';
       orbit_nodes: Float64Array;
       metadata: Float64Array;
-      bla_grid: Float64Array;
       bla_grid_ds: Float64Array;
       bta_grid: Float64Array;
     }
@@ -54,7 +53,6 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     // Explicitly copy the WASM-memory backed array into a native, standalone JS ArrayBuffer.
     const orbit_nodes = new Float64Array(payload.orbit_nodes);
     const metadata = new Float64Array(payload.metadata);
-    const bla_grid = new Float64Array(payload.bla_grid);
     const bla_grid_ds = new Float64Array(payload.bla_grid_ds);
     const bta_grid = new Float64Array(payload.bta_grid);
 
@@ -69,11 +67,10 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
         type: 'COMPUTE_RESULT',
         orbit_nodes,
         metadata,
-        bla_grid,
         bla_grid_ds,
         bta_grid,
       } as WorkerOutputMessage,
-      [orbit_nodes.buffer, metadata.buffer, bla_grid.buffer, bla_grid_ds.buffer, bta_grid.buffer],
+      [orbit_nodes.buffer, metadata.buffer, bla_grid_ds.buffer, bta_grid.buffer],
     );
   } else if (e.data.type === 'REFINE_REFERENCE') {
     if (!wasmInit) {

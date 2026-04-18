@@ -26,6 +26,7 @@ export class PerturbationOrchestrator {
     dispatched: TelemetryChannel;
     active: TelemetryChannel;
     pending: TelemetryChannel;
+    phase: TelemetryChannel;
   };
 
   constructor(workerFactory?: () => Worker) {
@@ -51,6 +52,14 @@ export class PerturbationOrchestrator {
         group: 'Workers',
         type: 'analog',
         retention: 'latch',
+      }),
+      phase: reg.register({
+        id: 'workers.jobPhase',
+        label: 'Job Phase',
+        group: 'Workers',
+        type: 'enum',
+        retention: 'latch',
+        enumValues: { 0: 'IDLE', 1: 'REFINING', 2: 'COMPUTING' },
       }),
     };
 
@@ -86,6 +95,7 @@ export class PerturbationOrchestrator {
           ci: this.currentWorkerJob.absCi,
           max_iterations: this.currentWorkerJob.paletteMaxIter,
         });
+        this.channels.phase.set(1);
       } else {
         const casesJson = JSON.stringify([
           {
@@ -103,6 +113,7 @@ export class PerturbationOrchestrator {
           casesJson,
           paletteMaxIter: this.currentWorkerJob.paletteMaxIter,
         });
+        this.channels.phase.set(2);
       }
 
       this.channels.dispatched.set(this.currentWorkerJob.id);
@@ -111,6 +122,7 @@ export class PerturbationOrchestrator {
       this.isWorkerBusy = false;
       this.currentWorkerJob = null;
       this.channels.pending.set(0);
+      this.channels.phase.set(0);
     }
   }
 
@@ -179,7 +191,6 @@ export class PerturbationOrchestrator {
             deltaCi: newDeltaCi,
             refOrbitNodes: e.data.orbit_nodes,
             refMetadata: e.data.metadata,
-            refBlaGrid: e.data.bla_grid,
             refBlaGridDs: e.data.bla_grid_ds,
             refBtaGrid: e.data.bta_grid,
           };
@@ -187,6 +198,7 @@ export class PerturbationOrchestrator {
 
         this.channels.active.set(job.id);
         this.channels.pending.set(0);
+        this.channels.phase.set(0);
 
         this.isWorkerBusy = false;
         this.currentWorkerJob = null;
@@ -230,7 +242,7 @@ export class PerturbationOrchestrator {
             absCi,
             exponent: state.exponent,
             paletteMaxIter: state.paletteMaxIter,
-            isRefining: true,
+            isRefining: state.exponent === 2.0,
           };
 
           this.pendingWorkerJob = job;
@@ -244,7 +256,6 @@ export class PerturbationOrchestrator {
         viewportStore.setState({
           refOrbitNodes: null,
           refMetadata: null,
-          refBlaGrid: null,
           refBlaGridDs: null,
           refBtaGrid: null,
         });

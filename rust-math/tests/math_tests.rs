@@ -34,11 +34,7 @@ fn test_bla_generation() {
     let points_json = r#"[{"zr": "0", "zi": "0", "cr": "-0.5", "ci": "0", "exponent": 2.0}]"#;
     let payload = compute_mandelbrot_internal(points_json, 16);
     
-    let bla = payload.bla_grid;
     let bla_ds = payload.bla_grid_ds;
-    
-    let expected_bla_len = 16 * layout::BLA_LEVELS as usize * layout::BLA_NODE_STRIDE as usize;
-    assert_eq!(bla.len(), expected_bla_len, "BLA array length mismatch");
     
     let expected_ds_len = 16 * layout::BLA_LEVELS as usize * layout::DSBLA_NODE_STRIDE as usize;
     assert_eq!(bla_ds.len(), expected_ds_len, "DS BLA array length mismatch");
@@ -96,47 +92,7 @@ fn test_compute_mandelbrot_exponent_fract() {
     assert_eq!(ar1, 1.0, "ar should be reset to 1.0 for non-integer exponent");
 }
 
-#[test]
-fn test_bla_generation_values() {
-    // Test base BLA values against reference specs
-    let points_json = r#"[{"zr": "1", "zi": "0", "cr": "-0.5", "ci": "0", "exponent": 2.0}]"#;
-    // z0 = 1, z1 = 0.5
-    let payload = compute_mandelbrot_internal(points_json, 2);
-    let orbit = payload.orbit_nodes;
-    let z0_x = orbit[0];
-    let z0_y = orbit[1];
-    
-    let bla = payload.bla_grid;
-    // Level 0, step 0
-    let ar0 = bla[0]; // Offset 0 is ar
-    let ai0 = bla[1]; // Offset 1 is ai
-    let br0 = bla[2]; // Offset 2 is br
-    let bi0 = bla[3]; // Offset 3 is bi
-    let err0 = bla[4]; // Offset 4 is err
-    
-    assert_eq!(ar0, 2.0 * z0_x, "ar should be 2*x at BLA level 0");
-    assert_eq!(ai0, 2.0 * z0_y, "ai should be 2*y at BLA level 0");
-    assert_eq!(br0, 1.0, "br should be 1.0 at BLA level 0");
-    assert_eq!(bi0, 0.0, "bi should be 0.0 at BLA level 0");
-    assert_eq!(err0, 1.0, "err should be 1.0 at BLA level 0");
-}
 
-#[test]
-fn test_bla_ds_split() {
-    let points_json = r#"[{"zr": "0", "zi": "0", "cr": "-0.5", "ci": "0", "exponent": 2.0}]"#;
-    let payload = compute_mandelbrot_internal(points_json, 4);
-    let bla = payload.bla_grid;
-    let bla_ds = payload.bla_grid_ds;
-    
-    // Level 1, iter 0 is the second block pushed for iter 0
-    let l1_ar_f64 = bla[layout::BLA_NODE_STRIDE as usize];
-    
-    let l1_ar_hi = bla_ds[layout::DSBLA_NODE_STRIDE as usize];
-    let l1_ar_lo = bla_ds[layout::DSBLA_NODE_STRIDE as usize + 1];
-    
-    let ds_reconstructed = l1_ar_hi + l1_ar_lo;
-    assert!((l1_ar_f64 - ds_reconstructed).abs() < 1e-14, "Double-Single split lost precision");
-}
 
 #[test]
 fn test_bta_generation_values() {

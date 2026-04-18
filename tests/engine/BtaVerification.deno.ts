@@ -137,7 +137,6 @@ async function runBtaVerification() {
       },
       refOrbitNodes: groundTruth.orbit_nodes,
       refMetadata: groundTruth.metadata,
-      refBlaGrid: groundTruth.bla_grid,
       refBlaGridDs: groundTruth.bla_grid_ds,
       refBtaGrid: groundTruth.bta_grid,
       exponent: 2.0,

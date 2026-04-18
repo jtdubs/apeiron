@@ -31,7 +31,6 @@ export interface ViewportState {
   paletteMaxIter: number;
   refOrbitNodes: Float64Array | null;
   refMetadata: Float64Array | null;
-  refBlaGrid: Float64Array | null;
   refBlaGridDs: Float64Array | null;
   refBtaGrid: Float64Array | null;
   interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST';
@@ -41,7 +40,6 @@ export interface ViewportState {
   setRefBuffers: (
     orbitNodes: Float64Array | null,
     metadata: Float64Array | null,
-    blaGrid: Float64Array | null,
     blaGridDs: Float64Array | null,
     btaGrid: Float64Array | null,
   ) => void;
@@ -81,7 +79,6 @@ export const viewportStore = createStore<ViewportState>((set) => ({
   paletteMaxIter: calculateMaxIter(1.5),
   refOrbitNodes: null,
   refMetadata: null,
-  refBlaGrid: null,
   refBlaGridDs: null,
   refBtaGrid: null,
   interactionState: 'STATIC',
@@ -89,11 +86,10 @@ export const viewportStore = createStore<ViewportState>((set) => ({
   isTelemetryOpen:
     typeof window !== 'undefined' && localStorage.getItem('apeiron_telemetry_open') === 'true',
 
-  setRefBuffers: (orbitNodes, metadata, blaGrid, blaGridDs, btaGrid) =>
+  setRefBuffers: (orbitNodes, metadata, blaGridDs, btaGrid) =>
     set({
       refOrbitNodes: orbitNodes,
       refMetadata: metadata,
-      refBlaGrid: blaGrid,
       refBlaGridDs: blaGridDs,
       refBtaGrid: btaGrid,
     }),

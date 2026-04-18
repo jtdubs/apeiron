@@ -76,7 +76,6 @@ describe('ApeironViewport Orchestration', () => {
       paletteMaxIter: 150,
       refOrbitNodes: null,
       refMetadata: null,
-      refBlaGrid: null,
     });
   });
 
@@ -187,7 +186,6 @@ describe('ApeironViewport Orchestration', () => {
         zoom: 1e-5,
         refOrbitNodes: new Float64Array(10),
         refMetadata: new Float64Array(10),
-        refBlaGrid: new Float64Array(10),
       });
     });
 
@@ -201,7 +199,6 @@ describe('ApeironViewport Orchestration', () => {
     // Subscriptions should instantly clear refOrbits to prevent GPU explosion
     expect(viewportStore.getState().refOrbitNodes).toBeNull();
     expect(viewportStore.getState().refMetadata).toBeNull();
-    expect(viewportStore.getState().refBlaGrid).toBeNull();
   });
 
   it('updates sliceAngle constraints during middle-mouse 4D dragging', async () => {
@@ -273,7 +270,6 @@ describe('ApeironViewport Orchestration', () => {
         zoom: 1e-5,
         refOrbitNodes: new Float64Array(10),
         refMetadata: new Float64Array(10),
-        refBlaGrid: new Float64Array(10),
       });
       renderStore.setState({
         renderMode: 'f32',

@@ -203,14 +203,12 @@ describe('PerturbationOrchestrator', () => {
     // Finish computation
     const fakeOrbitNodes = new Float64Array([42]);
     const fakeMetadata = new Float64Array([1]);
-    const fakeBlaGrid = new Float64Array([2]);
     mockWorker.onmessage({
       data: {
         id: 1234, // ignored in test fallback path
         type: 'COMPUTE_RESULT',
         orbit_nodes: fakeOrbitNodes,
         metadata: fakeMetadata,
-        bla_grid: fakeBlaGrid,
         bla_grid_ds: new Float64Array(0),
       },
     });
@@ -223,6 +221,5 @@ describe('PerturbationOrchestrator', () => {
     expect(mockViewportStoreSetStateOutput.deltaCr).toBeCloseTo(0.6);
     expect(mockViewportStoreSetStateOutput.refOrbitNodes).toBe(fakeOrbitNodes);
     expect(mockViewportStoreSetStateOutput.refMetadata).toBe(fakeMetadata);
-    expect(mockViewportStoreSetStateOutput.refBlaGrid).toBe(fakeBlaGrid);
   });
 });

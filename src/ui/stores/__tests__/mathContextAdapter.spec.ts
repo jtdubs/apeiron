@@ -32,7 +32,6 @@ describe('mathContextAdapter', () => {
       paletteMaxIter: 500,
       refOrbitNodes: null,
       refMetadata: null,
-      refBlaGrid: null,
       interactionState: 'STATIC',
     };
 
@@ -58,7 +57,6 @@ describe('mathContextAdapter', () => {
   it('builds floating-origin perturbation context accurately', () => {
     mockState.refOrbitNodes = new Float64Array(10);
     mockState.refMetadata = new Float64Array(10);
-    mockState.refBlaGrid = new Float64Array(10);
     mockTheme.renderMode = 'f32_perturbation';
     vi.mocked(calculateSkipIter).mockReturnValue(42);
 
@@ -91,7 +89,6 @@ describe('mathContextAdapter', () => {
     mockState.interactionState = 'INTERACT_SAFE';
     mockState.refOrbitNodes = new Float64Array(10);
     mockState.refMetadata = new Float64Array(10);
-    mockState.refBlaGrid = new Float64Array(10);
     mockTheme.renderMode = 'f32_perturbation';
     mockState.paletteMaxIter = 1000;
     vi.mocked(calculateSkipIter).mockReturnValue(200);

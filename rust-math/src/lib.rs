@@ -22,7 +22,6 @@ pub struct Point {
 pub struct MathPayload {
     orbit_nodes: js_sys::Float64Array,
     metadata: js_sys::Float64Array,
-    bla_grid: js_sys::Float64Array,
     bla_grid_ds: js_sys::Float64Array,
     bta_grid: js_sys::Float64Array,
 }
@@ -37,10 +36,7 @@ impl MathPayload {
     pub fn metadata(&self) -> js_sys::Float64Array {
         self.metadata.clone()
     }
-    #[wasm_bindgen(getter)]
-    pub fn bla_grid(&self) -> js_sys::Float64Array {
-        self.bla_grid.clone()
-    }
+
     #[wasm_bindgen(getter)]
     pub fn bla_grid_ds(&self) -> js_sys::Float64Array {
         self.bla_grid_ds.clone()
@@ -60,7 +56,6 @@ fn split_ds(val: f64) -> (f64, f64) {
 pub struct NativeMathPayload {
     pub orbit_nodes: Vec<f64>,
     pub metadata: Vec<f64>,
-    pub bla_grid: Vec<f64>,
     pub bla_grid_ds: Vec<f64>,
     pub bta_grid: Vec<f64>,
 }
@@ -429,7 +424,6 @@ pub fn compute_mandelbrot_internal(points_json: &str, max_iterations: u32) -> Na
     NativeMathPayload {
         orbit_nodes: orbit_results,
         metadata: meta_results,
-        bla_grid: bla_results,
         bla_grid_ds: bla_results_ds,
         bta_grid: bta_results,
     }
@@ -441,7 +435,6 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> MathPayload
     MathPayload {
         orbit_nodes: js_sys::Float64Array::from(&native.orbit_nodes[..]),
         metadata: js_sys::Float64Array::from(&native.metadata[..]),
-        bla_grid: js_sys::Float64Array::from(&native.bla_grid[..]),
         bla_grid_ds: js_sys::Float64Array::from(&native.bla_grid_ds[..]),
         bta_grid: js_sys::Float64Array::from(&native.bta_grid[..]),
     }

@@ -16,7 +16,6 @@ export interface MathContext {
   exponent: number;
   refOrbitNodes: Float64Array | null;
   refMetadata: Float64Array | null;
-  refBlaGrid: Float64Array | null;
   refBlaGridDs: Float64Array | null;
   refBtaGrid: Float64Array | null;
   effectiveMathMode: number;
