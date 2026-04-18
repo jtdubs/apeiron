@@ -52,8 +52,14 @@ fn split_ds(val: f64) -> (f64, f64) {
     (hi, lo)
 }
 
-#[wasm_bindgen]
-pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> MathPayload {
+pub struct NativeMathPayload {
+    pub orbit_nodes: Vec<f64>,
+    pub metadata: Vec<f64>,
+    pub bla_grid: Vec<f64>,
+    pub bla_grid_ds: Vec<f64>,
+}
+
+pub fn compute_mandelbrot_internal(points_json: &str, max_iterations: u32) -> NativeMathPayload {
     let points: Vec<Point> = serde_json::from_str(points_json).unwrap_or_else(|_| vec![]);
     
     let floats_per_case = max_iterations as usize * ORBIT_STRIDE;
@@ -347,11 +353,22 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> MathPayload
         }
     }
 
+    NativeMathPayload {
+        orbit_nodes: orbit_results,
+        metadata: meta_results,
+        bla_grid: bla_results,
+        bla_grid_ds: bla_results_ds,
+    }
+}
+
+#[wasm_bindgen]
+pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> MathPayload {
+    let native = compute_mandelbrot_internal(points_json, max_iterations);
     MathPayload {
-        orbit_nodes: js_sys::Float64Array::from(&orbit_results[..]),
-        metadata: js_sys::Float64Array::from(&meta_results[..]),
-        bla_grid: js_sys::Float64Array::from(&bla_results[..]),
-        bla_grid_ds: js_sys::Float64Array::from(&bla_results_ds[..]),
+        orbit_nodes: js_sys::Float64Array::from(&native.orbit_nodes[..]),
+        metadata: js_sys::Float64Array::from(&native.metadata[..]),
+        bla_grid: js_sys::Float64Array::from(&native.bla_grid[..]),
+        bla_grid_ds: js_sys::Float64Array::from(&native.bla_grid_ds[..]),
     }
 }
 
