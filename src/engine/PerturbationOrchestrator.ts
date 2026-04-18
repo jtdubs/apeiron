@@ -62,6 +62,9 @@ export class PerturbationOrchestrator {
 
     this.worker.onmessage = this.handleWorkerMessage.bind(this);
     this.unsubStore = viewportStore.subscribe(this.handleStoreChange.bind(this));
+
+    // Bootstrap worker immediately on mount based on the initial store state
+    this.handleStoreChange(viewportStore.getState());
   }
 
   private lastDeltaCr = 0;
