@@ -14,7 +14,7 @@ export function getCompiledMathShader(): string {
     read('./src/engine/shaders/escape/standard_iteration.wgsl'),
     read('./src/engine/shaders/escape/bla_stepper.wgsl'),
     read('./src/engine/shaders/escape/perturbation.wgsl'),
-    read('./src/engine/shaders/escape/math_accum.wgsl'),
+    read('./src/engine/shaders/escape/core_compute.wgsl'),
   ].join('\n\n');
 }
 
@@ -23,6 +23,6 @@ export function getResolveShader(): string {
   return (
     read('./src/engine/shaders/escape/generated/layout.wgsl') +
     '\n' +
-    read('./src/engine/shaders/escape/resolve_present.wgsl')
+    read('./src/engine/shaders/escape/core_render.wgsl')
   );
 }

@@ -30,8 +30,8 @@ async function lintWgsl() {
   const device = await adapter.requestDevice();
 
   const shadersToLint = [
-    path.join(__dirname, '../src/engine/shaders/escape/math_accum.wgsl'),
-    path.join(__dirname, '../src/engine/shaders/escape/resolve_present.wgsl'),
+    path.join(__dirname, '../src/engine/shaders/escape/core_compute.wgsl'),
+    path.join(__dirname, '../src/engine/shaders/escape/core_render.wgsl'),
   ];
 
   let hasErrors = false;
