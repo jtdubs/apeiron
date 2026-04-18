@@ -22,11 +22,12 @@ Implement a proactive **Chained Rebasing** system and a **Reference Tree** manag
 - [ ] Implement basic arithmetic (`mul`, `add`, `normalize`) for `FloatExp`.
 - [ ] Update `PerturbationKernel` to use `FloatExp` when zoom depth exceeds threshold.
 
-### 2. Rebasing Logic (GPU)
+### 2. Rebasing & Glitch Feedback (GPU)
 
 - [ ] Implement the `check_rebase` condition in the WGSL kernel: `dot(P, P) < dot(dz, dz)`.
+- [ ] Implement proxy collapse detection (bits-of-precision loss logic deferred from Task 070).
 - [ ] Implement the `rebase_step` to transfer the delta: `dz_new = Z + dz`.
-- [ ] Add a status flag to the feedback buffer to signal a rebase event to the orchestrator.
+- [ ] Implement a readback storage buffer to signal glitch/rebase coordinates to the TypeScript orchestrator.
 
 ### 3. Reference Tree Orchestration (WASM Worker)
 
