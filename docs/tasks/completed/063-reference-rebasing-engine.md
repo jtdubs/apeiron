@@ -1,8 +1,10 @@
 ---
-status: open
+status: superseded
 ---
 
-# Task 063: Reference Rebasing Engine (Dual-Orbit Perturbation)
+# Task 063: Reference Rebasing Engine (Dual-Orbit Perturbation) [SUPERSEDED]
+
+**Note:** This task has been superseded by **Task 071: Rebasing & Reference Chains Implementation**, which implements a more advanced proactive rebasing strategy (Zhuoran's method) and Reference Trees.
 
 ## Objective
 
@@ -17,7 +19,7 @@ Solve the deep-zoom (>1e-7) Proxy Collapse limitations by creating a dynamic Ref
 
 During deep-zoom Perturbation testing (1e-5), we discovered dual mathematical vulnerabilities rendering "solid color screens":
 
-1. **The True Nature of Proxy Collapse:** `core-math.md` originally assumed Proxy Collapse was largely mitigated by early limit-cycle detection in the Rust Backend. This is incorrect. Proxy Collapse (`|Δz| > |Z_n|`) naturally occurs anytime a localized coordinate wanders far enough from the central reference orbit due to structural topology (e.g. centering near a mini-mandelbrot origin while surrounding pixels diverge outwardly). 
+1. **The True Nature of Proxy Collapse:** `core-math.md` originally assumed Proxy Collapse was largely mitigated by early limit-cycle detection in the Rust Backend. This is incorrect. Proxy Collapse (`|Δz| > |Z_n|`) naturally occurs anytime a localized coordinate wanders far enough from the central reference orbit due to structural topology (e.g. centering near a mini-mandelbrot origin while surrounding pixels diverge outwardly).
 2. **Bilinear Approximation (BLA) Blind Spots:** The BLA acceleration structure only calculates numeric validity matrix error margins, assuming `|Δz| < |Z_n|` holds true fundamentally. When a pixel mathematically hits Proxy Collapse, the linear assumptions of the BLA matrices aggressively disintegrate. Previously, BLA skipped right over the failure bounds and output massively corrupted `Δz` values that artificially triggered "escape" conditions inside standard math validations.
 
 **The Current Mitigation (Task 062):**
