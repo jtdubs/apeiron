@@ -10,6 +10,8 @@ function watchRustMath(): Plugin {
     configureServer(server) {
       server.watcher.add('rust-math/src/**/*.rs');
       server.watcher.add('scripts/compileLayoutSchema.js');
+      server.watcher.add('scripts/bundleShaders.js');
+      server.watcher.add('src/engine/shaders/**/*.wgsl');
 
       let isBuilding = false;
       let pendingBuild = false;
@@ -47,8 +49,15 @@ function watchRustMath(): Plugin {
       buildMath();
 
       server.watcher.on('change', (file) => {
-        if (file.includes('rust-math/src/') || file.includes('compileLayoutSchema.js')) {
-          buildMath();
+        if (
+          file.includes('rust-math/src/') ||
+          file.includes('compileLayoutSchema.js') ||
+          file.includes('bundleShaders.js') ||
+          file.endsWith('.wgsl')
+        ) {
+          if (!file.includes('.bundled.wgsl')) {
+            buildMath();
+          }
         }
       });
     },

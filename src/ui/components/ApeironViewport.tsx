@@ -4,16 +4,8 @@ import type { ApeironEngine } from '../../engine/initEngine';
 // Import removed
 
 import layoutWgsl from '../../engine/shaders/escape/generated/layout.wgsl?raw';
-import layoutAccessorsWgsl from '../../engine/shaders/escape/generated/layout_accessors.wgsl?raw';
-import complexWgsl from '../../engine/shaders/math/complex.wgsl?raw';
-import polynomialWgsl from '../../engine/shaders/math/polynomial.wgsl?raw';
-import doubleSingleWgsl from '../../engine/shaders/math/double_single.wgsl?raw';
-import f64DecodeWgsl from '../../engine/shaders/math/f64_decode.wgsl?raw';
-import standardIterationWgsl from '../../engine/shaders/escape/standard_iteration.wgsl?raw';
-import blaStepperWgsl from '../../engine/shaders/escape/bla_stepper.wgsl?raw';
-import perturbationWgsl from '../../engine/shaders/escape/perturbation.wgsl?raw';
-import mathAccumWgsl from '../../engine/shaders/escape/core_compute.wgsl?raw';
-import resolvePresentWgsl from '../../engine/shaders/escape/core_render.wgsl?raw';
+import mathAccumWgsl from '../../engine/generated/core_compute.bundled.wgsl?raw';
+import resolvePresentWgsl from '../../engine/generated/core_render.bundled.wgsl?raw';
 import { viewportStore } from '../stores/viewportStore';
 import { renderStore } from '../stores/renderStore';
 import { RenderOrchestrator } from '../../engine/RenderOrchestrator';
@@ -165,18 +157,7 @@ export const ApeironViewport: React.FC = () => {
 
     const initialize = async () => {
       try {
-        const compiledMathShader = [
-          layoutWgsl,
-          layoutAccessorsWgsl,
-          complexWgsl,
-          polynomialWgsl,
-          doubleSingleWgsl,
-          f64DecodeWgsl,
-          standardIterationWgsl,
-          blaStepperWgsl,
-          perturbationWgsl,
-          mathAccumWgsl,
-        ].join('\n\n');
+        const compiledMathShader = mathAccumWgsl;
 
         const engine = await initEngine(canvas, compiledMathShader, resolvePresentWgsl, layoutWgsl);
         if (!isMounted) return;

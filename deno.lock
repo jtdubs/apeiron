@@ -63,6 +63,7 @@
         "npm:vite@^8.0.4",
         "npm:vitest@^4.1.4",
         "npm:wasm-pack@0.14",
+        "npm:wesl-link@~0.7.24",
         "npm:zustand@^5.0.12"
       ]
     }
