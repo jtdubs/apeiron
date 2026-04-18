@@ -256,6 +256,15 @@
   .is-expanded .hud-mobile-divider {
     display: block;
   }
+
+  .hud-desktop-only {
+    display: none !important;
+  }
+
+  .hud-settings-section:last-of-type {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
 }
 
 @media (max-width: 480px) {

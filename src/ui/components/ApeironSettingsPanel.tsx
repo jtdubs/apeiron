@@ -290,6 +290,7 @@ export const ApeironSettingsPanel: React.FC<{ onClose?: () => void }> = ({ onClo
         )}
       </div>
       <button
+        className="hud-desktop-only"
         style={{
           width: '100%',
           padding: '8px',

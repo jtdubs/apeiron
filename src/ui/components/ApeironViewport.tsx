@@ -94,9 +94,7 @@ export const ApeironViewport: React.FC = () => {
         const mathDx = ndcX * zoom * aspect * (1.0 - zoomFactor);
         const mathDy = ndcY * zoom * (1.0 - zoomFactor);
 
-        const sliceAngleDelta = (dx / rect.width) * Math.PI;
-
-        viewportStore.getState().updateViewport(mathDx, mathDy, zoomFactor, sliceAngleDelta);
+        viewportStore.getState().updateViewport(mathDx, mathDy, zoomFactor, 0.0);
       } else if (isMiddleMouseDragging) {
         const sliceAngleDelta = (dx / rect.width) * Math.PI;
         viewportStore.getState().updateViewport(0, 0, 1.0, sliceAngleDelta);
