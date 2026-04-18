@@ -54,6 +54,18 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(tex_color.rgb, 1.0);
   }
 
+  // DIAGNOSTIC SENTINELS: Phase 1 Color Repurposing
+  if (iter == -5.0) {
+    // NaN or Invalid math calculation -> Bright Cyan
+    return vec4<f32>(0.0, 1.0, 1.0, 1.0);
+  } else if (iter == -2.0) {
+    // Checkpoint suspension without proper yield -> Bright Magenta
+    return vec4<f32>(1.0, 0.0, 1.0, 1.0);
+  } else if (iter < 0.0) {
+    // Catch-all for negative iterations not accounted for -> Red
+    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+  }
+
   if (iter >= params.max_iter) {
     // Inside the set (Black)
     return vec4<f32>(0.0, 0.0, 0.0, 1.0);

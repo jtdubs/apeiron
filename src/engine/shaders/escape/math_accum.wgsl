@@ -273,6 +273,22 @@ fn unpack_f64_to_f32(raw: vec2<u32>) -> f32 {
     return sign * mantissa * exp2(exp);
 }
 
+fn unpack_f64_to_ds(raw: vec2<u32>) -> vec2<f32> {
+    let low = raw.x;
+    let high = raw.y;
+    let sign = select(1.0, -1.0, (high & 0x80000000u) != 0u);
+    let exp_raw = (high >> 20u) & 0x7FFu;
+    if (exp_raw == 0u) {
+        return vec2<f32>(0.0, 0.0);
+    }
+    let exp = f32(i32(exp_raw) - 1023);
+    let mantissa_high = f32(high & 0xFFFFFu) / 1048576.0;
+    let high_val = sign * (1.0 + mantissa_high) * exp2(exp);
+    let mantissa_low = f32(low) / 4503599627370496.0;
+    let low_val = sign * mantissa_low * exp2(exp);
+    return vec2<f32>(high_val, low_val);
+}
+
 struct BlaResult {
   dz: vec2<f32>,
   der: vec2<f32>,
@@ -364,7 +380,10 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
     if (advanced_by_bla) {
         let cur_mag = dz.x * dz.x + dz.y * dz.y;
         if (cur_mag > 1000000.0) {
-            let ret = vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
+            let ref_final_node = get_orbit_node(u32(iter));
+            let final_x = ref_final_node.x + dz.x;
+            let final_y = ref_final_node.y + dz.y;
+            let ret = get_escape_data(iter, final_x, final_y, der.x, der.y, 0.0, tia_sum);
             checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
             return BlaResult(dz, der, iter, prev_z_mag, true, ret, true);
         }
@@ -495,7 +514,11 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
 
   // Initialize parallel high-precision state
   var dz_ds = complex_f32_to_ds(dz);
-  let dc_ds = complex_f32_to_ds(delta_c);
+  
+  let ds_center = vec4<f32>(camera.dc_high_x, camera.dc_low_x, camera.dc_high_y, camera.dc_low_y);
+  let uv_rot_x = delta_c.x - camera.cr;
+  let uv_rot_y = delta_c.y - camera.ci;
+  let dc_ds = complex_add_ds(ds_center, vec4<f32>(uv_rot_x, 0.0, uv_rot_y, 0.0));
 
   let c_mag = length(start_c);
 
@@ -530,7 +553,10 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     
     // Switch to Double-Single Emulated precision natively when math_compute_mode == 2
     if (math_compute_mode == 2u) {
-        let z_ds = complex_f32_to_ds(vec2<f32>(zx, zy));
+        let base_index = u32(iter) * ORBIT_STRIDE;
+        let zx_ds = unpack_f64_to_ds(ref_orbits[base_index + 0u]);
+        let zy_ds = unpack_f64_to_ds(ref_orbits[base_index + 1u]);
+        let z_ds = vec4<f32>(zx_ds.x, zx_ds.y, zy_ds.x, zy_ds.y);
         
         let dz2_ds = complex_sq_ds(dz_ds);
         let two_z_dz_ds = complex_mul_ds(complex_f32_to_ds(vec2<f32>(2.0, 0.0)), complex_mul_ds(z_ds, dz_ds));
