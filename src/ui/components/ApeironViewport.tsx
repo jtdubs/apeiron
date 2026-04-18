@@ -3,7 +3,6 @@ import { initEngine } from '../../engine/initEngine';
 import type { ApeironEngine } from '../../engine/initEngine';
 // Import removed
 
-import layoutWgsl from '../../engine/shaders/escape/generated/layout.wgsl?raw';
 import mathAccumWgsl from '../../engine/generated/core_compute.bundled.wgsl?raw';
 import resolvePresentWgsl from '../../engine/generated/core_render.bundled.wgsl?raw';
 import { viewportStore } from '../stores/viewportStore';
@@ -159,7 +158,7 @@ export const ApeironViewport: React.FC = () => {
       try {
         const compiledMathShader = mathAccumWgsl;
 
-        const engine = await initEngine(canvas, compiledMathShader, resolvePresentWgsl, layoutWgsl);
+        const engine = await initEngine(canvas, compiledMathShader, resolvePresentWgsl);
         if (!isMounted) return;
         engineRef.current = engine;
 

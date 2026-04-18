@@ -16,7 +16,6 @@ export async function initEngine(
   canvas?: HTMLCanvasElement,
   compiledMathShaderCode: string = '',
   resolveShaderCode: string = '',
-  layoutWgslCode: string = '',
 ): Promise<ApeironEngine> {
   if (!navigator.gpu) {
     throw new Error('WebGPU is not supported in this environment');
@@ -64,7 +63,7 @@ export async function initEngine(
       canvas.height,
       canvasFormat,
       compiledMathShaderCode,
-      layoutWgslCode + '\n' + resolveShaderCode,
+      resolveShaderCode,
     );
   }
 
