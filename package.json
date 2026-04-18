@@ -15,7 +15,8 @@
     "test:engine": "deno test --unstable-webgpu --allow-read --allow-env --allow-write --no-check tests/engine.deno.ts tests/engine/ComputeUnit.deno.ts",
     "test:ui": "vitest run",
     "test:update": "UPDATE_SNAPSHOTS=true deno test --unstable-webgpu --allow-read --allow-env --allow-write --no-check tests/engine.deno.ts tests/engine/ComputeUnit.deno.ts",
-    "lint": "eslint .",
+    "lint": "npm run lint:ts && npm run lint:wgsl",
+    "lint:ts": "eslint .",
     "lint:wgsl": "deno run --unstable-webgpu --allow-read scripts/lintWgsl.ts",
     "preview": "vite preview",
     "prepare": "husky"
