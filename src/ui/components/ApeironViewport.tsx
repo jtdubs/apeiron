@@ -7,6 +7,7 @@ import mathAccumWgsl from '../../engine/shaders/escape/math_accum.wgsl?raw';
 import resolvePresentWgsl from '../../engine/shaders/escape/resolve_present.wgsl?raw';
 import layoutWgsl from '../../engine/shaders/escape/generated/layout.wgsl?raw';
 import layoutAccessorsWgsl from '../../engine/shaders/escape/generated/layout_accessors.wgsl?raw';
+import dsMathWgsl from '../../engine/shaders/math/ds_math.wgsl?raw';
 import { viewportStore } from '../stores/viewportStore';
 import { renderStore } from '../stores/renderStore';
 import { RenderOrchestrator } from '../../engine/RenderOrchestrator';
@@ -164,6 +165,7 @@ export const ApeironViewport: React.FC = () => {
           resolvePresentWgsl,
           layoutWgsl,
           layoutAccessorsWgsl,
+          dsMathWgsl,
         );
         if (!isMounted) return;
         engineRef.current = engine;

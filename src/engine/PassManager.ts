@@ -494,11 +494,25 @@ export class PassManager {
     const usePerturbationAllowed = desc.theme?.precisionMode !== 'f32';
     const usePerturbation = this.hasValidActiveRefOrbits && usePerturbationAllowed ? 1.0 : 0.0;
 
+    const splitF64 = (a: number) => {
+      const hi = Math.fround(a);
+      const lo = Math.fround(a - hi);
+      return [hi, lo];
+    };
+    
+    // Split the f64 camera center to retain deep-zoom precision on the GPU
+    const [dc_high_x, dc_low_x] = splitF64(desc.context.cr);
+    const [dc_high_y, dc_low_y] = splitF64(desc.context.ci);
+
     const cameraData = packCameraParams({
       zr: desc.context.zr,
       zi: desc.context.zi,
       cr: desc.context.cr,
       ci: desc.context.ci,
+      dc_high_x,
+      dc_high_y,
+      dc_low_x,
+      dc_low_y,
       scale: desc.context.zoom,
       aspect: aspectRatio,
       compute_max_iter: desc.context.computeMaxIter,

@@ -492,6 +492,11 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
   var prev_z_mag = init_state.prev_z_mag;
   var tia_sum = init_state.tia_sum;
 
+  // Initialize parallel high-precision state
+  let deep_zoom = camera.scale < 1e-10 && fractal_exponent == 2.0;
+  var dz_ds = complex_f32_to_ds(dz);
+  let dc_ds = complex_f32_to_ds(delta_c);
+
   let c_mag = length(start_c);
 
   // Synchronizes iterator bounds with the ProgressiveRenderScheduler to allow
@@ -522,18 +527,35 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     
     var dz_next: vec2<f32>;
     let d = fractal_exponent;
-    if (d == 2.0) {
-      let dz2 = complex_sq(dz);
-      let two_z_dz = 2.0 * complex_mul(vec2<f32>(zx, zy), dz);
-      dz_next = complex_add(complex_add(two_z_dz, dz2), delta_c);
+    
+    // Switch to Double-Single Emulated precision natively when exceeding f32 capability (around scale ~1e-10)
+    // and using Mandelbrot (d=2) which is the only one we have DS math fully vetted for right now.
+    if (deep_zoom) {
+        let z_ds = complex_f32_to_ds(vec2<f32>(zx, zy));
+        
+        let dz2_ds = complex_sq_ds(dz_ds);
+        let two_z_dz_ds = complex_mul_ds(complex_f32_to_ds(vec2<f32>(2.0, 0.0)), complex_mul_ds(z_ds, dz_ds));
+        let dz_next_ds = complex_add_ds(complex_add_ds(two_z_dz_ds, dz2_ds), dc_ds);
+        
+        dz_ds = dz_next_ds;
+        
+        // Return to f32 for storage/next iteration context calculation, but maintain dz_ds
+        // dz_next_ds.xy are the High bits of Real and Imaginary (DSComplex is x:RealHi, y:RealLo, z:ImagHi, w:ImagLo)
+        dz_next = vec2<f32>(dz_ds.x, dz_ds.z);
     } else {
-      let cur_z_next = step_polynomial(vec2<f32>(zx, zy) + dz, vec2<f32>(0.0, 0.0), d);
-      let ref_next = step_polynomial(vec2<f32>(zx, zy), vec2<f32>(0.0, 0.0), d);
-      dz_next = cur_z_next - ref_next + delta_c;
+        if (d == 2.0) {
+          let dz2 = complex_sq(dz);
+          let two_z_dz = 2.0 * complex_mul(vec2<f32>(zx, zy), dz);
+          dz_next = complex_add(complex_add(two_z_dz, dz2), delta_c);
+        } else {
+          let cur_z_next = step_polynomial(vec2<f32>(zx, zy) + dz, vec2<f32>(0.0, 0.0), d);
+          let ref_next = step_polynomial(vec2<f32>(zx, zy), vec2<f32>(0.0, 0.0), d);
+          dz_next = cur_z_next - ref_next + delta_c;
+        }
     }
     
     let cur_x_for_der = zx + dz.x;
-    let new_der = step_derivative(vec2<f32>(zx + dz.x, zy + dz.y), vec2<f32>(der_x, der_y), d);
+    let new_der = step_derivative(vec2<f32>(zx + dz_next.x, zy + dz_next.y), vec2<f32>(der_x, der_y), d);
     var new_der_x = new_der.x;
     var new_der_y = new_der.y;
     let new_der_max = max(abs(new_der_x), abs(new_der_y));
@@ -853,4 +875,23 @@ fn unit_test_engine_math(@builtin(global_invocation_id) global_id: vec3<u32>) {
   data_out[idx * 4u + 1u] = ret.y;
   data_out[idx * 4u + 2u] = ret.z;
   data_out[idx * 4u + 3u] = ret.w;
+}
+
+@compute @workgroup_size(64)
+fn unit_test_ds_math(@builtin(global_invocation_id) global_id: vec3<u32>) {
+  let idx = global_id.x;
+  if (idx * 4u >= arrayLength(&data_in)) {
+      return;
+  }
+  
+  let a = vec2<f32>(data_in[idx * 4u], data_in[idx * 4u + 1u]);
+  let b = vec2<f32>(data_in[idx * 4u + 2u], data_in[idx * 4u + 3u]);
+  
+  let sum_res = ds_add(a, b);
+  let mul_res = ds_mul(a, b);
+  
+  data_out[idx * 4u] = sum_res.x;
+  data_out[idx * 4u + 1u] = sum_res.y;
+  data_out[idx * 4u + 2u] = mul_res.x;
+  data_out[idx * 4u + 3u] = mul_res.y;
 }

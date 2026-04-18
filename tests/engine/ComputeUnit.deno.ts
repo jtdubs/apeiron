@@ -18,8 +18,15 @@ Deno.test('WGSL Layer 2 Flavor D - Complex Math Unit Tests', async () => {
     'utf8',
   );
 
+  const dsMathWgsl = fs.readFileSync(
+    path.resolve('./src/engine/shaders/math/ds_math.wgsl'),
+    'utf8',
+  );
+
   const mathAccumWgslStr =
     layoutWgsl +
+    '\n' +
+    dsMathWgsl +
     '\n' +
     fs.readFileSync(path.resolve('./src/engine/shaders/escape/math_accum.wgsl'), 'utf8');
   const mathAccumWgsl = mathAccumWgslStr.replace(
@@ -74,8 +81,14 @@ Deno.test('WGSL Layer 2 Flavor D - Core Polynomial Arithmetic', async () => {
     path.resolve('./src/engine/shaders/escape/generated/layout_accessors.wgsl'),
     'utf8',
   );
+  const dsMathWgsl = fs.readFileSync(
+    path.resolve('./src/engine/shaders/math/ds_math.wgsl'),
+    'utf8',
+  );
   const mathAccumWgslStr =
     layoutWgsl +
+    '\n' +
+    dsMathWgsl +
     '\n' +
     fs.readFileSync(path.resolve('./src/engine/shaders/escape/math_accum.wgsl'), 'utf8');
   const mathAccumWgsl = mathAccumWgslStr.replace(
@@ -119,8 +132,14 @@ Deno.test('WGSL Layer 2 Flavor D - Temporal State Machine Continuation', async (
     path.resolve('./src/engine/shaders/escape/generated/layout_accessors.wgsl'),
     'utf8',
   );
+  const dsMathWgsl = fs.readFileSync(
+    path.resolve('./src/engine/shaders/math/ds_math.wgsl'),
+    'utf8',
+  );
   const mathAccumWgslStr =
     layoutWgsl +
+    '\n' +
+    dsMathWgsl +
     '\n' +
     fs.readFileSync(path.resolve('./src/engine/shaders/escape/math_accum.wgsl'), 'utf8');
   const mathAccumWgsl = mathAccumWgslStr.replace(
@@ -179,8 +198,14 @@ Deno.test('WGSL Layer 2 Flavor D - Series Approximation & BLA Execution', async 
     path.resolve('./src/engine/shaders/escape/generated/layout_accessors.wgsl'),
     'utf8',
   );
+  const dsMathWgsl = fs.readFileSync(
+    path.resolve('./src/engine/shaders/math/ds_math.wgsl'),
+    'utf8',
+  );
   const mathAccumWgslStr =
     layoutWgsl +
+    '\n' +
+    dsMathWgsl +
     '\n' +
     fs.readFileSync(path.resolve('./src/engine/shaders/escape/math_accum.wgsl'), 'utf8');
   const mathAccumWgsl = mathAccumWgslStr.replace(
