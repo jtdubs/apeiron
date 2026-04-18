@@ -1,7 +1,6 @@
 import { WebGPUTestHarness } from '../WebGPUTestHarness.ts';
-import fs from 'node:fs';
-import path from 'node:path';
 import { initEngine } from '../../src/engine/initEngine.ts';
+import { getCompiledMathShader } from './compileShaderHelper.ts';
 
 Deno.test('WGSL Layer 2 Flavor D - Complex Math Unit Tests', async () => {
   if (!globalThis.navigator || !globalThis.navigator.gpu) {
@@ -9,30 +8,7 @@ Deno.test('WGSL Layer 2 Flavor D - Complex Math Unit Tests', async () => {
     return;
   }
 
-  const layoutWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/escape/generated/layout.wgsl'),
-    'utf8',
-  );
-  const layoutAccessorsWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/escape/generated/layout_accessors.wgsl'),
-    'utf8',
-  );
-
-  const dsMathWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/math/ds_math.wgsl'),
-    'utf8',
-  );
-
-  const mathAccumWgslStr =
-    layoutWgsl +
-    '\n' +
-    dsMathWgsl +
-    '\n' +
-    fs.readFileSync(path.resolve('./src/engine/shaders/escape/math_accum.wgsl'), 'utf8');
-  const mathAccumWgsl = mathAccumWgslStr.replace(
-    'fn unpack_f64_to_f32',
-    layoutAccessorsWgsl + '\nfn unpack_f64_to_f32',
-  );
+  const mathAccumWgsl = getCompiledMathShader();
 
   const engine = await initEngine(undefined, mathAccumWgsl, '');
   const harness = new WebGPUTestHarness(engine.device, mathAccumWgsl, '');
@@ -73,28 +49,7 @@ Deno.test('WGSL Layer 2 Flavor D - Complex Math Unit Tests', async () => {
 Deno.test('WGSL Layer 2 Flavor D - Core Polynomial Arithmetic', async () => {
   if (!globalThis.navigator || !globalThis.navigator.gpu) return;
 
-  const layoutWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/escape/generated/layout.wgsl'),
-    'utf8',
-  );
-  const layoutAccessorsWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/escape/generated/layout_accessors.wgsl'),
-    'utf8',
-  );
-  const dsMathWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/math/ds_math.wgsl'),
-    'utf8',
-  );
-  const mathAccumWgslStr =
-    layoutWgsl +
-    '\n' +
-    dsMathWgsl +
-    '\n' +
-    fs.readFileSync(path.resolve('./src/engine/shaders/escape/math_accum.wgsl'), 'utf8');
-  const mathAccumWgsl = mathAccumWgslStr.replace(
-    'fn unpack_f64_to_f32',
-    layoutAccessorsWgsl + '\nfn unpack_f64_to_f32',
-  );
+  const mathAccumWgsl = getCompiledMathShader();
 
   const engine = await initEngine(undefined, mathAccumWgsl, '');
   const harness = new WebGPUTestHarness(engine.device, mathAccumWgsl, '');
@@ -124,28 +79,7 @@ Deno.test('WGSL Layer 2 Flavor D - Core Polynomial Arithmetic', async () => {
 Deno.test('WGSL Layer 2 Flavor D - Temporal State Machine Continuation', async () => {
   if (!globalThis.navigator || !globalThis.navigator.gpu) return;
 
-  const layoutWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/escape/generated/layout.wgsl'),
-    'utf8',
-  );
-  const layoutAccessorsWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/escape/generated/layout_accessors.wgsl'),
-    'utf8',
-  );
-  const dsMathWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/math/ds_math.wgsl'),
-    'utf8',
-  );
-  const mathAccumWgslStr =
-    layoutWgsl +
-    '\n' +
-    dsMathWgsl +
-    '\n' +
-    fs.readFileSync(path.resolve('./src/engine/shaders/escape/math_accum.wgsl'), 'utf8');
-  const mathAccumWgsl = mathAccumWgslStr.replace(
-    'fn unpack_f64_to_f32',
-    layoutAccessorsWgsl + '\nfn unpack_f64_to_f32',
-  );
+  const mathAccumWgsl = getCompiledMathShader();
 
   const engine = await initEngine(undefined, mathAccumWgsl, '');
   const harness = new WebGPUTestHarness(engine.device, mathAccumWgsl, '');
@@ -190,28 +124,7 @@ Deno.test('WGSL Layer 2 Flavor D - Temporal State Machine Continuation', async (
 Deno.test('WGSL Layer 2 Flavor D - Series Approximation & BLA Execution', async () => {
   if (!globalThis.navigator || !globalThis.navigator.gpu) return;
 
-  const layoutWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/escape/generated/layout.wgsl'),
-    'utf8',
-  );
-  const layoutAccessorsWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/escape/generated/layout_accessors.wgsl'),
-    'utf8',
-  );
-  const dsMathWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/math/ds_math.wgsl'),
-    'utf8',
-  );
-  const mathAccumWgslStr =
-    layoutWgsl +
-    '\n' +
-    dsMathWgsl +
-    '\n' +
-    fs.readFileSync(path.resolve('./src/engine/shaders/escape/math_accum.wgsl'), 'utf8');
-  const mathAccumWgsl = mathAccumWgslStr.replace(
-    'fn unpack_f64_to_f32',
-    layoutAccessorsWgsl + '\nfn unpack_f64_to_f32',
-  );
+  const mathAccumWgsl = getCompiledMathShader();
 
   const engine = await initEngine(undefined, mathAccumWgsl, '');
   const harness = new WebGPUTestHarness(engine.device, mathAccumWgsl, '');

@@ -14,11 +14,9 @@ export interface ApeironEngine {
 
 export async function initEngine(
   canvas?: HTMLCanvasElement,
-  mathShaderCode: string = '',
+  compiledMathShaderCode: string = '',
   resolveShaderCode: string = '',
   layoutWgslCode: string = '',
-  layoutAccessorsWgslCode: string = '',
-  dsMathWgslCode: string = '',
 ): Promise<ApeironEngine> {
   if (!navigator.gpu) {
     throw new Error('WebGPU is not supported in this environment');
@@ -60,17 +58,12 @@ export async function initEngine(
   let passManager: PassManager | null = null;
 
   if (canvas) {
-    let finalMathShaderCode = layoutWgslCode + '\n' + dsMathWgslCode + '\n' + mathShaderCode;
-    finalMathShaderCode = finalMathShaderCode.replace(
-      'fn unpack_f64_to_f32',
-      layoutAccessorsWgslCode + '\nfn unpack_f64_to_f32',
-    );
     passManager = new PassManager(
       device,
       canvas.width,
       canvas.height,
       canvasFormat,
-      finalMathShaderCode,
+      compiledMathShaderCode,
       layoutWgslCode + '\n' + resolveShaderCode,
     );
   }

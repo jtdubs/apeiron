@@ -3,11 +3,17 @@ import { initEngine } from '../../engine/initEngine';
 import type { ApeironEngine } from '../../engine/initEngine';
 // Import removed
 
-import mathAccumWgsl from '../../engine/shaders/escape/math_accum.wgsl?raw';
-import resolvePresentWgsl from '../../engine/shaders/escape/resolve_present.wgsl?raw';
 import layoutWgsl from '../../engine/shaders/escape/generated/layout.wgsl?raw';
 import layoutAccessorsWgsl from '../../engine/shaders/escape/generated/layout_accessors.wgsl?raw';
-import dsMathWgsl from '../../engine/shaders/math/ds_math.wgsl?raw';
+import complexWgsl from '../../engine/shaders/math/complex.wgsl?raw';
+import polynomialWgsl from '../../engine/shaders/math/polynomial.wgsl?raw';
+import doubleSingleWgsl from '../../engine/shaders/math/double_single.wgsl?raw';
+import f64DecodeWgsl from '../../engine/shaders/math/f64_decode.wgsl?raw';
+import standardIterationWgsl from '../../engine/shaders/escape/standard_iteration.wgsl?raw';
+import blaStepperWgsl from '../../engine/shaders/escape/bla_stepper.wgsl?raw';
+import perturbationWgsl from '../../engine/shaders/escape/perturbation.wgsl?raw';
+import mathAccumWgsl from '../../engine/shaders/escape/math_accum.wgsl?raw';
+import resolvePresentWgsl from '../../engine/shaders/escape/resolve_present.wgsl?raw';
 import { viewportStore } from '../stores/viewportStore';
 import { renderStore } from '../stores/renderStore';
 import { RenderOrchestrator } from '../../engine/RenderOrchestrator';
@@ -159,14 +165,20 @@ export const ApeironViewport: React.FC = () => {
 
     const initialize = async () => {
       try {
-        const engine = await initEngine(
-          canvas,
-          mathAccumWgsl,
-          resolvePresentWgsl,
+        const compiledMathShader = [
           layoutWgsl,
           layoutAccessorsWgsl,
-          dsMathWgsl,
-        );
+          complexWgsl,
+          polynomialWgsl,
+          doubleSingleWgsl,
+          f64DecodeWgsl,
+          standardIterationWgsl,
+          blaStepperWgsl,
+          perturbationWgsl,
+          mathAccumWgsl,
+        ].join('\n\n');
+
+        const engine = await initEngine(canvas, compiledMathShader, resolvePresentWgsl, layoutWgsl);
         if (!isMounted) return;
         engineRef.current = engine;
 

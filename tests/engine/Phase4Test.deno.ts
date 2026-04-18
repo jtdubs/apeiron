@@ -1,36 +1,11 @@
 import { initEngine } from '../../src/engine/initEngine.ts';
 import { WebGPUTestHarness } from '../WebGPUTestHarness.ts';
-import fs from 'node:fs';
 import path from 'node:path';
+import { getCompiledMathShader, getResolveShader } from './compileShaderHelper.ts';
 
 async function runPhase4Test() {
-  const layoutWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/escape/generated/layout.wgsl'),
-    'utf8',
-  );
-  const layoutAccessorsWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/escape/generated/layout_accessors.wgsl'),
-    'utf8',
-  );
-  const dsMathWgsl = fs.readFileSync(
-    path.resolve('./src/engine/shaders/math/ds_math.wgsl'),
-    'utf8',
-  );
-
-  const mathAccumWgslStr =
-    layoutWgsl +
-    '\n' +
-    dsMathWgsl +
-    '\n' +
-    fs.readFileSync(path.resolve('./src/engine/shaders/escape/math_accum.wgsl'), 'utf8');
-  const mathAccumWgsl = mathAccumWgslStr.replace(
-    'fn unpack_f64_to_f32',
-    layoutAccessorsWgsl + '\nfn unpack_f64_to_f32',
-  );
-  const resolveWgslStr =
-    layoutWgsl +
-    '\n' +
-    fs.readFileSync(path.resolve('./src/engine/shaders/escape/resolve_present.wgsl'), 'utf8');
+  const mathAccumWgsl = getCompiledMathShader();
+  const resolveWgslStr = getResolveShader();
 
   // We don't bother initializing the WASM worker here, we just want to test how the shader reacts
   // without a reference orbit, or with a mock reference orbit. But we need a reference orbit to see the f32p vs f64p!

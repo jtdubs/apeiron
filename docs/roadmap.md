@@ -116,6 +116,7 @@
 - [x] [Task 048: Decouple WASM to WebGPU Buffer Exchanges](tasks/completed/048-decouple-worker-buffers.md)
 - [x] [Task 062: Isolate and resolve "Solid Screen" Rendering at 1e-5 Zoom](tasks/completed/062-perturbation-solid-screen-glitch.md)
 - [x] [Task 064: Unified Render Mode and Pipeline Specialization](tasks/completed/064-unified-render-mode.md)
+- [x] [Task 075: Refactor `math_accum.wgsl` Monolith Extraction](tasks/completed/075-math-accum-reorg.md)
 
 ## Phase 19: Mathematical Maturity & Infinity Limits
 

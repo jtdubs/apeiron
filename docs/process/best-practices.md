@@ -10,9 +10,10 @@ Based on the architectural refinements established during the engine and shader 
 
 **Enforcement**:
 
-- **TypeScript**: The layout file is the root source of truth. All TS iteration counts and view bounds must be derived dynamically from these numbers.
-- **Rust (WASM)**: WebAssembly memory generation MUST dynamically integrate these constants at build time (or rely on a shared extraction process), avoiding hardcoded sizes.
-- **WebGPU (WGSL)**: Shaders must strictly avoid manual inner-stride numeric offsets (e.g., `arr[base_index + 4u]`). Instead, the TS engine must dynamically prepend these layout constants to the WGSL script upon string instantiation (e.g., `const ORBIT_STRIDE: u32 = 8u;`). Extract complex layouts into strongly-typed WGSL struct getters (e.g., `fn get_orbit_node(base_index)`) guaranteeing safety in the arithmetic loops.
+- **JSON Schema**: All shared layouts are defined in `schema/MemoryLayout.json`. The `compileLayoutSchema` script transpiles this object into standardized WGSL scripts and TS/Rust data files.
+- **TypeScript**: The layout file is the root source of truth. All TS iteration counts, view bounds, indexing strides, byte allocations, and GPU Buffer mappings MUST be derived dynamically from the automatically generated `<Object>_SIZE` and `<Object>_BYTE_OFFSET_<Field>` constants instead of manually typed integers.
+- **Rust (WASM)**: WebAssembly memory targets dynamically pull `__SIZE` limits natively via compiled macros, removing any magic size initializations during `Vec` generations.
+- **WebGPU (WGSL)**: Shaders must strictly avoid manual inner-stride numeric offsets (e.g., `arr[base_index + 4u]`). Instead, the TS engine automatically exports schema fields into strongly-typed WGSL struct getters (e.g., `fn get_orbit_node(base_index)`) guaranteeing safety in the arithmetic loops.
 
 ## 2. Decoupling Intent from Execution via State Machines (cf. Task 052)
 

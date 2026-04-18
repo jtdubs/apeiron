@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { initEngine } from '../src/engine/initEngine.ts';
+import { getCompiledMathShader, getResolveShader } from './engine/compileShaderHelper.ts';
 
 import { WebGPUTestHarness } from './WebGPUTestHarness.ts';
 import { WorkerInputMessage } from '../src/engine/math-workers/rust.worker.ts';
@@ -57,34 +58,8 @@ async function initSharedState(): Promise<SharedState | null> {
     });
     worker.terminate();
 
-    const layoutWgsl = fs.readFileSync(
-      path.resolve('./src/engine/shaders/escape/generated/layout.wgsl'),
-      'utf8',
-    );
-    const layoutAccessorsWgsl = fs.readFileSync(
-      path.resolve('./src/engine/shaders/escape/generated/layout_accessors.wgsl'),
-      'utf8',
-    );
-
-    const dsMathWgsl = fs.readFileSync(
-      path.resolve('./src/engine/shaders/math/ds_math.wgsl'),
-      'utf8',
-    );
-
-    const mathAccumWgslStr =
-      layoutWgsl +
-      '\n' +
-      dsMathWgsl +
-      '\n' +
-      fs.readFileSync(path.resolve('./src/engine/shaders/escape/math_accum.wgsl'), 'utf8');
-    const mathAccumWgsl = mathAccumWgslStr.replace(
-      'fn unpack_f64_to_f32',
-      layoutAccessorsWgsl + '\nfn unpack_f64_to_f32',
-    );
-    const resolveWgslStr =
-      layoutWgsl +
-      '\n' +
-      fs.readFileSync(path.resolve('./src/engine/shaders/escape/resolve_present.wgsl'), 'utf8');
+    const mathAccumWgsl = getCompiledMathShader();
+    const resolveWgslStr = getResolveShader();
 
     const engine = await initEngine(undefined, mathAccumWgsl, resolveWgslStr);
     const harness = new WebGPUTestHarness(engine.device, mathAccumWgsl, resolveWgslStr);
