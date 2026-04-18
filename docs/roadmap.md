@@ -69,6 +69,7 @@
 - [ ] [Task 034: Limit Cycles & Interior Bounds](tasks/034-limit-cycles.md)
 - [x] [Task 035: Series Approximation (SA)](tasks/035-series-approximation.md)
 - [x] [Task 036: Bilinear Approximation (BLA)](tasks/completed/036-bilinear-approximation.md)
+- [ ] [Task 063: Reference Rebasing Engine (Dual-Orbit Perturbation)](tasks/063-reference-rebasing-engine.md)
 
 ## Phase 12: Expanded Rendering Archtypes
 
