@@ -21,6 +21,7 @@ export class PerturbationOrchestrator {
   private logTimeoutId: number | null = null;
   private unsubStore: () => void;
   private jobSequenceCounter = 0;
+  private _isSynchronizingState = false;
 
   private channels: {
     dispatched: TelemetryChannel;
@@ -169,6 +170,7 @@ export class PerturbationOrchestrator {
 
         // Apply state synchronously to avoid tearing
         // Mathematical snapping: The viewport stays exactly where it is, but the anchor changes.
+        this._isSynchronizingState = true;
         viewportStore.setState((state) => {
           const currentAbsoluteCr = parseFloat(state.anchorCr) + state.deltaCr;
           const currentAbsoluteCi = parseFloat(state.anchorCi) + state.deltaCi;
@@ -213,6 +215,14 @@ export class PerturbationOrchestrator {
         `📍 Viewport Config - z_anchor: ${state.anchorZr}, ${state.anchorZi} | c_anchor: ${state.anchorCr}, ${state.anchorCi} | zoom: ${state.zoom}`,
       );
     }, 250);
+
+    if (this._isSynchronizingState) {
+      this._isSynchronizingState = false;
+      this.lastDeltaCr = state.deltaCr;
+      this.lastDeltaCi = state.deltaCi;
+      this.lastZoom = state.zoom;
+      return;
+    }
 
     // Compute new orbits dynamically if deep zooming
     if (state.zoom < 1e-4) {
