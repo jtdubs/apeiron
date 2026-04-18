@@ -63,11 +63,15 @@ function generate() {
     let structSize = 0;
     let tsPackerBody = `  const arr = new Float32Array(${sName}_SIZE);\n`;
     let curOffset = 0;
+    let tsOffsets = '';
 
     for (const f of sDef.fields) {
       tsProps += `  ${f.name}?: ${tsType(f)};\n`;
       wgslFields += `  ${f.name}: ${f.type},\n`;
       rustFields += `    pub ${rustFieldName(f.name)}: ${rustType(f)},\n`;
+
+      tsOffsets += `export const ${sName}_OFFSET_${f.name.toUpperCase()} = ${curOffset};\n`;
+      tsOffsets += `export const ${sName}_BYTE_OFFSET_${f.name.toUpperCase()} = ${curOffset * 4};\n`;
 
       if (f.type === 'vec4<f32>') {
         tsPackerBody += `  if (obj.${f.name}) { arr[${curOffset}] = obj.${f.name}[0]; arr[${curOffset + 1}] = obj.${f.name}[1]; arr[${curOffset + 2}] = obj.${f.name}[2]; arr[${curOffset + 3}] = obj.${f.name}[3]; }\n`;
@@ -81,7 +85,8 @@ function generate() {
     }
 
     tsInterfaces += `export interface ${sName} {\n${tsProps}}\n`;
-    tsInterfaces += `export const ${sName}_SIZE = ${structSize};\n\n`;
+    tsInterfaces += `export const ${sName}_SIZE = ${structSize};\n`;
+    tsInterfaces += `${tsOffsets}\n`;
 
     let tsUnpackerBody = '';
     let _unpOffset = 0;

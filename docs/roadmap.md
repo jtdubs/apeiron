@@ -123,5 +123,6 @@
 - [x] [Task 065: Double-Single BLA Acceleration](tasks/completed/065-f64p-double-single-bla.md)
 - [x] [Task 073: Rust Math Kernel Native Testing](tasks/completed/073-rust-math-testing.md)
 - [x] [Task 072: Bivariate Taylor Approximation (BTA)](tasks/completed/072-bta-implementation.md)
+- [x] [Task 074: Auditing Dynamic Memory Layouts](tasks/completed/074-auditing-dynamic-memory-layout.md)
 - [ ] [Task 071: Rebasing & Reference Chains Implementation](tasks/071-rebasing-implementation.md)
 - [ ] [Task 068: FloatExp Numerical Format](tasks/068-floatexp-research.md)

@@ -4,6 +4,14 @@ import {
   CameraParams_SIZE,
   packCameraParams,
   packResolveUniforms,
+  ReferenceOrbitNode_SIZE,
+  OrbitMetadata_SIZE,
+  BLANode_SIZE,
+  DSBLANode_SIZE,
+  BtaNode_SIZE,
+  ResolveUniforms_SIZE,
+  ResolveUniforms_BYTE_OFFSET_MAX_ITER,
+  ResolveUniforms_BYTE_OFFSET_PALETTE_MAX_ITER,
 } from './generated/MemoryLayout';
 
 // ─── AccumulationPass ────────────────────────────────────────────────────────
@@ -30,58 +38,38 @@ export class AccumulationPass {
     });
 
     this.dummyRefOrbitNodesBuffer = device.createBuffer({
-      size: 32,
+      size: ReferenceOrbitNode_SIZE * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     device.queue.writeBuffer(
       this.dummyRefOrbitNodesBuffer,
       0,
-      new Float32Array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+      new Float32Array(ReferenceOrbitNode_SIZE),
     );
 
     this.dummyRefMetadataBuffer = device.createBuffer({
-      size: 32,
+      size: OrbitMetadata_SIZE * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
-    device.queue.writeBuffer(
-      this.dummyRefMetadataBuffer,
-      0,
-      new Float32Array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-    );
+    device.queue.writeBuffer(this.dummyRefMetadataBuffer, 0, new Float32Array(OrbitMetadata_SIZE));
 
     this.dummyRefBlaGridBuffer = device.createBuffer({
-      size: 32,
+      size: BLANode_SIZE * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
-    device.queue.writeBuffer(
-      this.dummyRefBlaGridBuffer,
-      0,
-      new Float32Array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-    );
+    device.queue.writeBuffer(this.dummyRefBlaGridBuffer, 0, new Float32Array(BLANode_SIZE));
 
     this.dummyRefBlaGridDsBuffer = device.createBuffer({
-      size: 64,
+      size: DSBLANode_SIZE * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
-    device.queue.writeBuffer(
-      this.dummyRefBlaGridDsBuffer,
-      0,
-      new Float32Array([
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      ]),
-    );
+    device.queue.writeBuffer(this.dummyRefBlaGridDsBuffer, 0, new Float32Array(DSBLANode_SIZE));
 
     this.dummyRefBtaGridBuffer = device.createBuffer({
-      size: 64,
+      size: BtaNode_SIZE * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
-    device.queue.writeBuffer(
-      this.dummyRefBtaGridBuffer,
-      0,
-      new Float32Array([
-        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-      ]),
-    );
+    device.queue.writeBuffer(this.dummyRefBtaGridBuffer, 0, new Float32Array(BtaNode_SIZE));
   }
 
   public initBackgroundCache() {
@@ -598,9 +586,9 @@ export class PassManager {
 
       let paletteData: Float32Array;
       if (!desc.theme) {
-        paletteData = new Float32Array(32);
-        paletteData[12] = paletteMaxIter;
-        paletteData[31] = desc.context.paletteMaxIter;
+        paletteData = new Float32Array(ResolveUniforms_SIZE);
+        paletteData[ResolveUniforms_BYTE_OFFSET_MAX_ITER / 4] = paletteMaxIter;
+        paletteData[ResolveUniforms_BYTE_OFFSET_PALETTE_MAX_ITER / 4] = desc.context.paletteMaxIter;
       } else {
         const t = desc.theme;
         let surfaceParamA = 1.0;
@@ -652,12 +640,12 @@ export class PassManager {
     // (e.g. refOrbits length changed but theme stayed the same).
     this.device.queue.writeBuffer(
       this.presentPass.paletteUniformsBuffer,
-      64,
+      ResolveUniforms_BYTE_OFFSET_MAX_ITER,
       new Float32Array([paletteMaxIter]).buffer as ArrayBuffer,
     );
     this.device.queue.writeBuffer(
       this.presentPass.paletteUniformsBuffer,
-      116,
+      ResolveUniforms_BYTE_OFFSET_PALETTE_MAX_ITER,
       new Float32Array([desc.context.paletteMaxIter]).buffer as ArrayBuffer,
     );
 
