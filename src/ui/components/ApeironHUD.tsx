@@ -349,7 +349,12 @@ const HUDLens = () => {
 };
 
 export const ApeironHUD: React.FC = () => {
-  const [isMobileExpanded, setIsMobileExpanded] = useState(false);
+  const [isMobileExpanded, setIsMobileExpanded] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('apeiron_hud_expanded') === 'true';
+    }
+    return false;
+  });
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
@@ -383,7 +388,13 @@ export const ApeironHUD: React.FC = () => {
             {showSettings ? '✕' : '⚙'}
           </button>
           <button
-            onClick={() => setIsMobileExpanded(!isMobileExpanded)}
+            onClick={() => {
+              const next = !isMobileExpanded;
+              setIsMobileExpanded(next);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('apeiron_hud_expanded', String(next));
+              }
+            }}
             className="hud-icon-btn hud-mobile-only"
             style={{ fontSize: '12px' }}
           >
