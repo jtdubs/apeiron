@@ -1,11 +1,17 @@
-# Task 070: Reference Selection Optimization
+---
+status: open
+---
 
-**Status:** Backlog
-**Depends on:** 069 (Research)
+# Task 070: Reference Selection Optimization
 
 ## Objective
 
 Implement an automated, dual-mode Reference Optimizer that selects and refines the mathematically "best" coordinate for perturbation rendering. The system must support both Nucleus (bulb center) and Misiurewicz (spiral/filament center) refinement.
+
+## Relevant Design Docs
+
+- [Singular Points Whitepaper](../reference/singular_points_reference_selection.md)
+- [Apeiron Best Practices](../process/best-practices.md)
 
 ## Requirements
 
@@ -32,7 +38,7 @@ Implement an automated, dual-mode Reference Optimizer that selects and refines t
 - [ ] Update WebGPU shaders to detect bits-of-precision loss.
 - [ ] Implement a readback buffer for glitch coordinates to trigger asynchronous re-optimization.
 
-## Implementation Details (Ref: Engineering Translation)
+## Implementation Plan
 
 ### Nucleus Solver Interface (Rust)
 
@@ -130,6 +136,9 @@ impl MisiurewiczSolver {
 3. **Refine:** Call the appropriate solver.
 4. **Finalize:** Use the refined coordinate as the high-precision reference.
 
-## Technical Specs
+## Verification Steps
 
-See [docs/reference/singular_points_reference_selection.md](../../docs/reference/singular_points_reference_selection.md) for mathematical foundations.
+- [ ] Write a headless Deno test that feeds a target coordinate into `rust-math`. Verify that the NucleusSolver converges to the known mathematical center instead of the naive starting point.
+- [ ] Add a headless test for the WGSL glitch detection output buffer.
+- [ ] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
+- [ ] **Documentation Sync:** Update `docs/reference/singular_points_reference_selection.md` with any constraints discovered during implementation before closing this task.

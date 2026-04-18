@@ -1,11 +1,17 @@
-# Task 071: Rebasing & Reference Chains Implementation
+---
+status: open
+---
 
-**Status:** Backlog
-**Depends on:** 067 (Research), 070 (Reference Selection Optimization)
+# Task 071: Rebasing & Reference Chains Implementation
 
 ## Objective
 
 Implement a proactive **Chained Rebasing** system and a **Reference Tree** manager to prevent zero-crossing glitches and allow for "infinite" zoom depths. This includes the **FloatExp** format to extend the zoom range beyond $10^{-300}$.
+
+## Relevant Design Docs
+
+- [Rebasing Strategies Whitepaper](../reference/rebasing_strategies_whitepaper.md)
+- [Apeiron Best Practices](../process/best-practices.md)
 
 ## Requirements
 
@@ -36,7 +42,7 @@ Implement a proactive **Chained Rebasing** system and a **Reference Tree** manag
 - [ ] Update BLA validity radius calculation to account for rebasing thresholds.
 - [ ] Ensure seamless transition between BLA skips and rebase-monitored regular steps.
 
-## Implementation Details (Ref: Engineering Translation)
+## Implementation Plan
 
 ### FloatExp Structure (WGSL / Rust)
 
@@ -91,6 +97,9 @@ impl ReferenceTree {
 }
 ```
 
-## Technical Specs
+## Verification Steps
 
-See [docs/reference/rebasing_strategies_whitepaper.md](../../docs/reference/rebasing_strategies_whitepaper.md) for mathematical foundations.
+- [ ] Create a unit test `test_chained_transformation` in `rust-math/src/lib.rs` proving that delta transfers do not introduce precision loss artifacts.
+- [ ] Implement headless Deno tests for `FloatExp` multiplication to prove precision retention beyond standard f64 boundaries.
+- [ ] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
+- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/reference/rebasing_strategies_whitepaper.md` before closing this task.

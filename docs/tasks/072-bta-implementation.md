@@ -1,14 +1,25 @@
+---
+status: open
+---
+
 # Task 072: Implement Bivariate Taylor Approximation (BTA)
 
-**Status:** Pending
-**Topic:** Implementation of 2nd-order BTA skipping in Rust and WGSL.
-
 ## Objective
+
 Implement 2nd-order Bivariate Taylor Approximation (BTA) to accelerate fractal perturbation by skipping iterations using a precomputed coefficient table.
 
-## Implementation Details
+## Relevant Design Docs
 
-### 1. WebGPU Data Structures (WGSL)
+- [BTA Whitepaper](../reference/bta_whitepaper.md)
+- [Apeiron Best Practices](../process/best-practices.md)
+
+## Requirements
+
+- **BTA Coeff Gen:** `rust-math` must compute up to quadratic coefficients.
+- **BTA Doubling:** `rust-math` must be able to recursively double quadratic coefficients to build exponential skip lists.
+- **Shader BTA Logic:** Implement `evaluate_bta2` and bounding box condition checks internally to drop from BTA cleanly.
+
+## Implementation Plan
 
 ```rust
 struct Bta2nd {
@@ -28,6 +39,7 @@ struct Bta3rd {
 ```
 
 ### 2. Evaluation Logic (WGSL)
+
 Evaluating the approximation is the performance-critical path.
 
 ```rust
@@ -38,16 +50,17 @@ fn evaluate_bta2(coeff: Bta2nd, dz0: vec2f, dc: vec2f) -> vec2f {
     let dc2 = cmul(dc, dc);
 
     // 2. Linear combination (5 complex muls + 4 complex adds)
-    return cmul(coeff.a, dz0) + 
+    return cmul(coeff.a, dz0) +
            cmul(coeff.b, dc) +
-           cmul(coeff.c, dz02) + 
-           cmul(coeff.d, dz0dc) + 
+           cmul(coeff.c, dz02) +
+           cmul(coeff.d, dz0dc) +
            cmul(coeff.e, dc2);
 }
 ```
 
-### 3. Implementation Strategy
-1.  **Host-Side (Rust):** 
+### Implementation Strategy
+
+1.  **Host-Side (Rust):**
     - [ ] Implement the BTA recurrence rules in `rust-math`.
     - [ ] Implement the BTA doubling (composition) rules for table generation.
     - [ ] Add unit tests for BTA coefficient generation and combination.
@@ -59,10 +72,8 @@ fn evaluate_bta2(coeff: Bta2nd, dz0: vec2f, dc: vec2f) -> vec2f {
     - [ ] Implement the skip logic using the BTA table.
     - [ ] Implement health-check / glitch detection using the relative magnitude of $(C, D, E)$ terms to terminate skips.
 
-## Success Criteria
-- [ ] BTA-accelerated rendering produces identical results to standard perturbation (within epsilon).
-- [ ] Significant speedup (10x-100x) in deep-zoom areas where skipping is active.
-- [ ] No visual "glitches" or "blobs" introduced by the approximation.
+## Verification Steps
 
-## References
-- [BTA Whitepaper](../reference/bta_whitepaper.md)
+- [ ] Write a headless Deno test that feeds identical perturbation initial conditions to both a standard iteration engine and the BTA engine, verifying identical delta-Z output after 2048 skips.
+- [ ] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
+- [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/reference/bta_whitepaper.md` before closing this task.

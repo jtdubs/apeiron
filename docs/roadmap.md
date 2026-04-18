@@ -116,3 +116,11 @@
 - [x] [Task 048: Decouple WASM to WebGPU Buffer Exchanges](tasks/completed/048-decouple-worker-buffers.md)
 - [x] [Task 062: Isolate and resolve "Solid Screen" Rendering at 1e-5 Zoom](tasks/completed/062-perturbation-solid-screen-glitch.md)
 - [x] [Task 064: Unified Render Mode and Pipeline Specialization](tasks/completed/064-unified-render-mode.md)
+
+## Phase 19: Mathematical Maturity & Infinity Limits
+
+- [ ] [Task 070: Reference Selection Optimization](tasks/070-reference-selection-optimization.md)
+- [ ] [Task 065: Double-Single BLA Acceleration](tasks/065-f64p-double-single-bla.md)
+- [ ] [Task 072: Implement Bivariate Taylor Approximation (BTA)](tasks/072-bta-implementation.md)
+- [ ] [Task 071: Rebasing & Reference Chains Implementation](tasks/071-rebasing-implementation.md)
+- [ ] [Task 068: FloatExp Numerical Format](tasks/068-floatexp-research.md)
