@@ -241,6 +241,6 @@ Deno.test('WGSL Layer 2 Flavor D - Series Approximation & BLA Execution', async 
   });
 
   // Just validating the BLA structural logic natively completes without NaN exceptions in headless.
-  // Depending on ref array (which could be entirely 0.0 if not loaded), blaRes[3] indicating advanced might be 0 or 1.
+  // Validation for Zhuoran test is explicitly simulated within Math Accum debug runs.
   if (Number.isNaN(blaRes[0])) throw new Error(`BLA corrupted execution: returned NaN`);
 });

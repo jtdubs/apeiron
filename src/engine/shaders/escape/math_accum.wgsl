@@ -300,7 +300,7 @@ struct BlaResult {
 }
 
 // ==========================================
-// BILINEAR APPROXIMATION (BLA)
+// BIVARIATE LINEAR APPROXIMATION (BLA)
 // ==========================================
 // When Series Approximation reaches edge error limits, BLA accelerates arbitrary iteration leaps.
 // Instead of evaluating individual iterations, we utilize a pre-computed recursive tree of matrices
@@ -328,12 +328,10 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
                     let max_delta_sq = max(dz_len_sq, dc_len_sq);
                     let err_factor = target_err * max_delta_sq;
                     
-                    // The error scaling must maintain a proportional ratio to max_delta_sq itself.
-                    // A static `target_err < 1e-6` bound ensures visual fidelity is absolutely 
-                    // invariant to the viewport zoom level without artificially throttling deep skips.
-                    let dynamic_tolerance = 1e-6 * max_delta_sq;
+                    // Linearity Check: EL * max(|dz|^2, |dc|^2) < tolerance
+                    let static_tolerance = 1e-6;
                     
-                    if (err_factor < dynamic_tolerance) {
+                    if (err_factor < static_tolerance) {
                         let ar = bla_node.ar; let ai = bla_node.ai;
                         let br = bla_node.br; let bi = bla_node.bi;
                         
@@ -342,10 +340,15 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
                         let potential_dz = complex_add(a_dz, b_dc);
                         
                         let target_node = get_orbit_node(u32(iter + b_len));
-                        let ref_mag = target_node.x * target_node.x + target_node.y * target_node.y;
+                        
+                        // Proxy Collapse Prevention (Zhuoran Test)
+                        let curr_z_x = target_node.x + potential_dz.x;
+                        let curr_z_y = target_node.y + potential_dz.y;
+                        let curr_mag = curr_z_x * curr_z_x + curr_z_y * curr_z_y;
+                        
                         let potential_dz_len = potential_dz.x * potential_dz.x + potential_dz.y * potential_dz.y;
                         
-                        if ((iter + b_len) > 2.0 && potential_dz_len > ref_mag) {
+                        if ((iter + b_len) > 2.0 && curr_mag < potential_dz_len) {
                            continue;
                         }
                         

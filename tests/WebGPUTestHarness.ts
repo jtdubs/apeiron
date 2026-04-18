@@ -203,6 +203,7 @@ export class WebGPUTestHarness {
       entries.push({ binding: 3, resource: { buffer: refOrbitNodesBuffer } });
       entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
       if (entryPoint === 'unit_test_bla_advance') {
+        entries.push({ binding: 8, resource: { buffer: refMetadataBuffer } });
         entries.push({ binding: 9, resource: { buffer: refBlaGridBuffer } });
       }
     } else if (entryPoint === 'unit_test_engine_math') {
