@@ -183,8 +183,8 @@ const HUDEquation = () => {
           <ScrubbableNumber
             value={exponent}
             onChange={onChange}
-            step={0.5}
-            format={(v) => v.toFixed(1)}
+            step={0.01}
+            format={(v) => v.toFixed(2)}
             onInteractionStart={() => viewportStore.getState().setInteractionState('INTERACT_SAFE')}
             onInteractionEnd={() => viewportStore.getState().setInteractionState('STATIC')}
           />

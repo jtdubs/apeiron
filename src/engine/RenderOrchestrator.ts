@@ -107,9 +107,9 @@ export class RenderOrchestrator {
 
     let effectiveMathMode = 0;
     if (theme.renderMode === 'auto') {
-      if (state.refOrbitNodes !== null && state.zoom < 1e-10 && state.exponent === 2.0) {
+      if (state.refOrbitNodes !== null && state.zoom < 1e-9 && state.exponent === 2.0) {
         effectiveMathMode = 2; // DS
-      } else if (state.refOrbitNodes !== null && state.zoom < 1e-5) {
+      } else if (state.refOrbitNodes !== null && state.zoom < 5e-4) {
         effectiveMathMode = 1; // f32 Perturbation
       } else {
         effectiveMathMode = 0; // f32

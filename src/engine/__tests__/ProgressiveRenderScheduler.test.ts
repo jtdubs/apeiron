@@ -32,12 +32,14 @@ describe('ProgressiveRenderScheduler', () => {
   });
 
   it('determines contexts correctly', () => {
-    const ctxA = createMockContext({ zr: 1.0 });
-    const ctxB = createMockContext({ zr: 1.0 });
-    const ctxC = createMockContext({ zr: 2.0 });
+    const ctxA = createMockContext({ zr: 1.0, sliceAngle: 0.0 });
+    const ctxB = createMockContext({ zr: 1.0, sliceAngle: 0.0 });
+    const ctxC = createMockContext({ zr: 2.0, sliceAngle: 0.0 });
+    const ctxAngle = createMockContext({ zr: 1.0, sliceAngle: Math.PI / 2 });
 
     expect(contextsEqual(ctxA, ctxB)).toBe(true);
     expect(contextsEqual(ctxA, ctxC)).toBe(false);
+    expect(contextsEqual(ctxA, ctxAngle)).toBe(false);
   });
 
   it('handles INVALIDATED state gracefully (geometry changed)', () => {
