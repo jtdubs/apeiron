@@ -252,6 +252,8 @@ export const ApeironViewport: React.FC = () => {
 
     const orchestrator = new PerturbationOrchestrator();
 
+    let resizeTimeoutId: number | null = null;
+
     const resizeObserver = new ResizeObserver((entries) => {
       if (!canvas) return;
       for (const entry of entries) {
@@ -259,12 +261,17 @@ export const ApeironViewport: React.FC = () => {
           const rect = canvas.getBoundingClientRect();
           cssWidth = rect.width;
           cssHeight = rect.height;
-          // Resize canvas to new native resolution and rebuild G-Buffers.
-          const newDpr = window.devicePixelRatio || 1;
-          canvas.width = Math.max(1, Math.floor(cssWidth * newDpr));
-          canvas.height = Math.max(1, Math.floor(cssHeight * newDpr));
-          engineRef.current?.resize();
-          canvasSizeVersion++;
+          
+          if (resizeTimeoutId) window.clearTimeout(resizeTimeoutId);
+          
+          resizeTimeoutId = window.setTimeout(() => {
+            // Resize canvas to new native resolution and rebuild G-Buffers.
+            const newDpr = window.devicePixelRatio || 1;
+            canvas.width = Math.max(1, Math.floor(cssWidth * newDpr));
+            canvas.height = Math.max(1, Math.floor(cssHeight * newDpr));
+            engineRef.current?.resize();
+            canvasSizeVersion++;
+          }, 150);
         }
       }
     });
@@ -277,6 +284,7 @@ export const ApeironViewport: React.FC = () => {
         cancelAnimationFrame(requestRef.current);
       }
       if (wheelTimeoutId) window.clearTimeout(wheelTimeoutId);
+      if (resizeTimeoutId) window.clearTimeout(resizeTimeoutId);
       orchestrator.destroy();
       resizeObserver.disconnect();
       canvas.removeEventListener('pointerdown', onPointerDown);
