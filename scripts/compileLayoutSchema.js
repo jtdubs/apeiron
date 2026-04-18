@@ -117,21 +117,21 @@ function generate() {
       for (let i = 0; i < structSize; i++) {
         body += `${i > 0 ? ',\n    ' : '    '}unpack_f64_to_f32(ref_orbits[base_index + ${i}u])`;
       }
-      wgslAccessors += `fn get_orbit_node(base_index: u32) -> ReferenceOrbitNode {\n  return ReferenceOrbitNode(\n${body}\n  );\n}\n\n`;
+      wgslAccessors += `fn get_orbit_node(iter: u32) -> ReferenceOrbitNode {\n  let base_index = iter * ORBIT_STRIDE;\n  return ReferenceOrbitNode(\n${body}\n  );\n}\n\n`;
     }
     if (sName === 'OrbitMetadata') {
       let body = '';
       for (let i = 0; i < structSize; i++) {
         body += `${i > 0 ? ',\n    ' : '    '}unpack_f64_to_f32(orbit_metadata[base_index + ${i}u])`;
       }
-      wgslAccessors += `fn get_orbit_metadata(base_index: u32) -> OrbitMetadata {\n  return OrbitMetadata(\n${body}\n  );\n}\n\n`;
+      wgslAccessors += `fn get_orbit_metadata() -> OrbitMetadata {\n  let base_index = 0u;\n  return OrbitMetadata(\n${body}\n  );\n}\n\n`;
     }
     if (sName === 'BLANode') {
       let body = '';
       for (let i = 0; i < structSize; i++) {
         body += `${i > 0 ? ',\n    ' : '    '}unpack_f64_to_f32(bla_grid[node_idx + ${i}u])`;
       }
-      wgslAccessors += `fn get_bla_node(base_index: u32, iter: u32, level: u32) -> BLANode {\n  let node_idx = base_index + (iter * BLA_LEVELS + level) * BLA_NODE_STRIDE;\n  return BLANode(\n${body}\n  );\n}\n\n`;
+      wgslAccessors += `fn get_bla_node(iter: u32, level: u32) -> BLANode {\n  let node_idx = (iter * BLA_LEVELS + level) * BLA_NODE_STRIDE;\n  return BLANode(\n${body}\n  );\n}\n\n`;
     }
   }
 

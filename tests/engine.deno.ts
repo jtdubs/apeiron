@@ -197,52 +197,37 @@ async function initSharedState(): Promise<SharedState | null> {
     const perturbGpuResult = new Float32Array(clusterCases.length * 4);
     const f32GpuResult = new Float32Array(clusterCases.length * 4);
 
-    let currentExp = clusterCases[0].exponent;
-    let expStartIdx = 0;
+    for (let i = 0; i < clusterCases.length; i++) {
+      const singleInput = inputs.subarray(i * 6, (i + 1) * 6);
+      const singleRefOrbit = alignedRefOrbitNodes.subarray(
+        i * orbitBlockSize,
+        (i + 1) * orbitBlockSize,
+      );
+      const singleRefMeta = alignedRefMetadata.subarray(i * metaBlockSize, (i + 1) * metaBlockSize);
+      const singleRefBla = alignedRefBlaGrid.subarray(i * blaBlockSize, (i + 1) * blaBlockSize);
+      const currentExp = clusterCases[i].exponent;
 
-    for (let i = 0; i <= clusterCases.length; i++) {
-      if (i === clusterCases.length || clusterCases[i].exponent !== currentExp) {
-        const batchInputs = inputs.subarray(expStartIdx * 6, i * 6);
-        const batchRefOrbitNodes = alignedRefOrbitNodes.subarray(
-          expStartIdx * orbitBlockSize,
-          i * orbitBlockSize,
-        );
-        const batchRefMetadata = alignedRefMetadata.subarray(
-          expStartIdx * metaBlockSize,
-          i * metaBlockSize,
-        );
-        const batchRefBlaGrid = alignedRefBlaGrid.subarray(
-          expStartIdx * blaBlockSize,
-          i * blaBlockSize,
-        );
+      const pRes = await harness.executeTestCompute(
+        singleInput,
+        singleRefOrbit,
+        singleRefMeta,
+        singleRefBla,
+        100,
+        true,
+        currentExp,
+      );
+      const fRes = await harness.executeTestCompute(
+        singleInput,
+        undefined,
+        undefined,
+        undefined,
+        100,
+        false,
+        currentExp,
+      );
 
-        const pRes = await harness.executeTestCompute(
-          batchInputs,
-          batchRefOrbitNodes,
-          batchRefMetadata,
-          batchRefBlaGrid,
-          100,
-          true,
-          currentExp,
-        );
-        const fRes = await harness.executeTestCompute(
-          batchInputs,
-          undefined,
-          undefined,
-          undefined,
-          100,
-          false,
-          currentExp,
-        );
-
-        perturbGpuResult.set(pRes, expStartIdx * 4);
-        f32GpuResult.set(fRes, expStartIdx * 4);
-
-        if (i < clusterCases.length) {
-          currentExp = clusterCases[i].exponent;
-          expStartIdx = i;
-        }
-      }
+      perturbGpuResult.set(pRes, i * 4);
+      f32GpuResult.set(fRes, i * 4);
     }
 
     return {
