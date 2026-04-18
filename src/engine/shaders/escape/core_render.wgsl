@@ -1,4 +1,17 @@
 // #import "./generated/layout.wgsl"
+// Minimal view into the camera uniform to read render_scale without
+// duplicating the full CameraParams layout here.
+struct CameraScaleParams { 
+  render_scale: f32,
+  debug_view_mode: f32,
+  pad1: f32,
+  pad2: f32,
+};
+
+@group(0) @binding(0) var g_buffer: texture_2d<f32>;
+@group(0) @binding(1) var<uniform> camera_scale: CameraScaleParams;
+@group(1) @binding(0) var<uniform> params: ResolveUniforms;
+
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
   @location(0) uv: vec2<f32>,
@@ -17,20 +30,6 @@ fn vs_main(@builtin(vertex_index) VertexIndex : u32) -> VertexOutput {
   return out;
 }
 
-@group(0) @binding(0) var g_buffer: texture_2d<f32>;
-
-// Minimal view into the camera uniform to read render_scale without
-// duplicating the full CameraParams layout here.
-struct CameraScaleParams { 
-  render_scale: f32,
-  debug_view_mode: f32,
-  pad1: f32,
-  pad2: f32,
-};
-@group(0) @binding(1) var<uniform> camera_scale: CameraScaleParams;
-
-
-@group(1) @binding(0) var<uniform> params: ResolveUniforms;
 
 fn palette_func(t: f32, a: vec3<f32>, b: vec3<f32>, c: vec3<f32>, d: vec3<f32>) -> vec3<f32> {
   return a + b * cos(6.28318530718 * (c * t + d));
