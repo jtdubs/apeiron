@@ -358,7 +358,11 @@ export class TelemetryRenderer {
     let lastX: number = this.width;
 
     for (let i = 0; i < maxPoints; i++) {
-      const x = this.width - (i / (maxPoints - 1)) * this.width;
+      let x = this.width;
+      if (maxPoints > 1) {
+        x = this.width - (i / (maxPoints - 1)) * this.width;
+      }
+      lastX = x;
 
       const age = i + startPointOffset;
       if (age >= buf.count) {
@@ -389,7 +393,6 @@ export class TelemetryRenderer {
           enumVal = val;
           enumStartX = x;
         }
-        lastX = x;
         continue;
       }
 
@@ -440,7 +443,7 @@ export class TelemetryRenderer {
     if (def.type === 'digital') {
       this.ctx.fillStyle = this.ctx.strokeStyle;
       this.ctx.globalAlpha = 0.2;
-      this.ctx.lineTo(0, yOffset + height);
+      this.ctx.lineTo(lastX, yOffset + height);
       this.ctx.lineTo(this.width, yOffset + height);
       this.ctx.fill();
       this.ctx.globalAlpha = 1.0;
