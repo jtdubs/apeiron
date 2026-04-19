@@ -476,6 +476,7 @@ export const TelemetryDashboard: React.FC = () => {
               <option value={3}>Show BLA Nodes</option>
               <option value={4}>Interpolation Strain</option>
               <option value={5}>BLA Validation Diff (Slow)</option>
+              <option value={6}>Perturbation Failure Mode</option>
             </select>
           </div>
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>

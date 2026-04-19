@@ -83,7 +83,7 @@ fn init_perturbation_state(delta_z: vec2<f32>, delta_c: vec2<f32>, pixel_idx: u3
 // Employs both SA and BLA to efficiently skip identical depths down into extreme macro scales (>1e30 magnification).
 fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, max_iterations: f32, ref_cycle: f32, ref_escaped_iter: f32, pixel_idx: u32, enable_bla: bool) -> vec4<f32> {
   if (ref_cycle == 1.0 && delta_c.x == 0.0 && delta_c.y == 0.0 && delta_z.x == 0.0 && delta_z.y == 0.0) {
-     let ret = vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
+      let ret = vec4<f32>(max_iterations, 1.0, 1.0, 1.0); // 1.0 encodes 'cycle' for Debug 6
       checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
       return ret;
   }
@@ -265,7 +265,8 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
   }
   
   if (iter >= max_iterations) {
-      let ret = vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
+      // Leak final 'dz' for debugging visualization
+      let ret = vec4<f32>(max_iterations, dz.x, dz.y, 0.0);
       checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
       return ret;
   }

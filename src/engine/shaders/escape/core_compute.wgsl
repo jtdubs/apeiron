@@ -260,10 +260,26 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
       } else if (camera.debug_view_mode == 4.0) {
           let strain = clamp(ret.y * camera.scale * 100.0, 0.0, 1.0);
           output_color = vec4<f32>(strain, strain, 0.0, 1.0);
+          } else if (camera.debug_view_mode == 6.0) {
+          if (ret.x >= camera.compute_max_iter) {
+              if (ret.y == 1.0 && ret.z == 1.0 && ret.w == 1.0) {
+                  output_color = vec4<f32>(1.0, 1.0, 1.0, 1.0); // White: Cycle Return
+              } else if (ret.y == 0.0 && ret.z == 0.0) {
+                  output_color = vec4<f32>(1.0, 0.0, 1.0, 1.0); // Magenta: dz perfectly zero
+              } else {
+                  // Map dz magnitude to green heat
+                  let dz_mag = clamp(sqrt(ret.y * ret.y + ret.z * ret.z) * 10.0, 0.0, 1.0);
+                  output_color = vec4<f32>(0.0, dz_mag, 0.0, 1.0); // Green = valid variation
+              }
+          } else if (ret.x < -1.0) {
+              output_color = vec4<f32>(0.2, 0.2, 0.2, 1.0); // Gray: Yielded
+          } else {
+              output_color = vec4<f32>(0.0, 0.0, 1.0, 1.0); // Blue: Escaped correctly
+          }
       }
       
       // Still allow yielding to not flash black holes
-      if (ret.x < -1.0) {
+      if (ret.x < -1.0 && camera.debug_view_mode != 6.0 && camera.debug_view_mode != 5.0) {
           if (camera.blend_weight > 0.0) {
               textureStore(g_buffer_out, coord, textureLoad(readTex, coord, 0));
           } else {
