@@ -32,6 +32,10 @@ export class PerturbationOrchestrator {
     active: TelemetryChannel;
     pending: TelemetryChannel;
     phase: TelemetryChannel;
+    treeNodes: TelemetryChannel;
+    btaLevel: TelemetryChannel;
+    glitches: TelemetryChannel;
+    refPeriod: TelemetryChannel;
   };
 
   constructor(workerFactory?: () => Worker) {
@@ -65,6 +69,35 @@ export class PerturbationOrchestrator {
         type: 'enum',
         retention: 'latch',
         enumValues: { 0: 'IDLE', 1: 'REFINING', 2: 'COMPUTING' },
+      }),
+      treeNodes: reg.register({
+        id: 'workers.treeNodes',
+        label: 'Tree Density',
+        group: 'Workers',
+        type: 'analog',
+        retention: 'latch',
+      }),
+      btaLevel: reg.register({
+        id: 'workers.btaLevel',
+        label: 'BTA Skips (Grid)',
+        group: 'Workers',
+        type: 'analog',
+        retention: 'latch',
+      }),
+      glitches: reg.register({
+        id: 'workers.glitches',
+        label: 'GPU Glitches',
+        group: 'Workers',
+        type: 'analog',
+        retention: 'lapse',
+        lapseValue: 0,
+      }),
+      refPeriod: reg.register({
+        id: 'workers.refPeriod',
+        label: 'Anchor Period',
+        group: 'Workers',
+        type: 'analog',
+        retention: 'latch',
       }),
     };
 
@@ -142,6 +175,8 @@ export class PerturbationOrchestrator {
         );
 
         // Progress job to COMPUTE phase using the newly minted mathematically pure reference
+        this.channels.refPeriod.set(e.data.period || 0);
+
         this.currentWorkerJob.isRefining = false;
         this.currentWorkerJob.anchorCr = e.data.cr;
         this.currentWorkerJob.anchorCi = e.data.ci;
@@ -206,6 +241,14 @@ export class PerturbationOrchestrator {
         this.channels.active.set(job.id);
         this.channels.pending.set(0);
         this.channels.phase.set(0);
+        
+        // Expose new tree diagnostics
+        if (e.data.orbit_nodes) {
+          this.channels.treeNodes.set(e.data.orbit_nodes.length || 0);
+        }
+        if (e.data.bta_grid) {
+          this.channels.btaLevel.set(e.data.bta_grid.length || 0);
+        }
 
         this.isWorkerBusy = false;
         this.currentWorkerJob = null;
@@ -232,6 +275,10 @@ export class PerturbationOrchestrator {
           refBtaGrid: e.data.bta_grid,
         };
       });
+      
+      if (e.data.orbit_nodes) {
+        this.channels.treeNodes.set(e.data.orbit_nodes.length || 0);
+      }
 
       // Remove busy state if glitched job was acting as pending fallback
       this.isWorkerBusy = false;
@@ -352,6 +399,8 @@ export class PerturbationOrchestrator {
     const deduplicated = Array.from(uniqueMap.values());
 
     if (deduplicated.length > 0) {
+      this.channels.glitches.set(deduplicated.length);
+      
       this.worker.postMessage({
         id: ++this.jobSequenceCounter,
         type: 'RESOLVE_GLITCHES',
