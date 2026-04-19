@@ -127,5 +127,6 @@
 - [x] [Task 072: Bivariate Taylor Approximation (BTA)](tasks/completed/072-bta-implementation.md)
 - [x] [Task 074: Auditing Dynamic Memory Layouts](tasks/completed/074-auditing-dynamic-memory-layout.md)
 - [x] [Task 077: Fix f32 Transition Threshold](tasks/completed/077-fix-f32-transition.md)
+- [x] [Task 072-B: Debug f32p Continuous Iteration Limits (Completed)](tasks/completed/072-B-debug-f32p-circular-artifacts.md)
 - [ ] [Task 071: Rebasing & Reference Chains Implementation](tasks/071-rebasing-implementation.md)
 - [ ] [Task 068: FloatExp Numerical Format](tasks/068-floatexp-research.md)

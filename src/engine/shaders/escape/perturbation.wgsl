@@ -81,7 +81,7 @@ fn init_perturbation_state(delta_z: vec2<f32>, delta_c: vec2<f32>, pixel_idx: u3
 // Orchestrates the Arbitrary Precision deep-zoom runtime. Rather than iterating pure `z`, 
 // we track a `delta_z` against a mathematically perfect `ref_node` computed historically on the CPU.
 // Employs both SA and BLA to efficiently skip identical depths down into extreme macro scales (>1e30 magnification).
-fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, max_iterations: f32, ref_cycle: f32, ref_escaped_iter: f32, pixel_idx: u32) -> vec4<f32> {
+fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, max_iterations: f32, ref_cycle: f32, ref_escaped_iter: f32, pixel_idx: u32, enable_bla: bool) -> vec4<f32> {
   if (ref_cycle == 1.0 && delta_c.x == 0.0 && delta_c.y == 0.0 && delta_z.x == 0.0 && delta_z.y == 0.0) {
      let ret = vec4<f32>(max_iterations, 0.0, 0.0, 0.0);
       checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
@@ -112,11 +112,13 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
 
   // Synchronizes iterator bounds with the ProgressiveRenderScheduler to allow
   // temporal supersampling and checkpoint yielding for interactive framerates.
-  let target_steps = camera.step_limit;
+  // In Debug View Mode 5.0, we force entirely synchronous loop execution to 
+  // trace the full BLA/Standard paths head-to-head without progressive state corruption.
+  let target_steps = select(camera.step_limit, camera.compute_max_iter, camera.debug_view_mode == 5.0);
   var steps = 0.0;
 
   while (iter < max_iterations && steps < target_steps) {
-    if (exponent_branch_mode == 1.0 && math_compute_mode < 2u) {
+    if (exponent_branch_mode == 1.0 && math_compute_mode < 2u && enable_bla) {
         let bla_res = advance_via_bla(dz, vec2<f32>(der_x, der_y), delta_c, start_c, iter, max_iterations, ref_escaped_iter, max_iterations, pixel_idx, tia_sum);
         if (bla_res.advanced) {
             if (bla_res.escaped) {

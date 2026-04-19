@@ -27,7 +27,7 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
   }
   
   // Synchronizes iterator bounds with the ProgressiveRenderScheduler to allow
-  let target_steps = camera.step_limit;
+  let target_steps = select(camera.step_limit, max_iterations, camera.debug_view_mode == 5.0);
   var steps = 0.0;
   let d = camera.exponent;
   var prev_z_mag = length(vec2<f32>(x, y));

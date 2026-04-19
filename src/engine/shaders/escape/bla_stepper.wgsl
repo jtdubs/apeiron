@@ -48,7 +48,8 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
                     let err_factor = target_err * max_delta_sq;
                     
                     // Linearity Check: EL * max(|dz|^2, |dc|^2) < tolerance
-                    let static_tolerance = 1e-6;
+                    let pixel_size = camera.scale / camera.canvas_width;
+                    let static_tolerance = max(1e-7, pixel_size * 0.1);
                     
                     if (err_factor < static_tolerance) {
                         let dz02 = complex_sq(dz);
@@ -175,7 +176,8 @@ fn advance_via_bla_ds(dz_in: vec4<f32>, der_in: vec2<f32>, delta_c: vec4<f32>, s
                     
                     // Linearity Check: EL * max(|dz|^2, |dc|^2) < tolerance
                     // Stricter tolerance for Double-Single Math
-                    let static_tolerance = 1e-12;
+                    let pixel_size = camera.scale / camera.canvas_width;
+                    let static_tolerance = max(1e-14, pixel_size * 0.1);
                     
                     if (err_factor < static_tolerance) {
                         let a_ds = vec4<f32>(bn.ar_hi, bn.ar_lo, bn.ai_hi, bn.ai_lo);

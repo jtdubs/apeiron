@@ -650,12 +650,13 @@ export class PassManager {
       new Float32Array([desc.context.paletteMaxIter]).buffer as ArrayBuffer,
     );
 
-    // Write render_scale to its dedicated uniform buffer (group 0, binding 1 of the resolve pass).
-    // This must be written every frame so the resolve shader always has the correct scale.
+    // Write render_scale and debug_view_mode to its dedicated uniform buffer (group 0, binding 1 of the resolve pass).
+    // This must be written every frame so the resolve shader always has the correct values.
     this.device.queue.writeBuffer(
       this.presentPass.renderScaleBuffer,
       0,
-      new Float32Array([desc.command.renderScale]).buffer as ArrayBuffer,
+      new Float32Array([desc.command.renderScale, desc.context.debugViewMode, 0.0, 0.0])
+        .buffer as ArrayBuffer,
     );
 
     // ── GPU command submission ───────────────────────────────────────────────

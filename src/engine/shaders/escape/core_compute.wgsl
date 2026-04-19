@@ -30,7 +30,7 @@ struct VertexOutput {
   @location(0) uv: vec2<f32>,
 };
 
-fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, pixel_idx: u32) -> vec4<f32> {
+fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, pixel_idx: u32, enable_bla: bool) -> vec4<f32> {
   if (math_compute_mode > 0u) {
      let orbit_meta = get_orbit_metadata();
      let cycle = orbit_meta.cycle_found;
@@ -44,7 +44,7 @@ fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32
          return continue_mandelbrot_iterations(vec2<f32>(0.0,0.0), start_c, 0.0, camera.compute_max_iter, 1.0, 0.0, 0.0, pixel_idx);
      }
      
-     return calculate_perturbation(start_z, start_c, delta_z, delta_c, camera.ref_max_iter, cycle, ref_escaped_iter, pixel_idx);
+     return calculate_perturbation(start_z, start_c, delta_z, delta_c, camera.ref_max_iter, cycle, ref_escaped_iter, pixel_idx, enable_bla);
   } else {
      return calculate_mandelbrot_iterations(start_z, start_c, camera.compute_max_iter, pixel_idx);
   }
@@ -208,10 +208,36 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
   
   let start_z = select(vec2<f32>(camera.zr, camera.zi) + uv_mapped * sin_theta, vec2<f32>(abs_zr, abs_zi) + delta_z, math_compute_mode > 0u);
   let start_c = select(vec2<f32>(camera.cr, camera.ci) + uv_mapped * cos_theta, vec2<f32>(abs_cr, abs_ci) + delta_c, math_compute_mode > 0u);
+  var output_color: vec4<f32>;
   
-  let ret = execute_engine_math(start_z, start_c, delta_z, delta_c, pixel_id);
+  if (camera.debug_view_mode == 5.0 && math_compute_mode > 0u) {
+      // 100% Synchronous Dual-Path BLA Diff rendering logic
+      let cp_original = checkpoint[pixel_id];
+      let ret_bla = execute_engine_math(start_z, start_c, delta_z, delta_c, pixel_id, true);
+      checkpoint[pixel_id] = cp_original; // Restore to guarantee standard path has exact same origin context
+      
+      // We pass start_z and start_c (which already correctly include abs_zr/abs_cr reference anchor offsets)
+      // directly to calculate_mandelbrot_iterations to simulate exact f32 ground truth geometry.
+      let ret_std = calculate_mandelbrot_iterations(start_z, start_c, camera.compute_max_iter, pixel_id);
+      checkpoint[pixel_id] = cp_original; // Destroy both states to prevent progressive accumulation side-effects
+      
+      var diff_col = vec3<f32>(0.0, 0.0, 0.5); // Default to Dark Blue
+      if (ret_bla.x >= camera.compute_max_iter || ret_std.x >= camera.compute_max_iter) {
+          diff_col = vec3<f32>(0.0, 0.0, 0.5); // Interior -> Dark Blue
+      } else if (ret_bla.x > 0.0 && ret_std.x > 0.0) {
+          let diff = abs(ret_bla.x - ret_std.x);
+          diff_col = vec3<f32>(clamp(diff * 100.0, 0.0, 1.0), 0.0, 0.0); // Drift -> Red Heatmap
+      } else if (ret_bla.x > 0.0 || ret_std.x > 0.0) {
+          diff_col = vec3<f32>(1.0, 1.0, 0.0); // Escape Mismatch -> Solid Yellow
+      }
+      
+      // Directly render to the output buffer, totally bypassing the progressive pipeline
+      textureStore(g_buffer_out, coord, vec4<f32>(diff_col, 1.0));
+      return;
+  }
   
-  var output_color = ret;
+  let ret = execute_engine_math(start_z, start_c, delta_z, delta_c, pixel_id, true);
+  output_color = ret;
   
   if (camera.debug_view_mode > 0.5) {
       if (camera.debug_view_mode == 1.0) {
@@ -280,7 +306,7 @@ fn unit_test_engine_math(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let delta_c = vec2<f32>(data_in[idx * 6u + 4u], data_in[idx * 6u + 5u]);
   let delta_z = vec2<f32>(0.0, 0.0);
   
-  let ret = execute_engine_math(input_z, input_c, delta_z, delta_c, idx);
+  let ret = execute_engine_math(input_z, input_c, delta_z, delta_c, idx, true);
   
   data_out[idx * 4u] = ret.x;
   data_out[idx * 4u + 1u] = ret.y;
