@@ -172,6 +172,11 @@ export const TelemetryDashboard: React.FC = () => {
         const minWidth = 280;
         const maxWidth = window.innerWidth - 100;
         setPanelWidth(Math.max(minWidth, Math.min(newWidth, maxWidth)));
+      } else if (dock === 'left') {
+        const newWidth = e.clientX;
+        const minWidth = 280;
+        const maxWidth = window.innerWidth - 100;
+        setPanelWidth(Math.max(minWidth, Math.min(newWidth, maxWidth)));
       } else {
         const newHeight = window.innerHeight - e.clientY;
         const minHeight = 120; // 1 lane (60) + grids (20) + header (30)
@@ -468,7 +473,7 @@ export const TelemetryDashboard: React.FC = () => {
       <div
         className="telemetry-dashboard"
         style={
-          telemetryDock === 'right'
+          telemetryDock === 'right' || telemetryDock === 'left'
             ? { width: `${panelWidth}px`, height: '100%' }
             : { height: `${panelHeight}px`, width: '100%' }
         }
@@ -478,7 +483,8 @@ export const TelemetryDashboard: React.FC = () => {
           onPointerDown={(e) => {
             e.preventDefault();
             resizeRef.current.isResizing = true;
-            document.body.style.cursor = telemetryDock === 'right' ? 'ew-resize' : 'ns-resize';
+            document.body.style.cursor =
+              telemetryDock === 'right' || telemetryDock === 'left' ? 'ew-resize' : 'ns-resize';
           }}
         />
         <div className="telemetry-header">
@@ -546,7 +552,15 @@ export const TelemetryDashboard: React.FC = () => {
               </div>
             )}
             <button
-              onClick={() => setTelemetryDock(telemetryDock === 'bottom' ? 'right' : 'bottom')}
+              onClick={() => {
+                const next =
+                  telemetryDock === 'bottom'
+                    ? 'right'
+                    : telemetryDock === 'right'
+                      ? 'left'
+                      : 'bottom';
+                setTelemetryDock(next);
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -556,9 +570,9 @@ export const TelemetryDashboard: React.FC = () => {
                 padding: 0,
                 fontSize: '18px',
               }}
-              title={telemetryDock === 'bottom' ? 'Dock Right' : 'Dock Bottom'}
+              title={`Dock ${telemetryDock === 'bottom' ? 'Right' : telemetryDock === 'right' ? 'Left' : 'Bottom'}`}
             >
-              {telemetryDock === 'bottom' ? '◧' : '⬒'}
+              {telemetryDock === 'bottom' ? '◧' : telemetryDock === 'right' ? '◨' : '⬒'}
             </button>
             <button
               onClick={() => setIsPaused(!isPaused)}

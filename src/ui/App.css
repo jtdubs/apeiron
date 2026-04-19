@@ -30,6 +30,10 @@ body {
   flex-direction: row;
 }
 
+.app-container.dock-left {
+  flex-direction: row-reverse;
+}
+
 .scene-container {
   flex: 1;
   position: relative;
