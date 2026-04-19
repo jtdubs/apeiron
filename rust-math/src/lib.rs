@@ -105,8 +105,11 @@ pub fn compute_payload(
     node_id: u32,
     points_json: &str,
     max_iterations: u32,
-) -> MandelbrotOutput {
-    mandelbrot::compute(points_json, max_iterations, Some((node_id, tree))).into()
+) -> Result<MandelbrotOutput, JsValue> {
+    match mandelbrot::compute(points_json, max_iterations, Some((node_id, tree))) {
+        Ok(native) => Ok(native.into()),
+        Err(e) => Err(JsValue::from_str(&e)),
+    }
 }
 
 #[wasm_bindgen]

@@ -58,7 +58,7 @@ pub fn resolve_glitches(
         new_cr_str, new_ci_str, exponent
     );
 
-    let payload = compute(&points_json_payload, max_iterations, Some((new_id, tree)));
+    let payload = compute(&points_json_payload, max_iterations, Some((new_id, tree)))?;
 
     Ok(ResolveOutput {
         new_cr: new_cr_str,

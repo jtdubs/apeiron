@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub, Mul, Div, Neg};
+use std::ops::{Add, Sub, Mul, Div};
 use bigdecimal::{BigDecimal, Zero, One};
 
 pub struct Complex64 {

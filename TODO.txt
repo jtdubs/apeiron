@@ -1,2 +1,1 @@
-- Circular glitches earlier than expected in f32p and f64p mode
-- Color palette seems to shift when changing modes / zooming way in then back out again
+- Sanity check all the parseFloats and anchor usage in TS, I think that's all wrong.

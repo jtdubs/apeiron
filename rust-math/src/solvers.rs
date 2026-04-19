@@ -3,6 +3,13 @@ use std::str::FromStr;
 use bigdecimal::ToPrimitive;
 use crate::complex::BigComplex;
 
+// Magic thresholds for convergence checks
+const M_EPSILON: f64 = 1e-4;
+const NUCLEUS_THRESHOLD: f64 = 1e-2;
+const MAX_NEWTON_ITERATIONS: u32 = 20;
+
+/// Output payload from the Newton-Raphson reference solver.
+/// Contains the finalized coordinates and the nature of the referenced point.
 pub struct RefineOutput {
     pub cr: f64,
     pub ci: f64,
@@ -11,6 +18,10 @@ pub struct RefineOutput {
     pub pre_period: u32,
 }
 
+
+/// Attempts to snap a provided complex coordinate to the nearest mathematical anchor
+/// (either a Nucleus or a Misiurewicz point) by iterating bounds and applying
+/// a Newton-Raphson approximation.
 pub fn refine_reference(cr_str: &str, ci_str: &str, max_iterations: u32) -> RefineOutput {
     let mut c = BigComplex::new(
         BigDecimal::from_str(cr_str).unwrap_or(BigDecimal::zero()),
@@ -25,7 +36,7 @@ pub fn refine_reference(cr_str: &str, ci_str: &str, max_iterations: u32) -> Refi
     let mut out_period = 0;
     let mut out_pre_period = 0;
 
-    let epsilon = BigDecimal::from_f64(1e-4).unwrap();
+    let epsilon = BigDecimal::from_f64(M_EPSILON).unwrap();
     let epsilon_sq = (&epsilon * &epsilon).with_prec(100);
     
     for i in 1..=max_iterations {
@@ -51,7 +62,7 @@ pub fn refine_reference(cr_str: &str, ci_str: &str, max_iterations: u32) -> Refi
                     }
                 }
                 
-                let nucleus_threshold = BigDecimal::from_f64(1e-2).unwrap();
+                let nucleus_threshold = BigDecimal::from_f64(NUCLEUS_THRESHOLD).unwrap();
                 if min_mag_sq < nucleus_threshold {
                     found_type = "nucleus".to_string();
                 } else {
@@ -71,7 +82,7 @@ pub fn refine_reference(cr_str: &str, ci_str: &str, max_iterations: u32) -> Refi
     }
 
     if found_type == "nucleus" {
-        for _ in 0..20 {
+        for _ in 0..MAX_NEWTON_ITERATIONS {
             let mut z = BigComplex::zero();
             let mut z_der = BigComplex::zero();
 
@@ -93,7 +104,7 @@ pub fn refine_reference(cr_str: &str, ci_str: &str, max_iterations: u32) -> Refi
             }
         }
     } else if found_type == "misiurewicz" {
-        for _ in 0..20 {
+        for _ in 0..MAX_NEWTON_ITERATIONS {
             let mut z = vec![BigComplex::zero(); (out_pre_period + out_period + 1) as usize];
             let mut z_der = vec![BigComplex::zero(); (out_pre_period + out_period + 1) as usize];
 

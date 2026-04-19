@@ -109,9 +109,10 @@ function generate() {
     let rustPushFields = '';
     for (const f of sDef.fields) {
       if (f.type === 'vec4<f32>') {
-        rustPushFields += `        vec.push(self.${rustFieldName(f.name)}[0] as f64);\n        vec.push(self.${rustFieldName(f.name)}[1] as f64);\n        vec.push(self.${rustFieldName(f.name)}[2] as f64);\n        vec.push(self.${rustFieldName(f.name)}[3] as f64);\n`;
+        rustPushFields += `        vec.push(self.${rustFieldName(f.name)}[0]);\n        vec.push(self.${rustFieldName(f.name)}[1]);\n        vec.push(self.${rustFieldName(f.name)}[2]);\n        vec.push(self.${rustFieldName(f.name)}[3]);\n`;
       } else {
-        rustPushFields += `        vec.push(self.${rustFieldName(f.name)} as f64);\n`;
+        const castExpr = rustType(f) === 'f64' ? '' : ' as f64';
+        rustPushFields += `        vec.push(self.${rustFieldName(f.name)}${castExpr});\n`;
       }
     }
     rustStructs += `impl ${sName} {\n    pub fn push_to(&self, vec: &mut Vec<f64>) {\n${rustPushFields}    }\n}\n\n`;
