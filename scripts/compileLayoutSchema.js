@@ -137,21 +137,21 @@ function generate() {
       for (let i = 0; i < structSize; i++) {
         body += `${i > 0 ? ',\n    ' : '    '}unpack_f64_to_f32(bla_grid[node_idx + ${i}u])`;
       }
-      wgslAccessors += `fn get_bla_node(iter: u32, level: u32) -> BLANode {\n  let node_idx = (iter * BLA_LEVELS + level) * BLA_NODE_STRIDE;\n  return BLANode(\n${body}\n  );\n}\n\n`;
+      wgslAccessors += `fn get_bla_node(iter: u32, level: u32) -> BLANode {\n  let node_idx = (level * u32(camera.ref_max_iter) + iter) * BLA_NODE_STRIDE;\n  return BLANode(\n${body}\n  );\n}\n\n`;
     }
     if (sName === 'DSBLANode') {
       let body = '';
       for (let i = 0; i < structSize; i++) {
         body += `${i > 0 ? ',\n    ' : '    '}unpack_f64_to_f32(dsbla_grid[node_idx + ${i}u])`;
       }
-      wgslAccessors += `fn get_dsbla_node(iter: u32, level: u32) -> DSBLANode {\n  let node_idx = (iter * BLA_LEVELS + level) * DSBLA_NODE_STRIDE;\n  return DSBLANode(\n${body}\n  );\n}\n\n`;
+      wgslAccessors += `fn get_dsbla_node(iter: u32, level: u32) -> DSBLANode {\n  let node_idx = (level * u32(camera.ref_max_iter) + iter) * DSBLA_NODE_STRIDE;\n  return DSBLANode(\n${body}\n  );\n}\n\n`;
     }
     if (sName === 'BtaNode') {
       let body = '';
       for (let i = 0; i < structSize; i++) {
         body += `${i > 0 ? ',\n    ' : '    '}unpack_f64_to_f32(bta_grid[node_idx + ${i}u])`;
       }
-      wgslAccessors += `fn get_bta_node(iter: u32, level: u32) -> BtaNode {\n  let node_idx = (iter * BLA_LEVELS + level) * BTA_NODE_STRIDE;\n  return BtaNode(\n${body}\n  );\n}\n\n`;
+      wgslAccessors += `fn get_bta_node(iter: u32, level: u32) -> BtaNode {\n  let node_idx = (level * u32(camera.ref_max_iter) + iter) * BTA_NODE_STRIDE;\n  return BtaNode(\n${body}\n  );\n}\n\n`;
     }
   }
 
