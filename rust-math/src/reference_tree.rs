@@ -1,3 +1,6 @@
+#![allow(clippy::new_without_default)]
+#![allow(clippy::manual_is_multiple_of)]
+
 use std::collections::HashMap;
 use std::str::FromStr;
 use bigdecimal::{BigDecimal, ToPrimitive};

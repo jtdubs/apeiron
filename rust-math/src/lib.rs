@@ -131,6 +131,7 @@ impl RebaseOutput {
 }
 
 #[wasm_bindgen]
+#[allow(clippy::too_many_arguments)]
 pub fn rebase_origin(
     zr_str: &str,
     zi_str: &str,

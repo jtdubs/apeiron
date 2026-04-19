@@ -17,7 +17,8 @@
     "test:engine": "deno test --unstable-webgpu --allow-read --allow-env --allow-write --no-check tests/engine.deno.ts tests/engine/ComputeUnit.deno.ts",
     "test:ui": "vitest run",
     "test:update": "UPDATE_SNAPSHOTS=true deno test --unstable-webgpu --allow-read --allow-env --allow-write --no-check tests/engine.deno.ts tests/engine/ComputeUnit.deno.ts",
-    "lint": "npm run lint:ts && npm run lint:wgsl",
+    "lint": "npm run lint:ts && npm run lint:wgsl && npm run lint:rust",
+    "lint:rust": "cd rust-math && cargo clippy -- -D warnings",
     "lint:ts": "eslint .",
     "lint:wgsl": "deno run --unstable-webgpu --allow-read scripts/lintWgsl.ts",
     "preview": "vite preview",
@@ -65,6 +66,9 @@
     ],
     "*.wgsl": [
       "npm run lint:wgsl"
+    ],
+    "*.rs": [
+      "bash -c 'npm run lint:rust'"
     ]
   }
 }

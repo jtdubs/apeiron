@@ -1,6 +1,5 @@
 use bigdecimal::{BigDecimal, Zero, FromPrimitive};
 use std::str::FromStr;
-use bigdecimal::ToPrimitive;
 use crate::complex::BigComplex;
 
 // Magic thresholds for convergence checks
@@ -165,6 +164,7 @@ pub fn refine_reference(cr_str: &str, ci_str: &str, max_iterations: u32) -> Refi
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn rebase_origin(
     zr_str: &str,
     zi_str: &str,
