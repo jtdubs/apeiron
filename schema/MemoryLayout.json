@@ -5,7 +5,8 @@
     "BLA_LEVELS": { "value": 16, "type": "u32" },
     "BLA_NODE_STRIDE": { "value": 8, "type": "u32" },
     "DSBLA_NODE_STRIDE": { "value": 16, "type": "u32" },
-    "BTA_NODE_STRIDE": { "value": 16, "type": "u32" }
+    "BTA_NODE_STRIDE": { "value": 16, "type": "u32" },
+    "MAX_GLITCHES": { "value": 64, "type": "u32" }
   },
   "structs": {
     "ReferenceOrbitNode": {
@@ -149,6 +150,12 @@
         { "name": "der_y", "type": "f32" },
         { "name": "iter", "type": "f32" },
         { "name": "tia_sum", "type": "f32" }
+      ]
+    },
+    "GlitchRecord": {
+      "fields": [
+        { "name": "x", "type": "u32" },
+        { "name": "y", "type": "u32" }
       ]
     }
   }

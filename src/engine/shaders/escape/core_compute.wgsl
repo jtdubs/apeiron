@@ -25,6 +25,12 @@
 @group(0) @binding(10) var<storage, read> dsbla_grid: array<vec2<u32>>;
 @group(0) @binding(11) var<storage, read> bta_grid: array<vec2<u32>>;
 
+struct GlitchReadbackBuffer {
+  count: atomic<u32>,
+  records: array<GlitchRecord>
+}
+@group(0) @binding(12) var<storage, read_write> glitch_readback: GlitchReadbackBuffer;
+
 struct VertexOutput {
   @builtin(position) position: vec4<f32>,
   @location(0) uv: vec2<f32>,
@@ -272,6 +278,10 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
       }
       if (ret.x == -5.0 || ret.x != ret.x || ret.y != ret.y) {
           textureStore(g_buffer_out, coord, vec4<f32>(1.0, 0.0, 1.0, 1.0));
+          return;
+      }
+      if (ret.x == -6.0) {
+          textureStore(g_buffer_out, coord, vec4<f32>(1.0, 0.5, 0.0, 1.0));
           return;
       }
       

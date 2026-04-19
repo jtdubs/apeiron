@@ -9,6 +9,8 @@ use bigdecimal::FromPrimitive;
 pub mod layout;
 use layout::*;
 
+pub mod reference_tree;
+
 #[derive(Deserialize)]
 pub struct Point {
     pub zr: String,
@@ -60,7 +62,11 @@ pub struct NativeMathPayload {
     pub bta_grid: Vec<f64>,
 }
 
-pub fn compute_mandelbrot_internal(points_json: &str, max_iterations: u32) -> NativeMathPayload {
+pub fn compute_mandelbrot_internal(
+    points_json: &str, 
+    max_iterations: u32,
+    mut tree_context: Option<(u32, &mut crate::reference_tree::ReferenceTree)>
+) -> NativeMathPayload {
     let points: Vec<Point> = serde_json::from_str(points_json).unwrap_or_else(|_| vec![]);
     
     let floats_per_case = max_iterations as usize * ORBIT_STRIDE;
@@ -70,7 +76,10 @@ pub fn compute_mandelbrot_internal(points_json: &str, max_iterations: u32) -> Na
     let mut bla_results_ds = Vec::with_capacity(points.len() * max_iterations as usize * BLA_LEVELS as usize * DSBLA_NODE_STRIDE as usize);
     let mut bta_results = Vec::with_capacity(points.len() * max_iterations as usize * BLA_LEVELS as usize * BTA_NODE_STRIDE as usize);
 
+    let mut point_idx = 0;
     for p in points {
+        let is_primary_reference = point_idx == 0;
+        point_idx += 1;
         let mut x = BigDecimal::from_str(&p.zr).unwrap_or(BigDecimal::zero());
         let mut y = BigDecimal::from_str(&p.zi).unwrap_or(BigDecimal::zero());
         let x0 = BigDecimal::from_str(&p.cr).unwrap_or(BigDecimal::zero());
@@ -117,6 +126,14 @@ pub fn compute_mandelbrot_internal(points_json: &str, max_iterations: u32) -> Na
 
             let x2 = &x * &x;
             let y2 = &y * &y;
+
+            if is_primary_reference {
+                if let Some((id, ref mut tree)) = tree_context {
+                    if iter % 1000 == 0 { // KEYFRAME_STRIDE
+                        tree.push_keyframe(id, &x, &y);
+                    }
+                }
+            }
 
             if (&x2 + &y2) > limit {
                 escaped = true;
@@ -431,7 +448,7 @@ pub fn compute_mandelbrot_internal(points_json: &str, max_iterations: u32) -> Na
 
 #[wasm_bindgen]
 pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> MathPayload {
-    let native = compute_mandelbrot_internal(points_json, max_iterations);
+    let native = compute_mandelbrot_internal(points_json, max_iterations, None);
     MathPayload {
         orbit_nodes: js_sys::Float64Array::from(&native.orbit_nodes[..]),
         metadata: js_sys::Float64Array::from(&native.metadata[..]),
@@ -439,6 +456,8 @@ pub fn compute_mandelbrot(points_json: &str, max_iterations: u32) -> MathPayload
         bta_grid: js_sys::Float64Array::from(&native.bta_grid[..]),
     }
 }
+
+
 
 #[wasm_bindgen]
 pub struct RefineResult {
@@ -691,4 +710,100 @@ pub fn refine_reference(cr_str: &str, ci_str: &str, max_iterations: u32) -> Refi
         period: out_period,
         pre_period: out_pre_period,
     }
+}
+
+#[wasm_bindgen]
+pub fn compute_payload(tree: &mut crate::reference_tree::ReferenceTree, node_id: u32, points_json: &str, max_iterations: u32) -> MathPayload {
+    let native = compute_mandelbrot_internal(points_json, max_iterations, Some((node_id, tree)));
+    MathPayload {
+        orbit_nodes: js_sys::Float64Array::from(&native.orbit_nodes[..]),
+        metadata: js_sys::Float64Array::from(&native.metadata[..]),
+        bla_grid_ds: js_sys::Float64Array::from(&native.bla_grid_ds[..]),
+        bta_grid: js_sys::Float64Array::from(&native.bta_grid[..]),
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct GlitchPoint {
+    pub deltaCr: f64,
+    pub deltaCi: f64,
+}
+
+#[wasm_bindgen]
+pub struct ResolvePayload {
+    new_cr: String,
+    new_ci: String,
+    glitch_dr: f64,
+    glitch_di: f64,
+    orbit_nodes: js_sys::Float64Array,
+    metadata: js_sys::Float64Array,
+    bla_grid_ds: js_sys::Float64Array,
+    bta_grid: js_sys::Float64Array,
+}
+
+#[wasm_bindgen]
+impl ResolvePayload {
+    #[wasm_bindgen(getter)]
+    pub fn newCr(&self) -> String { self.new_cr.clone() }
+    #[wasm_bindgen(getter)]
+    pub fn newCi(&self) -> String { self.new_ci.clone() }
+    #[wasm_bindgen(getter)]
+    pub fn glitchDr(&self) -> f64 { self.glitch_dr }
+    #[wasm_bindgen(getter)]
+    pub fn glitchDi(&self) -> f64 { self.glitch_di }
+    #[wasm_bindgen(getter)]
+    pub fn orbit_nodes(&self) -> js_sys::Float64Array { self.orbit_nodes.clone() }
+    #[wasm_bindgen(getter)]
+    pub fn metadata(&self) -> js_sys::Float64Array { self.metadata.clone() }
+    #[wasm_bindgen(getter)]
+    pub fn bla_grid_ds(&self) -> js_sys::Float64Array { self.bla_grid_ds.clone() }
+    #[wasm_bindgen(getter)]
+    pub fn bta_grid(&self) -> js_sys::Float64Array { self.bta_grid.clone() }
+}
+
+#[wasm_bindgen]
+pub fn resolve_glitches(tree: &mut crate::reference_tree::ReferenceTree, current_anchor_id: u32, glitches_json: &str, max_iterations: u32) -> Result<ResolvePayload, JsValue> {
+    let glitches: Vec<GlitchPoint> = serde_json::from_str(glitches_json).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    
+    if glitches.is_empty() {
+        return Err(JsValue::from_str("No glitches provided"));
+    }
+
+    let target = &glitches[0];
+    
+    // Get center of current anchor
+    let (center_r_str, center_i_str, exponent) = tree.get_node_info(current_anchor_id).ok_or_else(|| JsValue::from_str("Current anchor not found"))?;
+    
+    // Parse
+    let center_r = BigDecimal::from_str(&center_r_str).unwrap_or(BigDecimal::zero());
+    let center_i = BigDecimal::from_str(&center_i_str).unwrap_or(BigDecimal::zero());
+    
+    use bigdecimal::FromPrimitive;
+    let dr = BigDecimal::from_f64(target.deltaCr).unwrap_or(BigDecimal::zero());
+    let di = BigDecimal::from_f64(target.deltaCi).unwrap_or(BigDecimal::zero());
+    
+    let new_cr = (center_r + dr).with_prec(100);
+    let new_ci = (center_i + di).with_prec(100);
+    
+    let new_cr_str = new_cr.to_string();
+    let new_ci_str = new_ci.to_string();
+    
+    // Allocate the new reference node
+    let new_id = tree.alloc_node(&new_cr_str, &new_ci_str, exponent);
+    
+    // Generate standard payload array for the internal runner
+    let points_json_payload = format!(r#"[{{"zr":"0","zi":"0","cr":"{}","ci":"{}","exponent":{}}}]"#, new_cr_str, new_ci_str, exponent);
+    
+    let payload = compute_mandelbrot_internal(&points_json_payload, max_iterations, Some((new_id, tree)));
+    
+    Ok(ResolvePayload {
+        new_cr: new_cr_str,
+        new_ci: new_ci_str,
+        glitch_dr: target.deltaCr,
+        glitch_di: target.deltaCi,
+        orbit_nodes: js_sys::Float64Array::from(&payload.orbit_nodes[..]),
+        metadata: js_sys::Float64Array::from(&payload.metadata[..]),
+        bla_grid_ds: js_sys::Float64Array::from(&payload.bla_grid_ds[..]),
+        bta_grid: js_sys::Float64Array::from(&payload.bta_grid[..]),
+    })
 }

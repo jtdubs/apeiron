@@ -1,4 +1,4 @@
-import initWasm, { compute_mandelbrot, refine_reference } from './wasm/rust_math.js';
+import initWasm, { refine_reference } from './wasm/rust_math.js';
 
 export type WorkerInputMessage =
   | {
@@ -13,6 +13,12 @@ export type WorkerInputMessage =
       cr: string;
       ci: string;
       max_iterations: number;
+    }
+  | {
+      id: number;
+      type: 'RESOLVE_GLITCHES';
+      glitches: { deltaCr: number; deltaCi: number }[];
+      paletteMaxIter: number;
     };
 
 export type WorkerOutputMessage =
@@ -32,9 +38,24 @@ export type WorkerOutputMessage =
       refType: string;
       period: number;
       pre_period: number;
+    }
+  | {
+      id: number;
+      type: 'RESOLVE_GLITCHES_RESULT';
+      newCr: string;
+      newCi: string;
+      glitchDr: number;
+      glitchDi: number;
+      orbit_nodes: Float64Array;
+      metadata: Float64Array;
+      bla_grid_ds: Float64Array;
+      bta_grid: Float64Array;
     };
 
 let wasmInit: Promise<unknown> | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let referenceTree: any = null;
+let currentAnchorId: number = 0;
 
 self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
   const msg = e.data;
@@ -45,8 +66,30 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     }
     await wasmInit;
 
+    // A hack to access initWasm.ReferenceTree via window without explicit import name
+    if (!referenceTree) {
+      const { ReferenceTree } = await import('./wasm/rust_math.js');
+      referenceTree = new ReferenceTree();
+    }
+
+    const { compute_payload } = await import('./wasm/rust_math.js');
+
+    const cases = JSON.parse(msg.casesJson);
+    if (cases.length > 0) {
+      currentAnchorId = referenceTree.alloc_node(
+        cases[0].cr,
+        cases[0].ci,
+        cases[0].exponent || 2.0,
+      );
+    }
+
     const t0 = performance.now();
-    const payload = compute_mandelbrot(msg.casesJson, msg.paletteMaxIter);
+    const payload = compute_payload(
+      referenceTree,
+      currentAnchorId,
+      msg.casesJson,
+      msg.paletteMaxIter,
+    );
     const t1 = performance.now();
     console.log(`[math-core] BLA Tree & Orbit Array compiled in ${(t1 - t0).toFixed(2)}ms`);
 
@@ -95,5 +138,58 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     } as WorkerOutputMessage);
 
     result.free();
+  } else if (e.data.type === 'RESOLVE_GLITCHES') {
+    if (!wasmInit) {
+      wasmInit = initWasm();
+    }
+    await wasmInit;
+
+    if (!referenceTree) {
+      const { ReferenceTree } = await import('./wasm/rust_math.js');
+      referenceTree = new ReferenceTree();
+    }
+
+    const { resolve_glitches } = await import('./wasm/rust_math.js');
+
+    const t0 = performance.now();
+    // Use the TS engine state parameter `paletteMaxIter` as the reference max iter
+    const payload = resolve_glitches(
+      referenceTree,
+      currentAnchorId,
+      JSON.stringify(e.data.glitches),
+      e.data.paletteMaxIter,
+    );
+    const t1 = performance.now();
+    console.log(`[math-core] Resolution Glitches compiled in ${(t1 - t0).toFixed(2)}ms`);
+
+    // Explicitly copy WASM-memory
+    const orbit_nodes = new Float64Array(payload.orbit_nodes);
+    const metadata = new Float64Array(payload.metadata);
+    const bla_grid_ds = new Float64Array(payload.bla_grid_ds);
+    const bta_grid = new Float64Array(payload.bta_grid);
+
+    const newCr = payload.newCr;
+    const newCi = payload.newCi;
+    const glitchDr = payload.glitchDr;
+    const glitchDi = payload.glitchDi;
+
+    payload.free();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (self as any).postMessage(
+      {
+        id: e.data.id,
+        type: 'RESOLVE_GLITCHES_RESULT',
+        newCr,
+        newCi,
+        glitchDr,
+        glitchDi,
+        orbit_nodes,
+        metadata,
+        bla_grid_ds,
+        bta_grid,
+      } as WorkerOutputMessage,
+      [orbit_nodes.buffer, metadata.buffer, bla_grid_ds.buffer, bta_grid.buffer],
+    );
   }
 };

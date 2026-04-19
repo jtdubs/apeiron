@@ -10,6 +10,7 @@ export interface ApeironEngine {
   resize: () => void;
   getMathPassMs: () => number;
   isIterationTargetMet: () => boolean;
+  setOnGlitchesDetected: (cb: (glitches: { x: number; y: number }[]) => void) => void;
 }
 
 export async function initEngine(
@@ -36,6 +37,7 @@ export async function initEngine(
     requiredLimits: {
       maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize,
       maxBufferSize: adapter.limits.maxBufferSize,
+      maxStorageBuffersPerShaderStage: adapter.limits.maxStorageBuffersPerShaderStage,
     },
   });
 
@@ -93,6 +95,12 @@ export async function initEngine(
     return passManager ? passManager.isIterationTargetMet : false;
   };
 
+  const setOnGlitchesDetected = (cb: (glitches: { x: number; y: number }[]) => void) => {
+    if (passManager) {
+      passManager.onGlitchesDetected = cb;
+    }
+  };
+
   return {
     device,
     adapter,
@@ -102,5 +110,6 @@ export async function initEngine(
     resize,
     getMathPassMs,
     isIterationTargetMet,
+    setOnGlitchesDetected,
   };
 }

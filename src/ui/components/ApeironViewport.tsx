@@ -161,6 +161,9 @@ export const ApeironViewport: React.FC = () => {
         const engine = await initEngine(canvas, compiledMathShader, resolvePresentWgsl);
         if (!isMounted) return;
         engineRef.current = engine;
+        engine.setOnGlitchesDetected((glitches) => {
+          perturbationOrchestrator.reportGlitches(glitches);
+        });
 
         // ── Render Orchestration Loop ───────────────────────────────────────
         const orchestrator = new RenderOrchestrator();
@@ -244,7 +247,7 @@ export const ApeironViewport: React.FC = () => {
 
     initialize();
 
-    const orchestrator = new PerturbationOrchestrator();
+    const perturbationOrchestrator = new PerturbationOrchestrator();
 
     let resizeTimeoutId: number | null = null;
 
@@ -279,7 +282,7 @@ export const ApeironViewport: React.FC = () => {
       }
       if (wheelTimeoutId) window.clearTimeout(wheelTimeoutId);
       if (resizeTimeoutId) window.clearTimeout(resizeTimeoutId);
-      orchestrator.destroy();
+      perturbationOrchestrator.destroy();
       resizeObserver.disconnect();
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);

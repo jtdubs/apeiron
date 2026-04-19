@@ -206,6 +206,34 @@ export class PerturbationOrchestrator {
         this.isWorkerBusy = false;
         this.currentWorkerJob = null;
       }
+    } else if (e.data.type === 'RESOLVE_GLITCHES_RESULT') {
+      const newCr = e.data.newCr;
+      const newCi = e.data.newCi;
+
+      console.log(`[PerturbationOrchestrator] Glitch resolved to new anchor: ${newCr}, ${newCi}`);
+
+      this._isSynchronizingState = true;
+      viewportStore.setState((state) => {
+        const newDeltaCr = state.deltaCr - e.data.glitchDr;
+        const newDeltaCi = state.deltaCi - e.data.glitchDi;
+
+        return {
+          anchorCr: newCr,
+          anchorCi: newCi,
+          deltaCr: newDeltaCr,
+          deltaCi: newDeltaCi,
+          refOrbitNodes: e.data.orbit_nodes,
+          refMetadata: e.data.metadata,
+          refBlaGridDs: e.data.bla_grid_ds,
+          refBtaGrid: e.data.bta_grid,
+        };
+      });
+
+      // Remove busy state if glitched job was acting as pending fallback
+      this.isWorkerBusy = false;
+      if (this.pendingWorkerJob !== null) {
+        this.dispatchPendingWork();
+      }
     }
   }
 
@@ -282,5 +310,51 @@ export class PerturbationOrchestrator {
     this.worker.terminate();
     if (this.timeoutId) window.clearTimeout(this.timeoutId);
     if (this.logTimeoutId) window.clearTimeout(this.logTimeoutId);
+  }
+
+  public reportGlitches(glitches: { x: number; y: number }[]) {
+    const state = viewportStore.getState();
+    const rectWidth = window.innerWidth;
+    const rectHeight = window.innerHeight;
+    const aspect = rectWidth / rectHeight;
+
+    // Transform coordinates from px to delta C relative to screen center
+    const translatedGlitches = glitches.map((g) => {
+      const ndcX = ((g.x + 0.5) / rectWidth) * 2.0 - 1.0;
+      const ndcY = 1.0 - ((g.y + 0.5) / rectHeight) * 2.0; // WebGPU Y is up
+
+      const offsetR = ndcX * state.zoom * aspect;
+      const offsetI = ndcY * state.zoom;
+
+      const cosAngle = Math.cos(state.sliceAngle);
+      const sinAngle = Math.sin(state.sliceAngle);
+
+      const rotR = offsetR * cosAngle - offsetI * sinAngle;
+      const rotI = offsetR * sinAngle + offsetI * cosAngle;
+
+      const deltaCr = state.deltaCr + rotR;
+      const deltaCi = state.deltaCi + rotI;
+
+      return { deltaCr, deltaCi };
+    });
+
+    // De-duplicate mathematically tight clusters (within f64 epsilons)
+    const uniqueMap = new Map<string, { deltaCr: number; deltaCi: number }>();
+    for (const g of translatedGlitches) {
+      const key = `${g.deltaCr.toExponential(5)}_${g.deltaCi.toExponential(5)}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, g);
+      }
+    }
+    const deduplicated = Array.from(uniqueMap.values());
+
+    if (deduplicated.length > 0) {
+      this.worker.postMessage({
+        id: ++this.jobSequenceCounter,
+        type: 'RESOLVE_GLITCHES',
+        glitches: deduplicated,
+        paletteMaxIter: state.paletteMaxIter,
+      });
+    }
   }
 }

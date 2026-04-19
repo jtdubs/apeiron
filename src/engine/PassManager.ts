@@ -129,6 +129,7 @@ export class AccumulationPass {
 
     activeRefBlaGridDsBuffer: GPUBuffer | null,
     activeRefBtaGridBuffer: GPUBuffer | null,
+    glitchBuffer: GPUBuffer,
     prevFrameView: GPUTextureView,
     checkpointBuffer: GPUBuffer,
     completionFlagBuffer: GPUBuffer,
@@ -169,6 +170,12 @@ export class AccumulationPass {
           binding: 11,
           resource: {
             buffer: activeRefBtaGridBuffer ? activeRefBtaGridBuffer : this.dummyRefBtaGridBuffer,
+          },
+        },
+        {
+          binding: 12,
+          resource: {
+            buffer: glitchBuffer,
           },
         },
       ],
@@ -330,6 +337,12 @@ export class PassManager {
   private completionStagingBuffer: GPUBuffer | null = null;
   private _isIterationTargetMet = false;
   private _isCompletionQueryPending = false;
+
+  private glitchBuffer: GPUBuffer | null = null;
+  private glitchStagingBuffer: GPUBuffer | null = null;
+  private _isGlitchQueryPending = false;
+  public onGlitchesDetected?: (glitches: { x: number; y: number }[]) => void;
+
   private _hasEverAccumulated = false;
   public latestMapPromise: Promise<void> | null = null;
 
@@ -415,6 +428,18 @@ export class PassManager {
     if (this.completionStagingBuffer) this.completionStagingBuffer.destroy();
     this.completionStagingBuffer = this.device.createBuffer({
       size: 4,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+    });
+
+    if (this.glitchBuffer) this.glitchBuffer.destroy();
+    this.glitchBuffer = this.device.createBuffer({
+      size: 516, // 4 bytes for count + 64 * 8 bytes for GlitchRecord
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    });
+
+    if (this.glitchStagingBuffer) this.glitchStagingBuffer.destroy();
+    this.glitchStagingBuffer = this.device.createBuffer({
+      size: 516,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
 
@@ -717,6 +742,7 @@ export class PassManager {
 
       this.activeRefBlaGridDsBuffer,
       this.activeRefBtaGridBuffer,
+      this.glitchBuffer!,
       readTex!.createView(),
       this.checkpointBuffer!,
       this.completionFlagBuffer!,
@@ -725,6 +751,8 @@ export class PassManager {
 
     // Initialize completion flag to 1 (true) before the pass
     this.device.queue.writeBuffer(this.completionFlagBuffer!, 0, new Uint32Array([1]));
+    // Clear the glitch readback count to 0. (offset 0, 4 bytes)
+    this.device.queue.writeBuffer(this.glitchBuffer!, 0, new Uint32Array([0]));
 
     this.accumPass.execute(
       commandEncoder,
@@ -744,6 +772,9 @@ export class PassManager {
         0,
         4,
       );
+    }
+    if (!this._isGlitchQueryPending) {
+      commandEncoder.copyBufferToBuffer(this.glitchBuffer!, 0, this.glitchStagingBuffer!, 0, 516);
     }
 
     if (queryActive) {
@@ -804,6 +835,40 @@ export class PassManager {
         })
         .catch(() => {
           this._isCompletionQueryPending = false;
+        });
+    }
+
+    if (!this._isGlitchQueryPending) {
+      this._isGlitchQueryPending = true;
+      this.device.queue
+        .onSubmittedWorkDone()
+        .then(() => {
+          if (this.glitchStagingBuffer!.mapState === 'unmapped') {
+            this.glitchStagingBuffer!.mapAsync(GPUMapMode.READ)
+              .then(() => {
+                const arr = new Uint32Array(this.glitchStagingBuffer!.getMappedRange());
+                const count = Math.min(arr[0], 64);
+                if (count > 0) {
+                  const glitches: { x: number; y: number }[] = [];
+                  for (let i = 0; i < count; i++) {
+                    glitches.push({ x: arr[1 + i * 2], y: arr[2 + i * 2] });
+                  }
+                  if (this.onGlitchesDetected) {
+                    this.onGlitchesDetected(glitches);
+                  }
+                }
+                this.glitchStagingBuffer!.unmap();
+                this._isGlitchQueryPending = false;
+              })
+              .catch(() => {
+                this._isGlitchQueryPending = false;
+              });
+          } else {
+            this._isGlitchQueryPending = false;
+          }
+        })
+        .catch(() => {
+          this._isGlitchQueryPending = false;
         });
     }
   }

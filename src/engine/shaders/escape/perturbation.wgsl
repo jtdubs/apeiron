@@ -206,8 +206,26 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     let next_zy = next_node.y;
     let cur_x = next_zx + dz.x;
     let cur_y = next_zy + dz.y;
-    
     let cur_z_mag = length(vec2<f32>(cur_x, cur_y));
+    
+    // --- Proxy Collapse Detection (Rebase Trigger) ---
+    let p_mag = cur_x * cur_x + cur_y * cur_y; // |Z_m + dz|^2
+    let dz_mag = dz.x * dz.x + dz.y * dz.y;    // |dz|^2
+    // Mantissa exhaustion fallback
+    let mantissa_exhausted = (abs(next_zx) + abs(dz.x) == abs(next_zx)) && (abs(next_zy) + abs(dz.y) == abs(next_zy));
+    
+    if (p_mag < dz_mag || mantissa_exhausted) {
+        let glitched_idx = atomicAdd(&glitch_readback.count, 1u);
+        if (glitched_idx < MAX_GLITCHES) {
+            let px = pixel_idx % u32(camera.canvas_width);
+            let py = pixel_idx / u32(camera.canvas_width);
+            glitch_readback.records[glitched_idx] = GlitchRecord(px, py);
+        }
+        
+        let ret = vec4<f32>(-6.0, iter, dz.x, dz.y);
+        checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
+        return ret;
+    }
     
     if (cur_x != cur_x || cur_y != cur_y || dz.x != dz.x || dz_next.x != dz_next.x) {
       let ret = vec4<f32>(-5.0, 0.0, 0.0, 0.0);

@@ -76,6 +76,7 @@ export class WebGPUTestHarness {
     outputStride: number = 4,
   ): Promise<Float32Array> {
     const computeModule = this.device.createShaderModule({ code: this.mathShaderCode });
+    this.device.pushErrorScope('validation');
     const computePipeline = this.device.createComputePipeline({
       layout: 'auto',
       compute: {
@@ -92,6 +93,10 @@ export class WebGPUTestHarness {
         },
       },
     });
+    const pipelineCreationError = await this.device.popErrorScope();
+    if (pipelineCreationError) {
+      console.error(`Pipeline Creation Error for ${entryPoint}:`, pipelineCreationError.message);
+    }
 
     const inputSize = input.byteLength;
     const computeUnits = input.length / inputStride;
@@ -229,6 +234,11 @@ export class WebGPUTestHarness {
     });
     this.device.queue.writeBuffer(completionFlagBuffer, 0, new Uint32Array([1]));
 
+    const glitchBuffer = this.device.createBuffer({
+      size: 516,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
     const entries: GPUBindGroupEntry[] = [
       { binding: 1, resource: { buffer: inputStorageBuffer } },
       { binding: 2, resource: { buffer: outputStorageBuffer } },
@@ -260,6 +270,7 @@ export class WebGPUTestHarness {
       entries.push({ binding: 8, resource: { buffer: refMetadataBuffer } });
       entries.push({ binding: 10, resource: { buffer: refBlaGridDsBuffer } });
       entries.push({ binding: 11, resource: { buffer: refBtaGridBuffer } });
+      entries.push({ binding: 12, resource: { buffer: glitchBuffer } });
     }
 
     this.device.pushErrorScope('validation');
@@ -307,6 +318,7 @@ export class WebGPUTestHarness {
 
     refBlaGridDsBuffer.destroy();
     refBtaGridBuffer.destroy();
+    glitchBuffer.destroy();
 
     return result;
   }

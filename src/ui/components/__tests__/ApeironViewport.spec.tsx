@@ -15,6 +15,7 @@ const { renderFrameMock, initEngineMock } = vi.hoisted(() => {
       resize: vi.fn(),
       getMathPassMs: vi.fn().mockReturnValue(14),
       isIterationTargetMet: vi.fn().mockReturnValue(true),
+      setOnGlitchesDetected: vi.fn(),
     }),
   };
 });
