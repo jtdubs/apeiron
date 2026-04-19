@@ -93,7 +93,7 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
                         
                         dz = potential_dz;
                         
-                        let new_der = complex_mul(vec2<f32>(bta_node.ar, bta_node.ai), der);
+                        let new_der = complex_add(complex_mul(vec2<f32>(bta_node.ar, bta_node.ai), der), vec2<f32>(bta_node.br, bta_node.bi));
                         var new_der_x = new_der.x;
                         var new_der_y = new_der.y;
                         
@@ -206,7 +206,7 @@ fn advance_via_bla_ds(dz_in: vec4<f32>, der_in: vec2<f32>, delta_c: vec4<f32>, s
                         dz = potential_dz;
                         dz_f32 = potential_dz_f32;
                         
-                        let new_der = complex_mul(vec2<f32>(bn.ar_hi, bn.ai_hi), der);
+                        let new_der = complex_add(complex_mul(vec2<f32>(bn.ar_hi, bn.ai_hi), der), vec2<f32>(bn.br_hi, bn.bi_hi));
                         var new_der_x = new_der.x;
                         var new_der_y = new_der.y;
                         

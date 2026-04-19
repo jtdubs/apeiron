@@ -48,8 +48,10 @@ fn init_perturbation_state(delta_z: vec2<f32>, delta_c: vec2<f32>, pixel_idx: u3
       let dc3 = complex_mul(dc2, delta_c);
       let c_dc3 = complex_mul(vec2<f32>(cr, ci), dc3);
       
+      let two_b_dc = 2.0 * complex_mul(vec2<f32>(br, bi), delta_c);
+      let three_c_dc2 = 3.0 * complex_mul(vec2<f32>(cr, ci), dc2);
       dz = complex_add(complex_add(a_dc, b_dc2), c_dc3);
-      der = vec2<f32>(ar, ai);
+      der = complex_add(complex_add(vec2<f32>(ar, ai), two_b_dc), three_c_dc2);
       
       let initial_x = node.x + dz.x;
       let initial_y = node.y + dz.y;
@@ -208,8 +210,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
         }
     }
     
-    let cur_x_for_der = zx + dz.x;
-    let new_der = step_derivative(vec2<f32>(zx + dz_next.x, zy + dz_next.y), vec2<f32>(der_x, der_y), d);
+    let new_der = step_derivative(vec2<f32>(cur_x, cur_y), vec2<f32>(der_x, der_y), d);
     var new_der_x = new_der.x;
     var new_der_y = new_der.y;
     let new_der_max = max(abs(new_der_x), abs(new_der_y));
