@@ -36,6 +36,7 @@ export interface ViewportState {
   interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST';
   debugViewMode: number;
   isTelemetryOpen: boolean;
+  telemetryDock: 'bottom' | 'right';
 
   setRefBuffers: (
     orbitNodes: Float64Array | null,
@@ -46,6 +47,7 @@ export interface ViewportState {
   setInteractionState: (state: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST') => void;
   setDebugViewMode: (mode: number) => void;
   setIsTelemetryOpen: (isOpen: boolean) => void;
+  setTelemetryDock: (dock: 'bottom' | 'right') => void;
   setAnchorsAndDeltas: (
     azr: string,
     azi: string,
@@ -85,6 +87,10 @@ export const viewportStore = createStore<ViewportState>((set) => ({
   debugViewMode: 0,
   isTelemetryOpen:
     typeof window !== 'undefined' && localStorage.getItem('apeiron_telemetry_open') === 'true',
+  telemetryDock:
+    (typeof window !== 'undefined' &&
+      (localStorage.getItem('apeiron_telemetry_dock') as 'bottom' | 'right')) ||
+    'bottom',
 
   setRefBuffers: (orbitNodes, metadata, blaGridDs, btaGrid) =>
     set({
@@ -100,6 +106,12 @@ export const viewportStore = createStore<ViewportState>((set) => ({
       localStorage.setItem('apeiron_telemetry_open', String(isTelemetryOpen));
     }
     set({ isTelemetryOpen });
+  },
+  setTelemetryDock: (telemetryDock) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('apeiron_telemetry_dock', telemetryDock);
+    }
+    set({ telemetryDock });
   },
 
   setAnchorsAndDeltas: (azr, azi, acr, aci, dzr, dzi, dcr, dci, zoom, sliceAngle, exponent) =>

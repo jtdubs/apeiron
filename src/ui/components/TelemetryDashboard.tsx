@@ -24,9 +24,12 @@ export const TelemetryDashboard: React.FC = () => {
   const viewportState = useStore(viewportStore);
   const isOpen = viewportState.isTelemetryOpen;
   const setIsOpen = viewportState.setIsTelemetryOpen;
+  const telemetryDock = viewportState.telemetryDock;
+  const setTelemetryDock = viewportState.setTelemetryDock;
   const [isPaused, setIsPaused] = useState(false);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [panelHeight, setPanelHeight] = useState(350);
+  const [panelWidth, setPanelWidth] = useState(600);
   const resizeRef = useRef({ isResizing: false });
   const zoomXRef = useRef(1.0);
   const panXRef = useRef(0.0);
@@ -163,11 +166,18 @@ export const TelemetryDashboard: React.FC = () => {
   useEffect(() => {
     const handleMove = (e: PointerEvent) => {
       if (!resizeRef.current.isResizing) return;
-      // The dashboard expands upwards from the bottom, so higher Y meaning lower physical height
-      const newHeight = window.innerHeight - e.clientY;
-      const minHeight = 120; // 1 lane (60) + grids (20) + header (30)
-      const maxHeight = window.innerHeight - 50;
-      setPanelHeight(Math.max(minHeight, Math.min(newHeight, maxHeight)));
+      const dock = viewportStore.getState().telemetryDock;
+      if (dock === 'right') {
+        const newWidth = window.innerWidth - e.clientX;
+        const minWidth = 280;
+        const maxWidth = window.innerWidth - 100;
+        setPanelWidth(Math.max(minWidth, Math.min(newWidth, maxWidth)));
+      } else {
+        const newHeight = window.innerHeight - e.clientY;
+        const minHeight = 120; // 1 lane (60) + grids (20) + header (30)
+        const maxHeight = window.innerHeight - 50;
+        setPanelHeight(Math.max(minHeight, Math.min(newHeight, maxHeight)));
+      }
       e.preventDefault();
     };
     const handleUp = () => {
@@ -454,14 +464,21 @@ export const TelemetryDashboard: React.FC = () => {
   };
 
   return (
-    <div className="telemetry-dashboard-wrapper">
-      <div className="telemetry-dashboard" style={{ height: `${panelHeight}px` }}>
+    <div className={`telemetry-dashboard-wrapper dock-${telemetryDock}`}>
+      <div
+        className="telemetry-dashboard"
+        style={
+          telemetryDock === 'right'
+            ? { width: `${panelWidth}px`, height: '100%' }
+            : { height: `${panelHeight}px`, width: '100%' }
+        }
+      >
         <div
-          className="telemetry-resize-handle"
+          className={`telemetry-resize-handle ${telemetryDock}`}
           onPointerDown={(e) => {
             e.preventDefault();
             resizeRef.current.isResizing = true;
-            document.body.style.cursor = 'ns-resize';
+            document.body.style.cursor = telemetryDock === 'right' ? 'ew-resize' : 'ns-resize';
           }}
         />
         <div className="telemetry-header">
@@ -519,11 +536,30 @@ export const TelemetryDashboard: React.FC = () => {
                 <button onClick={() => moveCursor('end')} title="Newest Frame (Head)">
                   ▶|
                 </button>
-                <button onClick={() => setCursorAge(null)} style={{ marginLeft: '8px' }}>
-                  ✕ CLEAR
+                <button
+                  onClick={() => setCursorAge(null)}
+                  style={{ marginLeft: '8px' }}
+                  title="Clear Capture Node"
+                >
+                  ✕
                 </button>
               </div>
             )}
+            <button
+              onClick={() => setTelemetryDock(telemetryDock === 'bottom' ? 'right' : 'bottom')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '30px',
+                height: '30px',
+                padding: 0,
+                fontSize: '18px',
+              }}
+              title={telemetryDock === 'bottom' ? 'Dock Right' : 'Dock Bottom'}
+            >
+              {telemetryDock === 'bottom' ? '◧' : '⬒'}
+            </button>
             <button
               onClick={() => setIsPaused(!isPaused)}
               style={{

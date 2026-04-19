@@ -297,8 +297,8 @@ export const ApeironViewport: React.FC = () => {
       <canvas
         ref={canvasRef}
         style={{
-          width: '100vw',
-          height: '100vh',
+          width: '100%',
+          height: '100%',
           display: 'block',
           touchAction: 'none',
         }}
