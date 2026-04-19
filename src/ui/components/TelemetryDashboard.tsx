@@ -584,7 +584,7 @@ export const TelemetryDashboard: React.FC = () => {
                 height: '30px',
                 padding: 0,
                 color: isPaused ? '#ef4444' : '#3b82f6',
-                fontSize: '20px',
+                fontSize: '28px',
               }}
               title={isPaused ? 'Resume Live Capture' : 'Freeze Capture'}
             >
