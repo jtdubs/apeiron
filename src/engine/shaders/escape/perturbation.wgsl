@@ -144,7 +144,7 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     
     // Prevent GPU NaN bombs by ensuring bailout catches Invalid calculations
     if (!(cur_mag <= 4.0)) {
-      let ret = get_escape_data(iter, cur_x, cur_y, der_x, der_y, 0.0, tia_sum);
+      let ret = get_escape_data(iter, cur_x, cur_y, der_x, der_y, 1.0, tia_sum);
       checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
       return ret;
     }
@@ -258,10 +258,6 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
       return ret;
     }
 
-    let ref_mag = next_zx * next_zx + next_zy * next_zy;
-    if (iter > 2.0 && (dz.x * dz.x + dz.y * dz.y) > ref_mag) {
-       return continue_mandelbrot_iterations(vec2<f32>(cur_next_x, cur_next_y), start_c, iter + 1.0, max_iterations, der_x, der_y, tia_sum, pixel_idx, false);
-    }
 
     if (coloring_mode > 0.5) {
       let n_mag = pow(prev_z_mag, d);

@@ -125,7 +125,7 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
             let ref_final_node = get_orbit_node(u32(iter));
             let final_x = ref_final_node.x + dz.x;
             let final_y = ref_final_node.y + dz.y;
-            let ret = get_escape_data(iter, final_x, final_y, der.x, der.y, 0.0, tia_sum);
+            let ret = get_escape_data(iter, final_x, final_y, der.x, der.y, 1.0, tia_sum);
             checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
             return BlaResult(dz, der, iter, prev_z_mag, true, ret, true);
         }
@@ -135,7 +135,7 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
         let point_mag = final_x * final_x + final_y * final_y;
         
         if (point_mag > 4.0) {
-            let ret = get_escape_data(iter, final_x, final_y, der.x, der.y, 0.0, tia_sum);
+            let ret = get_escape_data(iter, final_x, final_y, der.x, der.y, 1.0, tia_sum);
             checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
             return BlaResult(dz, der, iter, prev_z_mag, true, ret, true);
         }
@@ -238,7 +238,7 @@ fn advance_via_bla_ds(dz_in: vec4<f32>, der_in: vec2<f32>, delta_c: vec4<f32>, s
             let ref_final_node = get_orbit_node(u32(iter));
             let final_x = ref_final_node.x + dz_f32.x;
             let final_y = ref_final_node.y + dz_f32.y;
-            let ret = get_escape_data(iter, final_x, final_y, der.x, der.y, 0.0, tia_sum);
+            let ret = get_escape_data(iter, final_x, final_y, der.x, der.y, 1.0, tia_sum);
             checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
             return BlaResultDs(dz, der, iter, prev_z_mag, true, ret, true);
         }
@@ -248,7 +248,7 @@ fn advance_via_bla_ds(dz_in: vec4<f32>, der_in: vec2<f32>, delta_c: vec4<f32>, s
         let point_mag = final_x * final_x + final_y * final_y;
         
         if (point_mag > 4.0) {
-            let ret = get_escape_data(iter, final_x, final_y, der.x, der.y, 0.0, tia_sum);
+            let ret = get_escape_data(iter, final_x, final_y, der.x, der.y, 1.0, tia_sum);
             checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
             return BlaResultDs(dz, der, iter, prev_z_mag, true, ret, true);
         }
