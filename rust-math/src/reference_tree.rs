@@ -1,17 +1,8 @@
 use std::collections::HashMap;
 use std::str::FromStr;
-use wasm_bindgen::prelude::*;
 use bigdecimal::{BigDecimal, ToPrimitive};
-
-pub struct Complex64 {
-    pub r: f64,
-    pub i: f64,
-}
-
-pub struct BigComplex {
-    pub r: BigDecimal,
-    pub i: BigDecimal,
-}
+use wasm_bindgen::prelude::*;
+use crate::complex::{Complex64, BigComplex};
 
 pub struct ReferenceNode {
     pub id: u32,

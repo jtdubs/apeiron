@@ -1,9 +1,9 @@
-use rust_math::{compute_mandelbrot_internal, refine_reference, layout};
+use rust_math::{mandelbrot::compute, refine_reference, layout};
 
 #[test]
 fn test_compute_mandelbrot_basic() {
     let points_json = r#"[{"zr": "0", "zi": "0", "cr": "-2", "ci": "0", "exponent": 2.0}]"#;
-    let payload = compute_mandelbrot_internal(points_json, 10, None);
+    let payload = compute(points_json, 10, None);
     
     // length of orbit should be 10 * ORBIT_STRIDE
     let orbit = payload.orbit_nodes;
@@ -21,7 +21,7 @@ fn test_compute_mandelbrot_basic() {
 #[test]
 fn test_compute_mandelbrot_escape() {
     let points_json = r#"[{"zr": "0", "zi": "0", "cr": "2", "ci": "2", "exponent": 2.0}]"#;
-    let payload = compute_mandelbrot_internal(points_json, 10, None);
+    let payload = compute(points_json, 10, None);
     let meta = payload.metadata;
     
     // c=2, 2 escapes quickly
@@ -32,7 +32,7 @@ fn test_compute_mandelbrot_escape() {
 #[test]
 fn test_bla_generation() {
     let points_json = r#"[{"zr": "0", "zi": "0", "cr": "-0.5", "ci": "0", "exponent": 2.0}]"#;
-    let payload = compute_mandelbrot_internal(points_json, 16, None);
+    let payload = compute(points_json, 16, None);
     
     let bla_ds = payload.bla_grid_ds;
     
@@ -64,7 +64,7 @@ fn test_refine_reference_misiurewicz() {
 fn test_compute_mandelbrot_exponent_integer() {
     // Exponent 3.0 path
     let points_json = r#"[{"zr": "0", "zi": "0", "cr": "2", "ci": "0", "exponent": 3.0}]"#;
-    let payload = compute_mandelbrot_internal(points_json, 4, None);
+    let payload = compute(points_json, 4, None);
     let orbit = payload.orbit_nodes;
     let x1 = orbit[layout::ORBIT_STRIDE as usize]; // z1 = 0^3 + 2 = 2
     let x2 = orbit[2 * layout::ORBIT_STRIDE as usize]; // z2 = 2^3 + 2 = 10
@@ -82,7 +82,7 @@ fn test_compute_mandelbrot_exponent_integer() {
 fn test_compute_mandelbrot_exponent_fract() {
     // Exponent 2.5 path (uses atan2/powf)
     let points_json = r#"[{"zr": "1", "zi": "0", "cr": "0", "ci": "0", "exponent": 2.5}]"#;
-    let payload = compute_mandelbrot_internal(points_json, 3, None);
+    let payload = compute(points_json, 3, None);
     let orbit = payload.orbit_nodes;
     // z_0 = 1, z_1 = 1^2.5 + 0 = 1
     let x1 = orbit[layout::ORBIT_STRIDE as usize];
@@ -99,7 +99,7 @@ fn test_bta_generation_values() {
     // Test base BTA values against analytical Taylor series expansion rules for Mandelbrot
     let points_json = r#"[{"zr": "1", "zi": "0", "cr": "-0.5", "ci": "0", "exponent": 2.0}]"#;
     // z0 = 1, z1 = 0.5
-    let payload = compute_mandelbrot_internal(points_json, 2, None);
+    let payload = compute(points_json, 2, None);
     let orbit = payload.orbit_nodes;
     let z0_x = orbit[0];
     let z0_y = orbit[1];
