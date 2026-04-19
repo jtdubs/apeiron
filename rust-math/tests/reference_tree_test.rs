@@ -53,3 +53,51 @@ fn test_chained_transformation_precision() {
     assert!((dc_shifted.r - expected_dc_r).abs() < 1e-25, "Transformed DC (real) deviates");
     assert!((dc_shifted.i - expected_dc_i).abs() < 1e-25, "Transformed DC (imag) deviates");
 }
+
+#[test]
+fn test_reference_tree_alloc_and_get() {
+    let mut tree = ReferenceTree::new();
+    let id1 = tree.alloc_node("1.5", "-1.5", 2.0);
+    let id2 = tree.alloc_node("2.0", "3.0", 3.0);
+    
+    let (r1, i1, exp1) = tree.get_node_info(id1).unwrap();
+    assert_eq!(r1, "1.5");
+    assert_eq!(i1, "-1.5");
+    assert_eq!(exp1, 2.0);
+    
+    let (r2, i2, exp2) = tree.get_node_info(id2).unwrap();
+    assert_eq!(r2, "2.0"); 
+    assert_eq!(i2, "3.0");
+    assert_eq!(exp2, 3.0);
+}
+
+#[test]
+fn test_find_best_anchor() {
+    let mut tree = ReferenceTree::new();
+    let id1 = tree.alloc_node("1.0", "1.0", 2.0);
+    let id2 = tree.alloc_node("-1.0", "-1.0", 2.0);
+    
+    // Close to id1
+    let best1 = tree.find_best_anchor("0.9", "0.9", 0.5);
+    assert_eq!(best1, id1 as i32);
+    
+    // Too far to match id1, but close to id2
+    let best2 = tree.find_best_anchor("-0.9", "-0.9", 0.5);
+    assert_eq!(best2, id2 as i32);
+    
+    // Too far from any
+    let best_none = tree.find_best_anchor("10.0", "10.0", 0.5);
+    assert_eq!(best_none, -1);
+}
+
+#[test]
+fn test_capacity_eviction() {
+    let mut tree = ReferenceTree::new();
+    // Capacity implicitly handles 16 by default or we just test pushing more
+    for i in 0..20 {
+        tree.alloc_node(&i.to_string(), "0.0", 2.0);
+    }
+    // Node 1 was first, it should have been evicted
+    assert!(tree.get_node_info(1).is_none(), "Oldest node should have been evicted");
+    assert!(tree.get_node_info(20).is_some());
+}

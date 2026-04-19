@@ -231,7 +231,7 @@ impl ReferenceTree {
         Ok(BigComplex { r: x, i: y })
     }
 
-    pub(crate) fn get_node_info(&self, id: u32) -> Option<(String, String, f64)> {
+    pub fn get_node_info(&self, id: u32) -> Option<(String, String, f64)> {
         self.nodes.get(&id).map(|n| (n.center.r.to_string(), n.center.i.to_string(), n.exponent))
     }
 }

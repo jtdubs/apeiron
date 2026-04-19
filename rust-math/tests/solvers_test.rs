@@ -19,3 +19,10 @@ fn test_refine_reference_misiurewicz() {
     let cr = refine_result.cr();
     assert!((cr - (-2.0)).abs() < 1e-4, "Should converge to -2.0, got {}", cr);
 }
+
+#[test]
+fn test_refine_reference_unknown() {
+    // A point that escapes and is neither nucleus nor misiurewicz
+    let refine_result = refine_reference("2.0", "2.0", 10);
+    assert_eq!(refine_result.ref_type(), "unknown");
+}
