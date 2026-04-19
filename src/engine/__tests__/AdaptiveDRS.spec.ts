@@ -5,7 +5,7 @@ describe('AdaptiveDRSController', () => {
   let adrs: AdaptiveDRSController;
 
   beforeEach(() => {
-    // Defaults: minScale=0.25, maxScale=1.0, minIter=100, targetMs=14.0
+    // Defaults: minScale=0.25, maxScale=1.0, minIter=5, targetMs=14.0
     adrs = new AdaptiveDRSController();
     adrs.reset(200);
   });
@@ -47,7 +47,7 @@ describe('AdaptiveDRSController', () => {
     }
     let state = adrs.update(20, 200);
     expect(state.renderScale).toBe(0.25);
-    expect(state.effectiveMaxIter).toBe(100);
+    expect(state.effectiveMaxIter).toBe(5);
 
     // Now send fast frames (< 14 * 0.75 = 10.5)
     adrs.update(10, 200);
@@ -56,8 +56,7 @@ describe('AdaptiveDRSController', () => {
     adrs.update(10, 200);
     state = adrs.update(10, 200); // 5th frame triggers upgrade
 
-    // maxIter should upgrade first
-    expect(state.effectiveMaxIter).toBe(125);
+    expect(state.effectiveMaxIter).toBe(30);
     expect(state.renderScale).toBe(0.25);
 
     adrs.update(10, 200);
@@ -65,10 +64,10 @@ describe('AdaptiveDRSController', () => {
     adrs.update(10, 200);
     adrs.update(10, 200);
     state = adrs.update(10, 200); // 10th frame triggers 2nd upgrade
-    expect(state.effectiveMaxIter).toBe(150);
+    expect(state.effectiveMaxIter).toBe(55);
 
     // Upgrade maxIter up to 200
-    for (let i = 0; i < 10; i++) adrs.update(10, 200);
+    for (let i = 0; i < 29; i++) adrs.update(10, 200);
     state = adrs.update(10, 200);
     expect(state.effectiveMaxIter).toBe(200);
     expect(state.renderScale).toBe(0.25); // still 0.25
@@ -92,7 +91,7 @@ describe('AdaptiveDRSController', () => {
     for (let i = 0; i < 100; i++) adrs.update(20, 200);
     state = adrs.update(20, 200);
     expect(state.renderScale).toBe(0.25);
-    expect(state.effectiveMaxIter).toBe(100);
+    expect(state.effectiveMaxIter).toBe(5);
   });
 
   it('reset() restores defaults regardless of current state', () => {

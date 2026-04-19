@@ -25,7 +25,7 @@ export class IterationBudgetController {
     const smoothing = gpuMs > this.targetMs * 1.5 ? 0.5 : 0.8;
 
     this.currentBudget = this.currentBudget * smoothing + idealBudget * (1.0 - smoothing);
-    this.currentBudget = Math.max(100, Math.min(5000, this.currentBudget));
+    this.currentBudget = Math.max(5, Math.min(5000, this.currentBudget));
 
     return Math.floor(this.currentBudget);
   }

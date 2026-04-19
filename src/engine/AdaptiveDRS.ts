@@ -12,7 +12,7 @@ export class AdaptiveDRSController {
     targetMs: number = 14.0,
     minScale: number = 0.25,
     maxScale: number = 1.0,
-    minIter: number = 100,
+    minIter: number = 5,
   ) {
     this.targetMs = targetMs;
     this.minScale = minScale;

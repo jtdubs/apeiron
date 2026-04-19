@@ -40,11 +40,11 @@ describe('IterationBudgetController', () => {
     expect(controller.getBudget()).toBe(5000);
   });
 
-  it('clamps min budget to 100', () => {
+  it('clamps min budget to 5', () => {
     for (let i = 0; i < 50; i++) {
       controller.update(100); // Extremely slow
     }
-    expect(controller.getBudget()).toBe(100);
+    expect(controller.getBudget()).toBe(5);
   });
 
   it('reset floors the budget back to 1000', () => {
