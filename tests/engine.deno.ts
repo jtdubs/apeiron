@@ -823,36 +823,38 @@ Deno.test(
     if (!state) return;
     const { harness } = state;
 
-    // We intentionally mock a reference orbit that hits exactly `-1e-3` at all iterations,
-    // but the pixel dz is `1e-3` to trigger Zhuoran's theoretical zero-crossing: `p_mag < dz_mag`.
-    // WebGPU compilers map mantissa drops non-deterministically, this is safer.
+    // We intentionally mock a reference orbit that hits exactly `-1e-4` at all iterations,
+    // but the pixel dz is `1e-4` to trigger Zhuoran's theoretical zero-crossing: `p_mag < dz_mag`.
     const mockObitLength = 100 * 2; // 100 * ORBIT_STRIDE
     const mockRefOrbitNodes = new Float64Array(mockObitLength);
     for (let i = 0; i < mockObitLength; i += 2) {
-      mockRefOrbitNodes[i] = -1e-3;
-      mockRefOrbitNodes[i + 1] = -1e-3;
+      mockRefOrbitNodes[i] = -1e-4;
+      mockRefOrbitNodes[i + 1] = -1e-4;
     }
     const mockRefMetadata = new Float64Array(16);
     mockRefMetadata[3] = 100; // max valid
     const mockRefBlaGridDs = new Float64Array(100 * 10 * 16);
+    const mockRefBtaGrid = new Float64Array(100 * 10 * 16);
+    mockRefBtaGrid.fill(1000.0); // Preclude SA skipping iterations
 
-    // The pixel delta cancels the orbit
-    const glitchInput = new Float32Array([0.0, 0.0, 0.0, 0.0, 1e-3, 1e-3]);
+    // The pixel delta neatly zeros out the node coordinate
+    const glitchInput = new Float32Array([0.0, 0.0, 0.0, 0.0, 1e-4, 1e-4]);
 
     const res = await harness.executeTestCompute(
       glitchInput,
       mockRefOrbitNodes,
       mockRefMetadata,
       mockRefBlaGridDs,
-      undefined,
+      mockRefBtaGrid, // Pass BTA to preclude SA
       100,
       true,
       2.0,
     );
 
+    // Expect proxy collapse from zero-crossing
     if (res[0] !== -6.0) {
       throw new Error(
-        `Expected proxy collapse (-6.0) triggering due to mantissa exhaustion! Got ${res[0]}`,
+        `Expected proxy collapse (-6.0) triggering due to zero-crossing! Got ${res[0]}`,
       );
     }
 
@@ -878,7 +880,7 @@ Deno.test(
           localWorker.postMessage({
             id: 2,
             type: 'RESOLVE_GLITCHES',
-            glitches: [{ delta_cr: 1e-3, delta_ci: 1e-3 }],
+            glitches: [{ delta_cr: 1e-4, delta_ci: 1e-4 }],
             paletteMaxIter: 100,
           });
         }
@@ -903,8 +905,8 @@ Deno.test(
 
     // Assert that the exact returned values match our glitch drift securely using our prior precision fix
     if (
-      Math.abs(resolvePayload.glitch_dr - 1e-3) > 1e-12 ||
-      Math.abs(resolvePayload.glitch_di - 1e-3) > 1e-12
+      Math.abs(resolvePayload.glitch_dr - 1e-4) > 1e-12 ||
+      Math.abs(resolvePayload.glitch_di - 1e-4) > 1e-12
     ) {
       throw new Error(
         `Worker RESOLVE_GLITCHES_RESULT drifted from our exact F64 delta payload! Got ${resolvePayload.glitch_dr}`,

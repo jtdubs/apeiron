@@ -49,7 +49,9 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
                     
                     // Linearity Check: EL * max(|dz|^2, |dc|^2) < tolerance
                     let pixel_size = camera.scale / camera.canvas_width;
-                    let static_tolerance = max(1e-7, pixel_size * 0.1);
+                    var tol_floor = 1e-7;
+                    if (math_compute_mode == 2u) { tol_floor = 1e-15; }
+                    let static_tolerance = max(tol_floor, pixel_size * 0.1);
                     
                     if (err_factor < static_tolerance) {
                         let dz02 = complex_sq(dz);
@@ -140,7 +142,7 @@ fn advance_via_bla(dz_in: vec2<f32>, der_in: vec2<f32>, delta_c: vec2<f32>, star
         
         if (iter >= ref_escaped_iter && ref_escaped_iter < max_iterations) {
             let cur_node = get_orbit_node(u32(iter));
-            let ret = continue_mandelbrot_iterations(vec2<f32>(cur_node.x + dz.x, cur_node.y + dz.y), start_c, iter, max_iterations, der.x, der.y, tia_sum, pixel_idx);
+            let ret = continue_mandelbrot_iterations(vec2<f32>(cur_node.x + dz.x, cur_node.y + dz.y), start_c, iter, max_iterations, der.x, der.y, tia_sum, pixel_idx, false);
             return BlaResult(dz, der, iter, prev_z_mag, true, ret, true);
         }
         
@@ -253,7 +255,7 @@ fn advance_via_bla_ds(dz_in: vec4<f32>, der_in: vec2<f32>, delta_c: vec4<f32>, s
         
         if (iter >= ref_escaped_iter && ref_escaped_iter < max_iterations) {
             let cur_node = get_orbit_node(u32(iter));
-            let ret = continue_mandelbrot_iterations(vec2<f32>(cur_node.x + dz_f32.x, cur_node.y + dz_f32.y), start_c, iter, max_iterations, der.x, der.y, tia_sum, pixel_idx);
+            let ret = continue_mandelbrot_iterations(vec2<f32>(cur_node.x + dz_f32.x, cur_node.y + dz_f32.y), start_c, iter, max_iterations, der.x, der.y, tia_sum, pixel_idx, false);
             return BlaResultDs(dz, der, iter, prev_z_mag, true, ret, true);
         }
         

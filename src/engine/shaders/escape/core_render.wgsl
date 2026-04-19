@@ -60,9 +60,15 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
   } else if (iter == -2.0) {
     // Checkpoint suspension without proper yield -> Bright Magenta
     return vec4<f32>(1.0, 0.0, 1.0, 1.0);
-  } else if (iter < 0.0) {
-    // Catch-all for negative iterations not accounted for -> Red
+  } else if (iter == -6.0) {
+    // Proxy Collapse Glitch -> Bright Red
     return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+  } else if (iter == -7.0) {
+    // Mantissa Exhaustion Glitch -> Solid Yellow
+    return vec4<f32>(1.0, 1.0, 0.0, 1.0);
+  } else if (iter < 0.0) {
+    // Catch-all for negative iterations not accounted for -> Orange
+    return vec4<f32>(1.0, 0.5, 0.0, 1.0);
   }
 
   if (iter >= params.max_iter) {

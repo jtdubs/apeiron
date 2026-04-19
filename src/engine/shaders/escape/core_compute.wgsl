@@ -47,7 +47,7 @@ fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32
      // AND the paused pixel had already iterated deeply past the *reference orbit's* escape point,
      // we can no longer perturb! We must forcefully push the pixel into the standard fallback engine to finish.
      if (camera.load_checkpoint > 0.5 && checkpoint[pixel_idx].iter > 0.0 && checkpoint[pixel_idx].iter >= ref_escaped_iter && ref_escaped_iter < camera.compute_max_iter) {
-         return continue_mandelbrot_iterations(vec2<f32>(0.0,0.0), start_c, 0.0, camera.compute_max_iter, 1.0, 0.0, 0.0, pixel_idx);
+         return continue_mandelbrot_iterations(vec2<f32>(0.0,0.0), start_c, 0.0, camera.compute_max_iter, 1.0, 0.0, 0.0, pixel_idx, true);
      }
      
      return calculate_perturbation(start_z, start_c, delta_z, delta_c, camera.ref_max_iter, cycle, ref_escaped_iter, pixel_idx, enable_bla);
@@ -115,7 +115,7 @@ fn unit_test_state_resume(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let start_c = vec2<f32>(zx, zy);
   
   // Execute just 2 iterations from whatever state is in checkpoint
-  let res = continue_mandelbrot_iterations(start_z, start_c, 0.0, 100.0, 1.0, 0.0, 0.0, idx);
+  let res = continue_mandelbrot_iterations(start_z, start_c, 0.0, 100.0, 1.0, 0.0, 0.0, idx, true);
   
   // Write the resulting checkpoint memory out to assert the FSM behaved correctly
   let cp = checkpoint[idx];
@@ -288,21 +288,8 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
           return;
       }
   } else {
-      if (ret.x == -4.0) {
-          textureStore(g_buffer_out, coord, vec4<f32>(1.0, 0.0, 0.0, 1.0));
-          return;
-      }
-      if (ret.x == -5.0 || ret.x != ret.x || ret.y != ret.y) {
-          textureStore(g_buffer_out, coord, vec4<f32>(1.0, 0.0, 1.0, 1.0));
-          return;
-      }
-      if (ret.x == -6.0) {
-          textureStore(g_buffer_out, coord, vec4<f32>(1.0, 0.5, 0.0, 1.0));
-          return;
-      }
-      
       // Progressive Frame Accumulation
-      if (ret.x < -1.0) {
+      if (ret.x == -1.0 || ret.x == -2.0) {
           if (camera.blend_weight > 0.0) {
               textureStore(g_buffer_out, coord, textureLoad(readTex, coord, 0));
           } else {

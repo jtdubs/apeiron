@@ -5,7 +5,7 @@
 // Fallback runtime to evaluate the standard sequence directly up to the max_iterations budget.
 // Also implements Brent's Algorithm (`check_mu`, `check_lam`) to passively detect fixed cycles
 // when deep within chaotic black regions representing the Mandelbrot interior, preventing infinite loops.
-fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_iter: f32, max_iterations: f32, start_der_x: f32, start_der_y: f32, start_tia: f32, pixel_idx: u32) -> vec4<f32> {
+fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_iter: f32, max_iterations: f32, start_der_x: f32, start_der_y: f32, start_tia: f32, pixel_idx: u32, force_resume_checkpoint: bool) -> vec4<f32> {
   var x = start_z.x;
   var y = start_z.y;
   var der_x = start_der_x;
@@ -17,7 +17,7 @@ fn continue_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, start_
   // If the previous frame's render yielded due to frame-time limits (load_checkpoint > 0.5),
   // we bypass initializing the pixel from `start_z` entirely and instantly resume calculus
   // exactly from where the prior GPU pass left off using the checkpoint G-Buffer.
-  if (camera.load_checkpoint > 0.5 && checkpoint[pixel_idx].iter > 0.0) {
+  if (force_resume_checkpoint && camera.load_checkpoint > 0.5 && checkpoint[pixel_idx].iter > 0.0) {
     x = checkpoint[pixel_idx].zx;
     y = checkpoint[pixel_idx].zy;
     der_x = checkpoint[pixel_idx].der_x;
@@ -111,6 +111,6 @@ fn calculate_mandelbrot_iterations(start_z: vec2<f32>, start_c: vec2<f32>, max_i
       return ret;
     }
   }
-  return continue_mandelbrot_iterations(start_z, start_c, 0.0, max_iterations, 1.0, 0.0, 0.0, pixel_idx);
+  return continue_mandelbrot_iterations(start_z, start_c, 0.0, max_iterations, 1.0, 0.0, 0.0, pixel_idx, true);
 }
 

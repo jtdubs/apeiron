@@ -138,6 +138,28 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     let zx = ref_node.x;
     let zy = ref_node.y;
     
+    let cur_x = zx + dz.x;
+    let cur_y = zy + dz.y;
+    let cur_mag = cur_x * cur_x + cur_y * cur_y;
+    
+    // Prevent GPU NaN bombs by ensuring bailout catches Invalid calculations
+    if (!(cur_mag <= 4.0)) {
+      let ret = get_escape_data(iter, cur_x, cur_y, der_x, der_y, 0.0, tia_sum);
+      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
+      return ret;
+    }
+    
+    // Fallback out of perturbation precisely when the reference is dead.
+    // Ensure we do not erroneously continue perturbation after reference anchor has blown up.
+    if (iter >= ref_escaped_iter && ref_escaped_iter < max_iterations) {
+      if (math_compute_mode == 2u) {
+          // Dual-Single requires slightly higher precision fallback conversion
+          return continue_mandelbrot_iterations(vec2<f32>(cur_x, cur_y), start_c, iter, max_iterations, der_x, der_y, tia_sum, pixel_idx, false);
+      } else {
+          return continue_mandelbrot_iterations(vec2<f32>(cur_x, cur_y), start_c, iter, max_iterations, der_x, der_y, tia_sum, pixel_idx, false);
+      }
+    }
+    
     var dz_next: vec2<f32>;
     let d = camera.exponent;
     
@@ -204,17 +226,19 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
     let next_node = get_orbit_node(u32(iter + 1.0));
     let next_zx = next_node.x;
     let next_zy = next_node.y;
-    let cur_x = next_zx + dz.x;
-    let cur_y = next_zy + dz.y;
-    let cur_z_mag = length(vec2<f32>(cur_x, cur_y));
+    let cur_next_x = next_zx + dz.x;
+    let cur_next_y = next_zy + dz.y;
+    let next_z_mag = length(vec2<f32>(cur_next_x, cur_next_y));
+    
+    let p_mag = cur_next_x * cur_next_x + cur_next_y * cur_next_y; // |Z_m + dz|^2
+    let dz_mag = dz.x * dz.x + dz.y * dz.y;    // |dz|^2
     
     // --- Proxy Collapse Detection (Rebase Trigger) ---
-    let p_mag = cur_x * cur_x + cur_y * cur_y; // |Z_m + dz|^2
-    let dz_mag = dz.x * dz.x + dz.y * dz.y;    // |dz|^2
-    // Mantissa exhaustion fallback
-    let mantissa_exhausted = (abs(next_zx) + abs(dz.x) == abs(next_zx)) && (abs(next_zy) + abs(dz.y) == abs(next_zy));
+    // A structurally sound collapse only occurs when the delta strictly outweighs the reference coordinate
+    // (Zhuoran Zero-Crossing algorithm). We only allow this when perturbation is genuinely tiny.
+    let proxy_collapsed = p_mag < dz_mag && dz_mag < 1e-6; 
     
-    if (p_mag < dz_mag || mantissa_exhausted) {
+    if (proxy_collapsed) {
         let glitched_idx = atomicAdd(&glitch_readback.count, 1u);
         if (glitched_idx < MAX_GLITCHES) {
             let px = pixel_idx % u32(camera.canvas_width);
@@ -222,12 +246,13 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
             glitch_readback.records[glitched_idx] = GlitchRecord(px, py);
         }
         
-        let ret = vec4<f32>(-6.0, iter, dz.x, dz.y);
+        var glitch_code = -6.0;
+        let ret = vec4<f32>(glitch_code, iter, dz.x, dz.y);
         checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
         return ret;
     }
     
-    if (cur_x != cur_x || cur_y != cur_y || dz.x != dz.x || dz_next.x != dz_next.x) {
+    if (cur_next_x != cur_next_x || cur_next_y != cur_next_y || dz.x != dz.x || dz_next.x != dz_next.x) {
       let ret = vec4<f32>(-5.0, 0.0, 0.0, 0.0);
       checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
       return ret;
@@ -235,33 +260,20 @@ fn calculate_perturbation(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<
 
     let ref_mag = next_zx * next_zx + next_zy * next_zy;
     if (iter > 2.0 && (dz.x * dz.x + dz.y * dz.y) > ref_mag) {
-       return continue_mandelbrot_iterations(vec2<f32>(cur_x, cur_y), start_c, iter, max_iterations, der_x, der_y, tia_sum, pixel_idx);
+       return continue_mandelbrot_iterations(vec2<f32>(cur_next_x, cur_next_y), start_c, iter + 1.0, max_iterations, der_x, der_y, tia_sum, pixel_idx, false);
     }
 
     if (coloring_mode > 0.5) {
       let n_mag = pow(prev_z_mag, d);
       let den = n_mag + c_mag - abs(n_mag - c_mag);
       if (den > 0.0) {
-         tia_sum += (cur_z_mag - abs(n_mag - c_mag)) / den;
+         tia_sum += (next_z_mag - abs(n_mag - c_mag)) / den;
       }
     }
-    prev_z_mag = cur_z_mag;
-    
-    let cur_mag = cur_x * cur_x + cur_y * cur_y;
-    
-    // Prevent GPU NaN bombs by ensuring bailout catches Invalid calculations
-    if (!(cur_mag <= 4.0)) {
-      let ret = get_escape_data(iter, cur_x, cur_y, der_x, der_y, 2.0, tia_sum);
-      checkpoint[pixel_idx] = CheckpointState(ret.x, ret.y, ret.z, ret.w, -1.0, 0.0);
-      return ret;
-    }
+    prev_z_mag = next_z_mag;
     
     iter += 1.0;
     steps += 1.0;
-    
-    if (iter >= ref_escaped_iter && ref_escaped_iter < max_iterations) {
-      return continue_mandelbrot_iterations(vec2<f32>(cur_x, cur_y), start_c, iter, max_iterations, der_x, der_y, tia_sum, pixel_idx);
-    }
   }
   
   if (iter >= max_iterations) {

@@ -11,6 +11,10 @@ export interface WorkerJob {
   deltaZi: number;
   deltaCr: number;
   deltaCi: number;
+  initialDeltaZr: number;
+  initialDeltaZi: number;
+  initialDeltaCr: number;
+  initialDeltaCi: number;
   exponent: number;
   paletteMaxIter: number;
   isRefining?: boolean;
@@ -217,10 +221,10 @@ export class PerturbationOrchestrator {
         this._isSynchronizingState = true;
         viewportStore.setState((state) => {
           // Precise delta rebasing without ever adding arbitrary precision strings to f64s locally
-          const newDeltaCr = state.deltaCr - job.deltaCr;
-          const newDeltaCi = state.deltaCi - job.deltaCi;
-          const newDeltaZr = state.deltaZr - job.deltaZr;
-          const newDeltaZi = state.deltaZi - job.deltaZi;
+          const newDeltaCr = state.deltaCr - job.initialDeltaCr;
+          const newDeltaCi = state.deltaCi - job.initialDeltaCi;
+          const newDeltaZr = state.deltaZr - job.initialDeltaZr;
+          const newDeltaZi = state.deltaZi - job.initialDeltaZi;
 
           return {
             anchorZr: e.data.abs_zr,
@@ -241,7 +245,7 @@ export class PerturbationOrchestrator {
         this.channels.active.set(job.id);
         this.channels.pending.set(0);
         this.channels.phase.set(0);
-        
+
         // Expose new tree diagnostics
         if (e.data.orbit_nodes) {
           this.channels.treeNodes.set(e.data.orbit_nodes.length || 0);
@@ -275,7 +279,7 @@ export class PerturbationOrchestrator {
           refBtaGrid: e.data.bta_grid,
         };
       });
-      
+
       if (e.data.orbit_nodes) {
         this.channels.treeNodes.set(e.data.orbit_nodes.length || 0);
       }
@@ -332,6 +336,10 @@ export class PerturbationOrchestrator {
             deltaZi: state.deltaZi,
             deltaCr: state.deltaCr,
             deltaCi: state.deltaCi,
+            initialDeltaZr: state.deltaZr,
+            initialDeltaZi: state.deltaZi,
+            initialDeltaCr: state.deltaCr,
+            initialDeltaCi: state.deltaCi,
             exponent: state.exponent,
             paletteMaxIter: state.paletteMaxIter,
             isRefining: state.exponent === 2.0,
@@ -400,7 +408,7 @@ export class PerturbationOrchestrator {
 
     if (deduplicated.length > 0) {
       this.channels.glitches.set(deduplicated.length);
-      
+
       this.worker.postMessage({
         id: ++this.jobSequenceCounter,
         type: 'RESOLVE_GLITCHES',
