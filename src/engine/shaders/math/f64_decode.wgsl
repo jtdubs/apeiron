@@ -3,17 +3,10 @@ fn unpack_f64_to_f32(raw: vec2<u32>) -> f32 {
     let high = raw.y;
     let sign = select(1.0, -1.0, (high & 0x80000000u) != 0u);
     let exp_raw = (high >> 20u) & 0x7FFu;
-    
     if (exp_raw == 0u) {
         if ((high & 0xFFFFFu) == 0u && low == 0u) { return 0.0; }
         return 0.0;
     }
-    
-    // Explicitly handle Infinity / NaN
-    if (exp_raw == 0x7FFu) {
-        return sign * 1e30;
-    }
-    
     let exp = f32(i32(exp_raw) - 1023);
     let mantissa_high = f32(high & 0xFFFFFu) / 1048576.0; // 2^20
     let mantissa_low = f32(low) / 4503599627370496.0; // 2^52
@@ -26,16 +19,9 @@ fn unpack_f64_to_ds(raw: vec2<u32>) -> vec2<f32> {
     let high = raw.y;
     let sign = select(1.0, -1.0, (high & 0x80000000u) != 0u);
     let exp_raw = (high >> 20u) & 0x7FFu;
-    
     if (exp_raw == 0u) {
         return vec2<f32>(0.0, 0.0);
     }
-    
-    // Explicitly handle Infinity / NaN
-    if (exp_raw == 0x7FFu) {
-        return vec2<f32>(sign * 1e30, 0.0);
-    }
-    
     let exp = f32(i32(exp_raw) - 1023);
     let mantissa_high = f32(high & 0xFFFFFu) / 1048576.0;
     let high_val = sign * (1.0 + mantissa_high) * exp2(exp);
