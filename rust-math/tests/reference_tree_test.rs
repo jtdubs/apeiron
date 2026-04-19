@@ -1,4 +1,4 @@
-use rust_math::reference_tree::{ReferenceTree, BigComplex};
+use rust_math::reference_tree::{ReferenceTree};
 use std::str::FromStr;
 use bigdecimal::BigDecimal;
 use bigdecimal::ToPrimitive;

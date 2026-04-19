@@ -725,8 +725,8 @@ pub fn compute_payload(tree: &mut crate::reference_tree::ReferenceTree, node_id:
 
 #[derive(serde::Deserialize)]
 pub struct GlitchPoint {
-    pub deltaCr: f64,
-    pub deltaCi: f64,
+    pub delta_cr: f64,
+    pub delta_ci: f64,
 }
 
 #[wasm_bindgen]
@@ -744,13 +744,13 @@ pub struct ResolvePayload {
 #[wasm_bindgen]
 impl ResolvePayload {
     #[wasm_bindgen(getter)]
-    pub fn newCr(&self) -> String { self.new_cr.clone() }
+    pub fn new_cr(&self) -> String { self.new_cr.clone() }
     #[wasm_bindgen(getter)]
-    pub fn newCi(&self) -> String { self.new_ci.clone() }
+    pub fn new_ci(&self) -> String { self.new_ci.clone() }
     #[wasm_bindgen(getter)]
-    pub fn glitchDr(&self) -> f64 { self.glitch_dr }
+    pub fn glitch_dr(&self) -> f64 { self.glitch_dr }
     #[wasm_bindgen(getter)]
-    pub fn glitchDi(&self) -> f64 { self.glitch_di }
+    pub fn glitch_di(&self) -> f64 { self.glitch_di }
     #[wasm_bindgen(getter)]
     pub fn orbit_nodes(&self) -> js_sys::Float64Array { self.orbit_nodes.clone() }
     #[wasm_bindgen(getter)]
@@ -779,8 +779,8 @@ pub fn resolve_glitches(tree: &mut crate::reference_tree::ReferenceTree, current
     let center_i = BigDecimal::from_str(&center_i_str).unwrap_or(BigDecimal::zero());
     
     use bigdecimal::FromPrimitive;
-    let dr = BigDecimal::from_f64(target.deltaCr).unwrap_or(BigDecimal::zero());
-    let di = BigDecimal::from_f64(target.deltaCi).unwrap_or(BigDecimal::zero());
+    let dr = BigDecimal::from_f64(target.delta_cr).unwrap_or(BigDecimal::zero());
+    let di = BigDecimal::from_f64(target.delta_ci).unwrap_or(BigDecimal::zero());
     
     let new_cr = (center_r + dr).with_prec(100);
     let new_ci = (center_i + di).with_prec(100);
@@ -799,8 +799,8 @@ pub fn resolve_glitches(tree: &mut crate::reference_tree::ReferenceTree, current
     Ok(ResolvePayload {
         new_cr: new_cr_str,
         new_ci: new_ci_str,
-        glitch_dr: target.deltaCr,
-        glitch_di: target.deltaCi,
+        glitch_dr: target.delta_cr,
+        glitch_di: target.delta_ci,
         orbit_nodes: js_sys::Float64Array::from(&payload.orbit_nodes[..]),
         metadata: js_sys::Float64Array::from(&payload.metadata[..]),
         bla_grid_ds: js_sys::Float64Array::from(&payload.bla_grid_ds[..]),

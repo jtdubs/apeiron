@@ -3,7 +3,6 @@ use std::str::FromStr;
 use wasm_bindgen::prelude::*;
 use bigdecimal::{BigDecimal, ToPrimitive};
 
-#[wasm_bindgen]
 pub struct Complex64 {
     pub r: f64,
     pub i: f64,
@@ -75,6 +74,10 @@ impl ReferenceTree {
         id
     }
 
+
+}
+
+impl ReferenceTree {
     pub fn transform_delta(
         &mut self,
         from_id: u32,
@@ -157,9 +160,9 @@ impl ReferenceTree {
         
         best_id
     }
-}
 
-impl ReferenceTree {
+    /// Test helper method: Intentionally public for tests/ evaluation
+    #[doc(hidden)]
     pub fn push_mock_orbit(&mut self, id: u32, iter: usize, r: &str, i: &str) {
         if let Some(node) = self.nodes.get_mut(&id) {
             if iter % KEYFRAME_STRIDE == 0 {
@@ -236,10 +239,9 @@ impl ReferenceTree {
         
         Ok(BigComplex { r: x, i: y })
     }
-}
 
-impl ReferenceTree {
     pub(crate) fn get_node_info(&self, id: u32) -> Option<(String, String, f64)> {
         self.nodes.get(&id).map(|n| (n.center.r.to_string(), n.center.i.to_string(), n.exponent))
     }
 }
+

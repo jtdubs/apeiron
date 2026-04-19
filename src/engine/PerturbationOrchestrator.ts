@@ -207,15 +207,15 @@ export class PerturbationOrchestrator {
         this.currentWorkerJob = null;
       }
     } else if (e.data.type === 'RESOLVE_GLITCHES_RESULT') {
-      const newCr = e.data.newCr;
-      const newCi = e.data.newCi;
+      const newCr = e.data.new_cr;
+      const newCi = e.data.new_ci;
 
       console.log(`[PerturbationOrchestrator] Glitch resolved to new anchor: ${newCr}, ${newCi}`);
 
       this._isSynchronizingState = true;
       viewportStore.setState((state) => {
-        const newDeltaCr = state.deltaCr - e.data.glitchDr;
-        const newDeltaCi = state.deltaCi - e.data.glitchDi;
+        const newDeltaCr = state.deltaCr - e.data.glitch_dr;
+        const newDeltaCi = state.deltaCi - e.data.glitch_di;
 
         return {
           anchorCr: newCr,
@@ -335,13 +335,13 @@ export class PerturbationOrchestrator {
       const deltaCr = state.deltaCr + rotR;
       const deltaCi = state.deltaCi + rotI;
 
-      return { deltaCr, deltaCi };
+      return { delta_cr: deltaCr, delta_ci: deltaCi };
     });
 
     // De-duplicate mathematically tight clusters (within f64 epsilons)
-    const uniqueMap = new Map<string, { deltaCr: number; deltaCi: number }>();
+    const uniqueMap = new Map<string, { delta_cr: number; delta_ci: number }>();
     for (const g of translatedGlitches) {
-      const key = `${g.deltaCr.toExponential(5)}_${g.deltaCi.toExponential(5)}`;
+      const key = `${g.delta_cr.toExponential(5)}_${g.delta_ci.toExponential(5)}`;
       if (!uniqueMap.has(key)) {
         uniqueMap.set(key, g);
       }

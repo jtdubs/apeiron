@@ -878,7 +878,7 @@ Deno.test(
           localWorker.postMessage({
             id: 2,
             type: 'RESOLVE_GLITCHES',
-            glitches: [{ deltaCr: 1e-3, deltaCi: 1e-3 }],
+            glitches: [{ delta_cr: 1e-3, delta_ci: 1e-3 }],
             paletteMaxIter: 100,
           });
         }
@@ -893,24 +893,28 @@ Deno.test(
       });
     });
 
-    if (!resolvePayload.newCr || !resolvePayload.newCi || resolvePayload.glitchDr === undefined) {
+    if (
+      !resolvePayload.new_cr ||
+      !resolvePayload.new_ci ||
+      resolvePayload.glitch_dr === undefined
+    ) {
       throw new Error('Worker failed to return complete RESOLVE_GLITCHES_RESULT data');
     }
 
     // Assert that the exact returned values match our glitch drift securely using our prior precision fix
     if (
-      Math.abs(resolvePayload.glitchDr - 1e-3) > 1e-12 ||
-      Math.abs(resolvePayload.glitchDi - 1e-3) > 1e-12
+      Math.abs(resolvePayload.glitch_dr - 1e-3) > 1e-12 ||
+      Math.abs(resolvePayload.glitch_di - 1e-3) > 1e-12
     ) {
       throw new Error(
-        `Worker RESOLVE_GLITCHES_RESULT drifted from our exact F64 delta payload! Got ${resolvePayload.glitchDr}`,
+        `Worker RESOLVE_GLITCHES_RESULT drifted from our exact F64 delta payload! Got ${resolvePayload.glitch_dr}`,
       );
     }
 
     // Now re-run the executeTestCompute using the new anchor's orbit data,
     // simulating the final stage of the rebase orchestration!
-    const resolvedDeltaR = glitchInput[4] - resolvePayload.glitchDr;
-    const resolvedDeltaI = glitchInput[5] - resolvePayload.glitchDi;
+    const resolvedDeltaR = glitchInput[4] - resolvePayload.glitch_dr;
+    const resolvedDeltaI = glitchInput[5] - resolvePayload.glitch_di;
 
     const resolvedInput = new Float32Array([0.0, 0.0, 0.0, 0.0, resolvedDeltaR, resolvedDeltaI]);
 

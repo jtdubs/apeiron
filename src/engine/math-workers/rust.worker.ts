@@ -17,7 +17,7 @@ export type WorkerInputMessage =
   | {
       id: number;
       type: 'RESOLVE_GLITCHES';
-      glitches: { deltaCr: number; deltaCi: number }[];
+      glitches: { delta_cr: number; delta_ci: number }[];
       paletteMaxIter: number;
     };
 
@@ -42,10 +42,10 @@ export type WorkerOutputMessage =
   | {
       id: number;
       type: 'RESOLVE_GLITCHES_RESULT';
-      newCr: string;
-      newCi: string;
-      glitchDr: number;
-      glitchDi: number;
+      new_cr: string;
+      new_ci: string;
+      glitch_dr: number;
+      glitch_di: number;
       orbit_nodes: Float64Array;
       metadata: Float64Array;
       bla_grid_ds: Float64Array;
@@ -168,10 +168,10 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     const bla_grid_ds = new Float64Array(payload.bla_grid_ds);
     const bta_grid = new Float64Array(payload.bta_grid);
 
-    const newCr = payload.newCr;
-    const newCi = payload.newCi;
-    const glitchDr = payload.glitchDr;
-    const glitchDi = payload.glitchDi;
+    const new_cr = payload.new_cr;
+    const new_ci = payload.new_ci;
+    const glitch_dr = payload.glitch_dr;
+    const glitch_di = payload.glitch_di;
 
     payload.free();
 
@@ -180,10 +180,10 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
       {
         id: e.data.id,
         type: 'RESOLVE_GLITCHES_RESULT',
-        newCr,
-        newCi,
-        glitchDr,
-        glitchDi,
+        new_cr,
+        new_ci,
+        glitch_dr,
+        glitch_di,
         orbit_nodes,
         metadata,
         bla_grid_ds,
