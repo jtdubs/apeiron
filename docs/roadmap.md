@@ -109,6 +109,7 @@
 - [x] [Task 058: Telemetry Data Integration (Producers)](tasks/completed/058-telemetry-integration.md)
 - [x] [Task 059: Telemetry UI (GTKWave Analyzer)](tasks/completed/059-telemetry-ui.md)
 - [x] [Task 060: Frame-Series Telemetry Refactoring](tasks/completed/060-frame-series-telemetry.md)
+- [x] [Task 080: Refine Advanced Debugging Capabilities](tasks/completed/080-refine-debugging-capabilities.md)
 
 ## Phase 18: Engine Decoupling
 

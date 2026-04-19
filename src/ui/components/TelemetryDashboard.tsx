@@ -402,6 +402,22 @@ export const TelemetryDashboard: React.FC = () => {
       ]);
   };
 
+  const copyStateToClipboard = () => {
+    const stateSnapshot = {
+      anchor_z: [viewportState.anchorZr, viewportState.anchorZi],
+      anchor_c: [viewportState.anchorCr, viewportState.anchorCi],
+      delta_z: [viewportState.deltaZr, viewportState.deltaZi],
+      delta_c: [viewportState.deltaCr, viewportState.deltaCi],
+      zoom: viewportState.zoom,
+      sliceAngle: viewportState.sliceAngle,
+      exponent: viewportState.exponent,
+    };
+    navigator.clipboard
+      .writeText(JSON.stringify(stateSnapshot, null, 2))
+      .then(() => console.log('Debug state copied to clipboard!'))
+      .catch((err) => console.error('Failed to copy state: ', err));
+  };
+
   const exportTrace = () => {
     const reg = TelemetryRegistry.getInstance();
     const ids = reg.getAllRegisteredIds();
@@ -523,6 +539,32 @@ export const TelemetryDashboard: React.FC = () => {
               title={isPaused ? 'Resume Live Capture' : 'Freeze Capture'}
             >
               {isPaused ? '⏺' : '⏸'}
+            </button>
+            <button
+              onClick={copyStateToClipboard}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '30px',
+                height: '30px',
+                padding: 0,
+              }}
+              title="Copy Debug State to Clipboard"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
             </button>
             <button
               onClick={exportTrace}

@@ -60,6 +60,18 @@ The outermost layer relies on React, Zustand, and a Web Worker (communicating ba
 
 Across all application layers, any identified bug or rendering glitch must be resolved using the following strict test-driven workflow:
 
+### Visual Diagnostic Validation & Pair-Debugging (Agent Protocol)
+
+**CRITICAL DIRECTIVE FOR AGENTS:** Due to the complexity of inspecting WebGPU canvases and the limitations of headless browser emulation, **Agents must not attempt to orchestrate autonomous browser testing for visual rendering flaws.** Instead, agents must actively engage the User in a strict **Pair-Debugging workflow**:
+
+1. **Request Visual Validation:** When a bug involves visual artifacts (e.g., solid colors, proxy collapses), the Agent must ask the User to activate the built-in diagnostic visuals in their local browser.
+2. **Direct the User:** Instruct the User to toggle `camera.debug_view_mode = 5.0` (Dual-Path BLA Diff) or `6.0` (Cycle Detection Drift) via the application's developer UI.
+3. **Analyze User Feedback:** The User will observe the 100% synchronous render of BLA vs `f32` fallback, and report back the visual heatmap results (e.g. "The screen turned solid red" or "There are magenta glitch bands at depth X").
+4. **Extract State for Headless:** Instruct the User to utilize the "Dump State" or "Copy MathContext" UI buttons (once implemented) to paste the exact failing coordinate parameters into the chat.
+5. **Drop to Headless Validation:** Only _after_ visually identifying the nature of the math drift via the User's report and extracting the coordinates, should the Agent drop down into the headless array comparison (`tests/cases.json`) to programmatically fix the shader arithmetic.
+
+### Protocol Steps
+
 1. **Document:** Ensure the bug is detailed comprehensively in a `docs/tasks/` file.
 2. **Research:** Review the implementation and relevant design documentation (e.g., `design/engine/core-math.md`, `design/engine/webgpu-passes.md`) to isolate the theoretical root causes (state machines, WebGPU float tolerances, worker starvation, etc.).
 3. **Reproduce via Test:** Create a deterministic test case that specifically detects the bug and fails under the current implementation. **Crucially, do not modify application source code during this step.** Whether it requires a new ground-truth entry in `tests/cases.json`, a new array validation in `engine.deno.ts`, or a UI state mock in Vitest, the test must capture the faulty state without altering application mechanics.
