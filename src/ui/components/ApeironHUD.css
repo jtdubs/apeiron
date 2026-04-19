@@ -175,7 +175,7 @@
 }
 
 /* Mobile overrides - Moving to explicit CSS Grid to reduce order hackiness */
-@media (max-width: 768px) {
+@container (max-width: 768px) {
   .hud-panel {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -267,7 +267,7 @@
   }
 }
 
-@media (max-width: 480px) {
+@container (max-width: 480px) {
   .is-expanded .hud-panel {
     /* If viewport is really small, stack equation and coords */
     grid-template-areas:
