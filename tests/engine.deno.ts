@@ -815,3 +815,124 @@ Deno.test({
     }
   },
 });
+
+Deno.test(
+  'Validating Proactive Chained Rebasing (Proxy Collapse Detection & Resolve)',
+  async () => {
+    const state = await initSharedState();
+    if (!state) return;
+    const { harness } = state;
+
+    // We intentionally mock a reference orbit that hits exactly `-1e-3` at all iterations,
+    // but the pixel dz is `1e-3` to trigger Zhuoran's theoretical zero-crossing: `p_mag < dz_mag`.
+    // WebGPU compilers map mantissa drops non-deterministically, this is safer.
+    const mockObitLength = 100 * 2; // 100 * ORBIT_STRIDE
+    const mockRefOrbitNodes = new Float64Array(mockObitLength);
+    for (let i = 0; i < mockObitLength; i += 2) {
+      mockRefOrbitNodes[i] = -1e-3;
+      mockRefOrbitNodes[i + 1] = -1e-3;
+    }
+    const mockRefMetadata = new Float64Array(16);
+    mockRefMetadata[3] = 100; // max valid
+    const mockRefBlaGridDs = new Float64Array(100 * 10 * 16);
+
+    // The pixel delta cancels the orbit
+    const glitchInput = new Float32Array([0.0, 0.0, 0.0, 0.0, 1e-3, 1e-3]);
+
+    const res = await harness.executeTestCompute(
+      glitchInput,
+      mockRefOrbitNodes,
+      mockRefMetadata,
+      mockRefBlaGridDs,
+      undefined,
+      100,
+      true,
+      2.0,
+    );
+
+    if (res[0] !== -6.0) {
+      throw new Error(
+        `Expected proxy collapse (-6.0) triggering due to mantissa exhaustion! Got ${res[0]}`,
+      );
+    }
+
+    if (harness.lastGlitches.length === 0) {
+      throw new Error('Expected glitchBuffer readback to contain the glitched coordinate!');
+    }
+
+    const glitch = harness.lastGlitches[0];
+    if (glitch.x !== 0 || glitch.y !== 0) {
+      throw new Error(`Expected coordinate (0,0), got (${glitch.x}, ${glitch.y})`);
+    }
+
+    const workerPath = path.resolve('./src/engine/math-workers/rust.worker.ts');
+    const localWorker = new Worker(new URL(`file://${workerPath}`).href, { type: 'module' });
+
+    const resolvePayload = await new Promise<any>((resolve, reject) => {
+      localWorker.onmessage = (e) => {
+        if (e.data.type === 'RESOLVE_GLITCHES_RESULT') {
+          resolve(e.data);
+          localWorker.terminate();
+        } else if (e.data.type === 'COMPUTE_RESULT') {
+          // Now fire the resolve glitch passing exact coordinate drift
+          localWorker.postMessage({
+            id: 2,
+            type: 'RESOLVE_GLITCHES',
+            glitches: [{ deltaCr: 1e-3, deltaCi: 1e-3 }],
+            paletteMaxIter: 100,
+          });
+        }
+      };
+      localWorker.onerror = (err) => reject(err);
+      // We must first COMPUTE to establish an anchor inside Rust
+      localWorker.postMessage({
+        id: 1,
+        type: 'COMPUTE',
+        casesJson: JSON.stringify([{ zr: '0', zi: '0', cr: '0.1', ci: '0.1', exponent: 2.0 }]),
+        maxIterations: 100,
+      });
+    });
+
+    if (!resolvePayload.newCr || !resolvePayload.newCi || resolvePayload.glitchDr === undefined) {
+      throw new Error('Worker failed to return complete RESOLVE_GLITCHES_RESULT data');
+    }
+
+    // Assert that the exact returned values match our glitch drift securely using our prior precision fix
+    if (
+      Math.abs(resolvePayload.glitchDr - 1e-3) > 1e-12 ||
+      Math.abs(resolvePayload.glitchDi - 1e-3) > 1e-12
+    ) {
+      throw new Error(
+        `Worker RESOLVE_GLITCHES_RESULT drifted from our exact F64 delta payload! Got ${resolvePayload.glitchDr}`,
+      );
+    }
+
+    // Now re-run the executeTestCompute using the new anchor's orbit data,
+    // simulating the final stage of the rebase orchestration!
+    const resolvedDeltaR = glitchInput[4] - resolvePayload.glitchDr;
+    const resolvedDeltaI = glitchInput[5] - resolvePayload.glitchDi;
+
+    const resolvedInput = new Float32Array([0.0, 0.0, 0.0, 0.0, resolvedDeltaR, resolvedDeltaI]);
+
+    const resResolved = await harness.executeTestCompute(
+      resolvedInput,
+      resolvePayload.orbit_nodes,
+      resolvePayload.metadata,
+      resolvePayload.bla_grid_ds,
+      undefined,
+      100,
+      true,
+      2.0,
+    );
+
+    // Make sure the proxy collapse marker (-6.0) is GONE
+    if (resResolved[0] === -6.0) {
+      throw new Error('Pixel glitched again after rebasing!');
+    }
+
+    // Ensure it properly processed without mathematical NaN/abort flaws (-5.0)
+    if (resResolved[0] <= -5.0) {
+      throw new Error(`Unexpected critical failure code after rebase: ${resResolved[0]}`);
+    }
+  },
+);

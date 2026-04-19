@@ -13,6 +13,7 @@ export class WebGPUTestHarness {
   private device: GPUDevice;
   private mathShaderCode: string;
   private resolveShaderCode: string;
+  public lastGlitches: { x: number; y: number }[] = [];
 
   constructor(device: GPUDevice, mathShaderCode: string, resolveShaderCode: string) {
     this.device = device;
@@ -236,8 +237,13 @@ export class WebGPUTestHarness {
 
     const glitchBuffer = this.device.createBuffer({
       size: 516,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
     });
+    const glitchStagingBuffer = this.device.createBuffer({
+      size: 516,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    this.device.queue.writeBuffer(glitchBuffer, 0, new Uint32Array([0]));
 
     const entries: GPUBindGroupEntry[] = [
       { binding: 1, resource: { buffer: inputStorageBuffer } },
@@ -294,6 +300,7 @@ export class WebGPUTestHarness {
     passEncoder.end();
 
     commandEncoder.copyBufferToBuffer(outputStorageBuffer, 0, stagingBuffer, 0, outputSize);
+    commandEncoder.copyBufferToBuffer(glitchBuffer, 0, glitchStagingBuffer, 0, 516);
     this.device.queue.submit([commandEncoder.finish()]);
 
     await this.device.queue.onSubmittedWorkDone();
@@ -307,6 +314,20 @@ export class WebGPUTestHarness {
     const arrayBuffer = stagingBuffer.getMappedRange();
     const result = new Float32Array(arrayBuffer.slice(0));
     stagingBuffer.unmap();
+
+    this.lastGlitches = [];
+    await glitchStagingBuffer.mapAsync(GPUMapMode.READ);
+    const glitchArrayBuffer = glitchStagingBuffer.getMappedRange();
+    const arr = new Uint32Array(glitchArrayBuffer);
+    const count = Math.min(arr[0], 64);
+    if (count > 0) {
+      for (let i = 0; i < count; i++) {
+        this.lastGlitches.push({ x: arr[1 + i * 2], y: arr[2 + i * 2] });
+      }
+    }
+    glitchStagingBuffer.unmap();
+    glitchStagingBuffer.destroy();
+
     inputStorageBuffer.destroy();
     outputStorageBuffer.destroy();
     stagingBuffer.destroy();
