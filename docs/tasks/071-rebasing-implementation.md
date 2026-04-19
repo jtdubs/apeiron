@@ -6,7 +6,7 @@ status: open
 
 ## Objective
 
-Implement a proactive **Chained Rebasing** system and a **Reference Tree** manager to prevent zero-crossing glitches and allow for "infinite" zoom depths. This includes the **FloatExp** format to extend the zoom range beyond $10^{-300}$.
+Implement a proactive **Chained Rebasing** system and a **Reference Tree** manager to prevent proxy collapse glitches and eliminate f32p mantissa drop artifacts. This will extend the zoom depth of native f32 hardware significantly by ensuring delta offsets never breach exponential alignment bounds.
 
 ## Relevant Design Docs
 
@@ -15,21 +15,14 @@ Implement a proactive **Chained Rebasing** system and a **Reference Tree** manag
 
 ## Requirements
 
-### 1. FloatExp Integration (Rust & WGSL)
-
-- [ ] Implement `FloatExp` struct in Rust (`f64` mantissa + `i32` exponent).
-- [ ] Implement `FloatExp` struct in WGSL (`f32` mantissa + `i32` exponent).
-- [ ] Implement basic arithmetic (`mul`, `add`, `normalize`) for `FloatExp`.
-- [ ] Update `PerturbationKernel` to use `FloatExp` when zoom depth exceeds threshold.
-
-### 2. Rebasing & Glitch Feedback (GPU)
+### 1. Rebasing & Glitch Feedback (GPU)
 
 - [ ] Implement the `check_rebase` condition in the WGSL kernel: `dot(P, P) < dot(dz, dz)`.
 - [ ] Implement proxy collapse detection (bits-of-precision loss logic deferred from Task 070).
 - [ ] Implement the `rebase_step` to transfer the delta: `dz_new = Z + dz`.
 - [ ] Implement a readback storage buffer to signal glitch/rebase coordinates to the TypeScript orchestrator.
 
-### 3. Reference Tree Orchestration (WASM Worker)
+### 2. Reference Tree Orchestration (WASM Worker)
 
 - [ ] Implement `ReferenceTree` in Rust to maintain a hierarchy of high-precision reference orbits.
 - [ ] Implement **Chained Transformation** logic:
@@ -38,29 +31,12 @@ Implement a proactive **Chained Rebasing** system and a **Reference Tree** manag
 - [ ] Implement tree traversal to find the "best" anchor node during a rebase event.
 - [ ] Coordinate iteration reset and BLA table swapping in the `PerturbationOrchestrator`.
 
-### 4. BLA Integration
+### 3. BLA Integration
 
 - [ ] Update BLA validity radius calculation to account for rebasing thresholds.
 - [ ] Ensure seamless transition between BLA skips and rebase-monitored regular steps.
 
 ## Implementation Plan
-
-### FloatExp Structure (WGSL / Rust)
-
-```rust
-struct FloatExp {
-    mantissa: vec2f, // x,y for high-precision or just f32 for speed
-    exponent: i32,
-}
-
-fn mul_fe(a: FloatExp, b: FloatExp) -> FloatExp {
-    var res: FloatExp;
-    res.mantissa = a.mantissa * b.mantissa;
-    res.exponent = a.exponent + b.exponent;
-    // Normalization logic: keep mantissa in [0.5, 1.0)
-    return normalize_fe(res);
-}
-```
 
 ### Reference Tree & Chained Transformation (Rust)
 
@@ -101,6 +77,5 @@ impl ReferenceTree {
 ## Verification Steps
 
 - [ ] Create a unit test `test_chained_transformation` in `rust-math/src/lib.rs` proving that delta transfers do not introduce precision loss artifacts.
-- [ ] Implement headless Deno tests for `FloatExp` multiplication to prove precision retention beyond standard f64 boundaries.
 - [ ] **Implementation standard:** Have all shared boundaries, extracted math helpers, or state-machine behaviors been strictly validated as headless deterministic units per `docs/process/best-practices.md`?
 - [ ] **Documentation Sync:** Did this implementation drift from the original plan? If so, update `docs/reference/rebasing_strategies_whitepaper.md` before closing this task.
