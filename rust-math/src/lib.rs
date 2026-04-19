@@ -51,8 +51,8 @@ impl MandelbrotOutput {
 
 #[wasm_bindgen]
 pub struct RefineOutput {
-    cr: f64,
-    ci: f64,
+    cr: String,
+    ci: String,
     ref_type: String,
     period: u32,
     pre_period: u32,
@@ -73,12 +73,12 @@ impl From<crate::solvers::RefineOutput> for RefineOutput {
 #[wasm_bindgen]
 impl RefineOutput {
     #[wasm_bindgen(getter)]
-    pub fn cr(&self) -> f64 {
-        self.cr
+    pub fn cr(&self) -> String {
+        self.cr.clone()
     }
     #[wasm_bindgen(getter)]
-    pub fn ci(&self) -> f64 {
-        self.ci
+    pub fn ci(&self) -> String {
+        self.ci.clone()
     }
     #[wasm_bindgen(getter)]
     pub fn ref_type(&self) -> String {
@@ -97,6 +97,51 @@ impl RefineOutput {
 #[wasm_bindgen]
 pub fn refine_reference(cr_str: &str, ci_str: &str, max_iterations: u32) -> RefineOutput {
     solvers::refine_reference(cr_str, ci_str, max_iterations).into()
+}
+
+#[wasm_bindgen]
+pub struct RebaseOutput {
+    zr: String,
+    zi: String,
+    cr: String,
+    ci: String,
+}
+
+impl From<crate::solvers::NativeRebaseOutput> for RebaseOutput {
+    fn from(native: crate::solvers::NativeRebaseOutput) -> Self {
+        RebaseOutput {
+            zr: native.zr,
+            zi: native.zi,
+            cr: native.cr,
+            ci: native.ci,
+        }
+    }
+}
+
+#[wasm_bindgen]
+impl RebaseOutput {
+    #[wasm_bindgen(getter)]
+    pub fn zr(&self) -> String { self.zr.clone() }
+    #[wasm_bindgen(getter)]
+    pub fn zi(&self) -> String { self.zi.clone() }
+    #[wasm_bindgen(getter)]
+    pub fn cr(&self) -> String { self.cr.clone() }
+    #[wasm_bindgen(getter)]
+    pub fn ci(&self) -> String { self.ci.clone() }
+}
+
+#[wasm_bindgen]
+pub fn rebase_origin(
+    zr_str: &str,
+    zi_str: &str,
+    cr_str: &str,
+    ci_str: &str,
+    dzr: f64,
+    dzi: f64,
+    dcr: f64,
+    dci: f64,
+) -> RebaseOutput {
+    solvers::rebase_origin(zr_str, zi_str, cr_str, ci_str, dzr, dzi, dcr, dci).into()
 }
 
 #[wasm_bindgen]

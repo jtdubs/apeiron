@@ -3,10 +3,14 @@ import { TelemetryRegistry, type TelemetryChannel } from './debug/TelemetryRegis
 
 export interface WorkerJob {
   id: number;
-  absZr: string;
-  absZi: string;
-  absCr: string;
-  absCi: string;
+  anchorZr: string;
+  anchorZi: string;
+  anchorCr: string;
+  anchorCi: string;
+  deltaZr: number;
+  deltaZi: number;
+  deltaCr: number;
+  deltaCi: number;
   exponent: number;
   paletteMaxIter: number;
   isRefining?: boolean;
@@ -93,26 +97,26 @@ export class PerturbationOrchestrator {
         this.worker.postMessage({
           id: this.currentWorkerJob.id,
           type: 'REFINE_REFERENCE',
-          cr: this.currentWorkerJob.absCr,
-          ci: this.currentWorkerJob.absCi,
+          cr: this.currentWorkerJob.anchorCr,
+          ci: this.currentWorkerJob.anchorCi,
+          dcr: this.currentWorkerJob.deltaCr,
+          dci: this.currentWorkerJob.deltaCi,
           max_iterations: this.currentWorkerJob.paletteMaxIter,
         });
         this.channels.phase.set(1);
       } else {
-        const casesJson = JSON.stringify([
-          {
-            zr: this.currentWorkerJob.absZr,
-            zi: this.currentWorkerJob.absZi,
-            cr: this.currentWorkerJob.absCr,
-            ci: this.currentWorkerJob.absCi,
-            exponent: this.currentWorkerJob.exponent,
-          },
-        ]);
-
         this.worker.postMessage({
           id: this.currentWorkerJob.id,
-          type: 'COMPUTE',
-          casesJson,
+          type: 'COMPUTE_REBASE',
+          anchorZr: this.currentWorkerJob.anchorZr,
+          anchorZi: this.currentWorkerJob.anchorZi,
+          anchorCr: this.currentWorkerJob.anchorCr,
+          anchorCi: this.currentWorkerJob.anchorCi,
+          deltaZr: this.currentWorkerJob.deltaZr,
+          deltaZi: this.currentWorkerJob.deltaZi,
+          deltaCr: this.currentWorkerJob.deltaCr,
+          deltaCi: this.currentWorkerJob.deltaCi,
+          exponent: this.currentWorkerJob.exponent,
           paletteMaxIter: this.currentWorkerJob.paletteMaxIter,
         });
         this.channels.phase.set(2);
@@ -139,30 +143,34 @@ export class PerturbationOrchestrator {
 
         // Progress job to COMPUTE phase using the newly minted mathematically pure reference
         this.currentWorkerJob.isRefining = false;
-        this.currentWorkerJob.absCr = e.data.cr.toString();
-        this.currentWorkerJob.absCi = e.data.ci.toString();
-        // Force Z back to 0 so the calculation executes from the anchor origin
-        this.currentWorkerJob.absZr = '0';
-        this.currentWorkerJob.absZi = '0';
+        this.currentWorkerJob.anchorCr = e.data.cr;
+        this.currentWorkerJob.anchorCi = e.data.ci;
+        // The delta is completely absorbed since we're now mathematically exactly on the core point
+        this.currentWorkerJob.deltaCr = 0.0;
+        this.currentWorkerJob.deltaCi = 0.0;
 
-        const casesJson = JSON.stringify([
-          {
-            zr: this.currentWorkerJob.absZr,
-            zi: this.currentWorkerJob.absZi,
-            cr: this.currentWorkerJob.absCr,
-            ci: this.currentWorkerJob.absCi,
-            exponent: this.currentWorkerJob.exponent,
-          },
-        ]);
+        // Force Z back to 0 so the calculation executes from the anchor origin
+        this.currentWorkerJob.anchorZr = '0';
+        this.currentWorkerJob.anchorZi = '0';
+        this.currentWorkerJob.deltaZr = 0.0;
+        this.currentWorkerJob.deltaZi = 0.0;
 
         this.worker.postMessage({
           id: this.currentWorkerJob.id,
-          type: 'COMPUTE',
-          casesJson,
+          type: 'COMPUTE_REBASE',
+          anchorZr: this.currentWorkerJob.anchorZr,
+          anchorZi: this.currentWorkerJob.anchorZi,
+          anchorCr: this.currentWorkerJob.anchorCr,
+          anchorCi: this.currentWorkerJob.anchorCi,
+          deltaZr: this.currentWorkerJob.deltaZr,
+          deltaZi: this.currentWorkerJob.deltaZi,
+          deltaCr: this.currentWorkerJob.deltaCr,
+          deltaCi: this.currentWorkerJob.deltaCi,
+          exponent: this.currentWorkerJob.exponent,
           paletteMaxIter: this.currentWorkerJob.paletteMaxIter,
         });
       }
-    } else if (e.data.type === 'COMPUTE_RESULT' && e.data.orbit_nodes) {
+    } else if (e.data.type === 'COMPUTE_REBASE_RESULT' && e.data.orbit_nodes) {
       if (this.pendingWorkerJob !== null) {
         // User panned while we were waiting, discard obsolete result
         this.dispatchPendingWork();
@@ -173,21 +181,17 @@ export class PerturbationOrchestrator {
         // Mathematical snapping: The viewport stays exactly where it is, but the anchor changes.
         this._isSynchronizingState = true;
         viewportStore.setState((state) => {
-          const currentAbsoluteCr = parseFloat(state.anchorCr) + state.deltaCr;
-          const currentAbsoluteCi = parseFloat(state.anchorCi) + state.deltaCi;
-          const currentAbsoluteZr = parseFloat(state.anchorZr) + state.deltaZr;
-          const currentAbsoluteZi = parseFloat(state.anchorZi) + state.deltaZi;
-
-          const newDeltaCr = currentAbsoluteCr - parseFloat(job.absCr);
-          const newDeltaCi = currentAbsoluteCi - parseFloat(job.absCi);
-          const newDeltaZr = currentAbsoluteZr - parseFloat(job.absZr);
-          const newDeltaZi = currentAbsoluteZi - parseFloat(job.absZi);
+          // Precise delta rebasing without ever adding arbitrary precision strings to f64s locally
+          const newDeltaCr = state.deltaCr - job.deltaCr;
+          const newDeltaCi = state.deltaCi - job.deltaCi;
+          const newDeltaZr = state.deltaZr - job.deltaZr;
+          const newDeltaZi = state.deltaZi - job.deltaZi;
 
           return {
-            anchorZr: job.absZr,
-            anchorZi: job.absZi,
-            anchorCr: job.absCr,
-            anchorCi: job.absCi,
+            anchorZr: e.data.abs_zr,
+            anchorZi: e.data.abs_zi,
+            anchorCr: e.data.abs_cr,
+            anchorCi: e.data.abs_ci,
             deltaZr: newDeltaZr,
             deltaZi: newDeltaZi,
             deltaCr: newDeltaCr,
@@ -269,19 +273,18 @@ export class PerturbationOrchestrator {
 
         if (this.timeoutId) window.clearTimeout(this.timeoutId);
         this.timeoutId = window.setTimeout(() => {
-          const absZr = (parseFloat(state.anchorZr) + state.deltaZr).toString();
-          const absZi = (parseFloat(state.anchorZi) + state.deltaZi).toString();
-          const absCr = (parseFloat(state.anchorCr) + state.deltaCr).toString();
-          const absCi = (parseFloat(state.anchorCi) + state.deltaCi).toString();
-
           this.jobSequenceCounter++;
 
           const job: WorkerJob = {
             id: this.jobSequenceCounter,
-            absZr,
-            absZi,
-            absCr,
-            absCi,
+            anchorZr: state.anchorZr,
+            anchorZi: state.anchorZi,
+            anchorCr: state.anchorCr,
+            anchorCi: state.anchorCi,
+            deltaZr: state.deltaZr,
+            deltaZi: state.deltaZi,
+            deltaCr: state.deltaCr,
+            deltaCi: state.deltaCi,
             exponent: state.exponent,
             paletteMaxIter: state.paletteMaxIter,
             isRefining: state.exponent === 2.0,

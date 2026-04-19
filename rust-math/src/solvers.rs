@@ -11,13 +11,19 @@ const MAX_NEWTON_ITERATIONS: u32 = 20;
 /// Output payload from the Newton-Raphson reference solver.
 /// Contains the finalized coordinates and the nature of the referenced point.
 pub struct RefineOutput {
-    pub cr: f64,
-    pub ci: f64,
+    pub cr: String,
+    pub ci: String,
     pub ref_type: String,
     pub period: u32,
     pub pre_period: u32,
 }
 
+pub struct NativeRebaseOutput {
+    pub zr: String,
+    pub zi: String,
+    pub cr: String,
+    pub ci: String,
+}
 
 /// Attempts to snap a provided complex coordinate to the nearest mathematical anchor
 /// (either a Nucleus or a Misiurewicz point) by iterating bounds and applying
@@ -151,10 +157,38 @@ pub fn refine_reference(cr_str: &str, ci_str: &str, max_iterations: u32) -> Refi
     }
 
     RefineOutput {
-        cr: c.r.to_f64().unwrap_or(0.0),
-        ci: c.i.to_f64().unwrap_or(0.0),
+        cr: c.r.to_string(),
+        ci: c.i.to_string(),
         ref_type: found_type,
         period: out_period,
         pre_period: out_pre_period,
+    }
+}
+
+pub fn rebase_origin(
+    zr_str: &str,
+    zi_str: &str,
+    cr_str: &str,
+    ci_str: &str,
+    dzr: f64,
+    dzi: f64,
+    dcr: f64,
+    dci: f64,
+) -> NativeRebaseOutput {
+    let zr = BigDecimal::from_str(zr_str).unwrap_or(BigDecimal::zero());
+    let zi = BigDecimal::from_str(zi_str).unwrap_or(BigDecimal::zero());
+    let cr = BigDecimal::from_str(cr_str).unwrap_or(BigDecimal::zero());
+    let ci = BigDecimal::from_str(ci_str).unwrap_or(BigDecimal::zero());
+
+    let dzr_bd = BigDecimal::from_f64(dzr).unwrap_or(BigDecimal::zero());
+    let dzi_bd = BigDecimal::from_f64(dzi).unwrap_or(BigDecimal::zero());
+    let dcr_bd = BigDecimal::from_f64(dcr).unwrap_or(BigDecimal::zero());
+    let dci_bd = BigDecimal::from_f64(dci).unwrap_or(BigDecimal::zero());
+
+    NativeRebaseOutput {
+        zr: (zr + dzr_bd).with_prec(100).to_string(),
+        zi: (zi + dzi_bd).with_prec(100).to_string(),
+        cr: (cr + dcr_bd).with_prec(100).to_string(),
+        ci: (ci + dci_bd).with_prec(100).to_string(),
     }
 }

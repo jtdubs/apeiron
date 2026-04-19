@@ -87,7 +87,8 @@ describe('PerturbationOrchestrator', () => {
     // Check initial payload
     const payload1 = mockWorker.postMessage.mock.calls[0][0];
     expect(payload1.type).toBe('REFINE_REFERENCE');
-    expect(payload1.cr).toBe('-0.7'); // -1.0 + 0.3
+    expect(payload1.cr).toBe('-1.0');
+    expect(payload1.dcr).toBe(0.3);
 
     // Simulate returning a refined reference
     mockWorker.onmessage({
@@ -103,10 +104,10 @@ describe('PerturbationOrchestrator', () => {
     });
 
     const payload2 = mockWorker.postMessage.mock.calls[1][0];
-    expect(payload2.type).toBe('COMPUTE');
+    expect(payload2.type).toBe('COMPUTE_REBASE');
     expect(payload2.paletteMaxIter).toBe(500);
-    const parsed = JSON.parse(payload2.casesJson)[0];
-    expect(parsed.cr).toBe('-0.7');
+    expect(payload2.anchorCr).toBe(-0.7);
+    expect(payload2.deltaCr).toBe(0.0);
   });
 
   it('queues pending work if worker is currently busy', () => {
@@ -157,7 +158,8 @@ describe('PerturbationOrchestrator', () => {
       // The pending payload handles the latest cr: 0.5
       const payload3 = mockWorker.postMessage.mock.calls[1][0];
       expect(payload3.type).toBe('REFINE_REFERENCE');
-      expect(payload3.cr).toBe('-0.5'); // -1.0 + 0.5
+      expect(payload3.cr).toBe('-1.0');
+      expect(payload3.dcr).toBe(0.5);
     }
   });
 
@@ -206,7 +208,11 @@ describe('PerturbationOrchestrator', () => {
     mockWorker.onmessage({
       data: {
         id: 1234, // ignored in test fallback path
-        type: 'COMPUTE_RESULT',
+        type: 'COMPUTE_REBASE_RESULT',
+        abs_cr: '-1.5',
+        abs_zr: '0',
+        abs_ci: '0.5',
+        abs_zi: '0',
         orbit_nodes: fakeOrbitNodes,
         metadata: fakeMetadata,
         bla_grid_ds: new Float64Array(0),

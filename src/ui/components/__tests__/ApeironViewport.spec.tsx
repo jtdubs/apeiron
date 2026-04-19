@@ -122,7 +122,11 @@ describe('ApeironViewport Orchestration', () => {
     act(() => {
       workerOnMessage({
         data: {
-          type: 'COMPUTE_RESULT',
+          type: 'COMPUTE_REBASE_RESULT',
+          abs_cr: '-0.799',
+          abs_ci: '0.157',
+          abs_zr: '0',
+          abs_zi: '0',
           orbit_nodes: new Float64Array(10),
           metadata: new Float64Array(10),
           bla_grid: new Float64Array(10),
@@ -168,7 +172,11 @@ describe('ApeironViewport Orchestration', () => {
     act(() => {
       workerOnMessage({
         data: {
-          type: 'COMPUTE_RESULT',
+          type: 'COMPUTE_REBASE_RESULT',
+          abs_cr: '-0.795',
+          abs_ci: '0.161',
+          abs_zr: '0',
+          abs_zi: '0',
           orbit_nodes: new Float64Array(10),
           metadata: new Float64Array(10),
           bla_grid: new Float64Array(10),
@@ -329,7 +337,11 @@ describe('ApeironViewport Orchestration', () => {
     act(() => {
       workerOnMessage({
         data: {
-          type: 'COMPUTE_RESULT',
+          type: 'COMPUTE_REBASE_RESULT',
+          abs_cr: '-0.799',
+          abs_ci: '0.156',
+          abs_zr: '0',
+          abs_zi: '0',
           orbit_nodes: new Float64Array(10),
           metadata: new Float64Array(10),
           bla_grid: new Float64Array(10),
@@ -344,7 +356,11 @@ describe('ApeironViewport Orchestration', () => {
     act(() => {
       workerOnMessage({
         data: {
-          type: 'COMPUTE_RESULT',
+          type: 'COMPUTE_REBASE_RESULT',
+          abs_cr: '-0.798',
+          abs_ci: '0.156',
+          abs_zr: '0',
+          abs_zi: '0',
           orbit_nodes: new Float64Array(10),
           metadata: new Float64Array(10),
           bla_grid: new Float64Array(10),

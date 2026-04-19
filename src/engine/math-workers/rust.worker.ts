@@ -9,9 +9,25 @@ export type WorkerInputMessage =
     }
   | {
       id: number;
+      type: 'COMPUTE_REBASE';
+      anchorZr: string;
+      anchorZi: string;
+      anchorCr: string;
+      anchorCi: string;
+      deltaZr: number;
+      deltaZi: number;
+      deltaCr: number;
+      deltaCi: number;
+      exponent: number;
+      paletteMaxIter: number;
+    }
+  | {
+      id: number;
       type: 'REFINE_REFERENCE';
       cr: string;
       ci: string;
+      dcr: number;
+      dci: number;
       max_iterations: number;
     }
   | {
@@ -32,9 +48,21 @@ export type WorkerOutputMessage =
     }
   | {
       id: number;
+      type: 'COMPUTE_REBASE_RESULT';
+      abs_zr: string;
+      abs_zi: string;
+      abs_cr: string;
+      abs_ci: string;
+      orbit_nodes: Float64Array;
+      metadata: Float64Array;
+      bla_grid_ds: Float64Array;
+      bta_grid: Float64Array;
+    }
+  | {
+      id: number;
       type: 'REFINE_RESULT';
-      cr: number;
-      ci: number;
+      cr: string;
+      ci: string;
       refType: string;
       period: number;
       pre_period: number;
@@ -66,7 +94,6 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     }
     await wasmInit;
 
-    // A hack to access initWasm.ReferenceTree via window without explicit import name
     if (!referenceTree) {
       const { ReferenceTree } = await import('./wasm/rust_math.js');
       referenceTree = new ReferenceTree();
@@ -93,21 +120,90 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     const t1 = performance.now();
     console.log(`[math-core] BLA Tree & Orbit Array compiled in ${(t1 - t0).toFixed(2)}ms`);
 
-    // Explicitly copy the WASM-memory backed array into a native, standalone JS ArrayBuffer.
     const orbit_nodes = new Float64Array(payload.orbit_nodes);
     const metadata = new Float64Array(payload.metadata);
     const bla_grid_ds = new Float64Array(payload.bla_grid_ds);
     const bta_grid = new Float64Array(payload.bta_grid);
 
-    // Free the WASM memory pointer
     payload.free();
 
-    // TS sometimes confuses self with Window instead of DedicatedWorkerGlobalScope
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (self as any).postMessage(
       {
         id: e.data.id,
         type: 'COMPUTE_RESULT',
+        orbit_nodes,
+        metadata,
+        bla_grid_ds,
+        bta_grid,
+      } as WorkerOutputMessage,
+      [orbit_nodes.buffer, metadata.buffer, bla_grid_ds.buffer, bta_grid.buffer],
+    );
+  } else if (msg.type === 'COMPUTE_REBASE') {
+    if (!wasmInit) {
+      wasmInit = initWasm();
+    }
+    await wasmInit;
+
+    if (!referenceTree) {
+      const { ReferenceTree } = await import('./wasm/rust_math.js');
+      referenceTree = new ReferenceTree();
+    }
+
+    const { compute_payload, rebase_origin } = await import('./wasm/rust_math.js');
+
+    const t0_rebase = performance.now();
+    const rebase_result = rebase_origin(
+      msg.anchorZr,
+      msg.anchorZi,
+      msg.anchorCr,
+      msg.anchorCi,
+      msg.deltaZr,
+      msg.deltaZi,
+      msg.deltaCr,
+      msg.deltaCi,
+    );
+    const absZr = rebase_result.zr;
+    const absZi = rebase_result.zi;
+    const absCr = rebase_result.cr;
+    const absCi = rebase_result.ci;
+    rebase_result.free();
+    const t1_rebase = performance.now();
+    console.log(`[math-core] Origin rebasing completed in ${(t1_rebase - t0_rebase).toFixed(2)}ms`);
+
+    const casesJson = JSON.stringify([
+      {
+        zr: absZr,
+        zi: absZi,
+        cr: absCr,
+        ci: absCi,
+        exponent: msg.exponent,
+      },
+    ]);
+
+    currentAnchorId = referenceTree.alloc_node(absCr, absCi, msg.exponent || 2.0);
+
+    const t0 = performance.now();
+    const payload = compute_payload(referenceTree, currentAnchorId, casesJson, msg.paletteMaxIter);
+    const t1 = performance.now();
+    console.log(`[math-core] BLA Tree & Orbit Array compiled in ${(t1 - t0).toFixed(2)}ms`);
+
+    const orbit_nodes = new Float64Array(payload.orbit_nodes);
+    const metadata = new Float64Array(payload.metadata);
+    const bla_grid_ds = new Float64Array(payload.bla_grid_ds);
+    const bta_grid = new Float64Array(payload.bta_grid);
+
+    payload.free();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (self as any).postMessage(
+      {
+        id: e.data.id,
+        type: 'COMPUTE_REBASE_RESULT',
+        abs_zr: absZr,
+        abs_zi: absZi,
+        abs_cr: absCr,
+        abs_ci: absCi,
         orbit_nodes,
         metadata,
         bla_grid_ds,
@@ -121,10 +217,24 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     }
     await wasmInit;
 
+    const { rebase_origin } = await import('./wasm/rust_math.js');
+    const rebase_result = rebase_origin(
+      '0',
+      '0',
+      e.data.cr,
+      e.data.ci,
+      0.0,
+      0.0,
+      e.data.dcr,
+      e.data.dci,
+    );
+
     const t0 = performance.now();
-    const result = refine_reference(e.data.cr, e.data.ci, e.data.max_iterations);
+    const result = refine_reference(rebase_result.cr, rebase_result.ci, e.data.max_iterations);
     const t1 = performance.now();
     console.log(`[math-core] Reference refined in ${(t1 - t0).toFixed(2)}ms`);
+
+    rebase_result.free();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (self as any).postMessage({
