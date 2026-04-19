@@ -356,6 +356,7 @@ export class TelemetryRenderer {
     let enumVal: number | null = null;
     let enumStartX: number = this.width;
     let lastX: number = this.width;
+    let firstValidX: number | null = null;
 
     for (let i = 0; i < maxPoints; i++) {
       let x = this.width;
@@ -400,8 +401,12 @@ export class TelemetryRenderer {
       normalized = Math.max(0, Math.min(1, normalized));
       const y = yOffset + height - paddingY - normalized * drawHeight;
 
+      if (!Number.isNaN(val) && firstValidX === null) {
+        firstValidX = x;
+      }
+
       if (def.type === 'digital') {
-        if (i === 0) {
+        if (i === 0 || x === firstValidX) {
           this.ctx.moveTo(x, y);
         } else {
           const lastValAgeMinus1PhysicalIdx =
@@ -444,7 +449,7 @@ export class TelemetryRenderer {
       this.ctx.fillStyle = this.ctx.strokeStyle;
       this.ctx.globalAlpha = 0.2;
       this.ctx.lineTo(lastX, yOffset + height);
-      this.ctx.lineTo(this.width, yOffset + height);
+      this.ctx.lineTo(firstValidX !== null ? firstValidX : this.width, yOffset + height);
       this.ctx.fill();
       this.ctx.globalAlpha = 1.0;
     }
