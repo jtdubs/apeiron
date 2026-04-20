@@ -62,7 +62,7 @@ export class ProgressiveRenderScheduler {
         group: 'FSM',
         type: 'enum',
         retention: 'latch',
-        enumValues: { 0: 'INTERACT', 1: 'DEEPENING', 2: 'ACCUM', 3: 'IDLE' },
+        enumValues: { 0: 'INTERACT', 1: 'DEEPENING', 2: 'ACCUM', 3: 'IDLE', 4: 'REBASING_WAIT' },
       }),
       renderscale: reg.register({
         id: 'engine.renderscale',
@@ -199,6 +199,7 @@ export class ProgressiveRenderScheduler {
   public update(
     context: MathContext,
     isInteracting: boolean,
+    isWorkerBusy: boolean,
     canvasSizeVersion: number,
     themeVersion: number,
     snapshotRenderScale: number,
@@ -247,6 +248,12 @@ export class ProgressiveRenderScheduler {
       return null; // RESOLVED state
     }
 
+    const mode = this.getPipelineMode(isInteracting, isWorkerBusy);
+    if (mode === 'REBASING_WAIT') {
+      this.channels.mode.set(4);
+      return null; // Suspend execution while Rust calculates multi-reference offsets
+    }
+
     const isFirstSliceVal = this.isFirstSlice;
 
     const advancePingPong = isFirstSliceVal;
@@ -276,7 +283,6 @@ export class ProgressiveRenderScheduler {
       jitterY: this.cycleJitterY,
     };
 
-    const mode = this.getPipelineMode(isInteracting);
     const modeVal = mode === 'INTERACT' ? 0 : mode === 'DEEPENING' ? 1 : 2;
 
     this.channels.mode.set(modeVal);
@@ -305,8 +311,12 @@ export class ProgressiveRenderScheduler {
     return command;
   }
 
-  public getPipelineMode(isInteracting: boolean): 'INTERACT' | 'ACCUMULATING' | 'DEEPENING' {
+  public getPipelineMode(
+    isInteracting: boolean,
+    isWorkerBusy: boolean,
+  ): 'INTERACT' | 'ACCUMULATING' | 'DEEPENING' | 'REBASING_WAIT' {
     if (isInteracting) return 'INTERACT';
+    if (isWorkerBusy) return 'REBASING_WAIT';
     if (this.isDeepening) return 'DEEPENING';
     return 'ACCUMULATING';
   }

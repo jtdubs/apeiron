@@ -216,6 +216,7 @@ describe('PerturbationOrchestrator', () => {
         orbit_nodes: fakeOrbitNodes,
         metadata: fakeMetadata,
         bla_grid_ds: new Float64Array(0),
+        reference_tree_flat: new Float64Array(1),
       },
     });
 

@@ -75,6 +75,7 @@ async function runPhase4Test() {
     undefined,
     undefined,
     undefined,
+    undefined,
     1000,
     false,
     2.0,

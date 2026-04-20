@@ -25,9 +25,9 @@ export class WebGPUTestHarness {
     input: Float32Array,
     refOrbitNodes?: Float64Array,
     refMetadata?: Float64Array,
-
     refBlaGridDs?: Float64Array,
     refBtaGrid?: Float64Array,
+    refReferenceTreeFlat?: Float64Array,
     maxIter: number = 100,
     usePerturbation: boolean = true,
     exponent: number = 2.0,
@@ -51,6 +51,7 @@ export class WebGPUTestHarness {
 
         refBlaGridDs,
         refBtaGrid,
+        refReferenceTreeFlat,
         exponent: exponent,
         usePerturbation: usePerturbation ? 1.0 : 0.0,
       },
@@ -69,6 +70,7 @@ export class WebGPUTestHarness {
 
       refBlaGridDs?: Float64Array;
       refBtaGrid?: Float64Array;
+      refReferenceTreeFlat?: Float64Array;
       checkpointData?: Float32Array;
       exponent?: number;
       usePerturbation?: number;
@@ -172,7 +174,9 @@ export class WebGPUTestHarness {
     let refMetadataBuffer: GPUBuffer | null = null;
 
     let refBlaGridDsBuffer: GPUBuffer | null = null;
+    let refBlaGridF32Buffer: GPUBuffer | null = null;
     let refBtaGridBuffer: GPUBuffer | null = null;
+    let refReferenceTreeBuffer: GPUBuffer | null = null;
 
     const createRefBuffer = (data: Float64Array | ArrayBuffer | undefined) => {
       if (data) {
@@ -220,13 +224,17 @@ export class WebGPUTestHarness {
       refMetadataBuffer = createRefBuffer(options.refMetadata);
 
       refBlaGridDsBuffer = createRefBuffer(options.refBlaGridDs);
+      refBlaGridF32Buffer = createRefBuffer(undefined);
       refBtaGridBuffer = createRefBuffer(options.refBtaGrid);
+      refReferenceTreeBuffer = createRefBuffer(options.refReferenceTreeFlat);
     } else {
       refOrbitNodesBuffer = createRefBuffer(undefined);
       refMetadataBuffer = createRefBuffer(undefined);
 
       refBlaGridDsBuffer = createRefBuffer(undefined);
+      refBlaGridF32Buffer = createRefBuffer(undefined);
       refBtaGridBuffer = createRefBuffer(undefined);
+      refReferenceTreeBuffer = createRefBuffer(undefined);
     }
 
     const completionFlagBuffer = this.device.createBuffer({
@@ -274,9 +282,11 @@ export class WebGPUTestHarness {
       entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
       entries.push({ binding: 6, resource: { buffer: completionFlagBuffer } });
       entries.push({ binding: 8, resource: { buffer: refMetadataBuffer } });
+      entries.push({ binding: 9, resource: { buffer: refBlaGridF32Buffer } });
       entries.push({ binding: 10, resource: { buffer: refBlaGridDsBuffer } });
       entries.push({ binding: 11, resource: { buffer: refBtaGridBuffer } });
       entries.push({ binding: 12, resource: { buffer: glitchBuffer } });
+      entries.push({ binding: 13, resource: { buffer: refReferenceTreeBuffer } });
     }
 
     this.device.pushErrorScope('validation');
@@ -338,7 +348,9 @@ export class WebGPUTestHarness {
     refMetadataBuffer.destroy();
 
     refBlaGridDsBuffer.destroy();
+    refBlaGridF32Buffer.destroy();
     refBtaGridBuffer.destroy();
+    refReferenceTreeBuffer.destroy();
     glitchBuffer.destroy();
 
     return result;
@@ -412,6 +424,7 @@ export class TestRenderSession {
 
         refBlaGridDs: null,
         refBtaGrid: null,
+        refReferenceTreeFlat: null,
         effectiveMathMode: 0,
         skipIter: 0,
         debugViewMode: 0,

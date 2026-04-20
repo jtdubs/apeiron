@@ -52,3 +52,33 @@ fn test_resolve_glitches_invalid_json() {
     let result = resolve_glitches(&mut tree, current_anchor_id, glitches_json, 10);
     assert!(result.is_err(), "Should fail on invalid JSON");
 }
+
+#[test]
+fn test_resolve_glitches_multiple() {
+    let mut tree = ReferenceTree::new();
+    let current_anchor_id = tree.alloc_node("-1.0", "0.0", 2.0);
+    
+    let glitches_json = r#"[
+        {"delta_cr": 0.5, "delta_ci": -0.25},
+        {"delta_cr": 0.6, "delta_ci": -0.25},
+        {"delta_cr": 0.7, "delta_ci": -0.25},
+        {"delta_cr": 0.8, "delta_ci": -0.25},
+        {"delta_cr": 0.9, "delta_ci": -0.25}
+    ]"#;
+    
+    let result = resolve_glitches(&mut tree, current_anchor_id, glitches_json, 10);
+    assert!(result.is_ok(), "Should resolve multi-glitches successfully");
+    
+    let output = result.unwrap();
+    
+    // Total count should be 5
+    assert_eq!(output.reference_tree[0], 5.0, "Reference tree should record 5 sub-references");
+    
+    // Each reference node is 8 floats long. For 5 nodes we expect 1 + 5 * 8 = 41 length
+    assert_eq!(output.reference_tree.len(), 41, "Reference tree buffer length mismatch");
+    
+    // Verify the first node is correctly anchored near our first cluster point
+    // The precise snapped cr might be slightly different than -0.5, but diff should be ~0.5
+    let glitch_dr = output.glitch_dr;
+    assert!((glitch_dr - 0.5).abs() < 0.1, "First cluster should reflect first glitch region");
+}

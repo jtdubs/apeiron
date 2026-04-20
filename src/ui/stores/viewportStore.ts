@@ -33,21 +33,25 @@ export interface ViewportState {
   refMetadata: Float64Array | null;
   refBlaGridDs: Float64Array | null;
   refBtaGrid: Float64Array | null;
+  refReferenceTreeFlat: Float64Array | null;
   interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST';
   debugViewMode: number;
   isTelemetryOpen: boolean;
   telemetryDock: 'bottom' | 'right' | 'left';
+  isWorkerBusy: boolean;
 
   setRefBuffers: (
     orbitNodes: Float64Array | null,
     metadata: Float64Array | null,
     blaGridDs: Float64Array | null,
     btaGrid: Float64Array | null,
+    referenceTreeFlat: Float64Array | null,
   ) => void;
   setInteractionState: (state: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST') => void;
   setDebugViewMode: (mode: number) => void;
   setIsTelemetryOpen: (isOpen: boolean) => void;
   setTelemetryDock: (dock: 'bottom' | 'right' | 'left') => void;
+  setIsWorkerBusy: (busy: boolean) => void;
   setAnchorsAndDeltas: (
     azr: string,
     azi: string,
@@ -83,6 +87,7 @@ export const viewportStore = createStore<ViewportState>((set) => ({
   refMetadata: null,
   refBlaGridDs: null,
   refBtaGrid: null,
+  refReferenceTreeFlat: null,
   interactionState: 'STATIC',
   debugViewMode: 0,
   isTelemetryOpen:
@@ -91,13 +96,15 @@ export const viewportStore = createStore<ViewportState>((set) => ({
     (typeof window !== 'undefined' &&
       (localStorage.getItem('apeiron_telemetry_dock') as 'bottom' | 'right' | 'left')) ||
     'bottom',
+  isWorkerBusy: false,
 
-  setRefBuffers: (orbitNodes, metadata, blaGridDs, btaGrid) =>
+  setRefBuffers: (orbitNodes, metadata, blaGridDs, btaGrid, referenceTreeFlat) =>
     set({
       refOrbitNodes: orbitNodes,
       refMetadata: metadata,
       refBlaGridDs: blaGridDs,
       refBtaGrid: btaGrid,
+      refReferenceTreeFlat: referenceTreeFlat,
     }),
   setInteractionState: (interactionState) => set({ interactionState }),
   setDebugViewMode: (debugViewMode) => set({ debugViewMode }),
@@ -113,6 +120,7 @@ export const viewportStore = createStore<ViewportState>((set) => ({
     }
     set({ telemetryDock });
   },
+  setIsWorkerBusy: (isWorkerBusy) => set({ isWorkerBusy }),
 
   setAnchorsAndDeltas: (azr, azi, acr, aci, dzr, dzi, dcr, dci, zoom, sliceAngle, exponent) =>
     set({

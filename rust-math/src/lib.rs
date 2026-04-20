@@ -168,6 +168,7 @@ pub struct ResolveOutput {
     metadata: js_sys::Float64Array,
     bla_grid_ds: js_sys::Float64Array,
     bta_grid: js_sys::Float64Array,
+    reference_tree: js_sys::Float64Array,
 }
 
 impl From<crate::glitch::ResolveOutput> for ResolveOutput {
@@ -181,6 +182,7 @@ impl From<crate::glitch::ResolveOutput> for ResolveOutput {
             metadata: js_sys::Float64Array::from(&native.payload.metadata[..]),
             bla_grid_ds: js_sys::Float64Array::from(&native.payload.bla_grid_ds[..]),
             bta_grid: js_sys::Float64Array::from(&native.payload.bta_grid[..]),
+            reference_tree: js_sys::Float64Array::from(&native.reference_tree[..]),
         }
     }
 }
@@ -218,6 +220,10 @@ impl ResolveOutput {
     #[wasm_bindgen(getter)]
     pub fn bta_grid(&self) -> js_sys::Float64Array {
         self.bta_grid.clone()
+    }
+    #[wasm_bindgen(getter)]
+    pub fn reference_tree(&self) -> js_sys::Float64Array {
+        self.reference_tree.clone()
     }
 }
 

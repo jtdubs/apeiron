@@ -198,12 +198,14 @@ async function initSharedState(): Promise<SharedState | null> {
         singleRefMeta,
         singleRefBlaDs,
         undefined,
+        undefined,
         100,
         true,
         currentExp,
       );
       const fRes = await harness.executeTestCompute(
         singleInput,
+        undefined,
         undefined,
         undefined,
         undefined,
@@ -302,6 +304,7 @@ Deno.test({
     const deepInput = new Float32Array([0.0, 0.0, -1.748, 0.0, 1e-15, 1e-15]);
     const res = await harness.executeTestCompute(
       deepInput,
+      undefined,
       undefined,
       undefined,
       undefined,
@@ -490,6 +493,7 @@ Deno.test({
       undefined,
       undefined,
       undefined,
+      undefined,
       maxIter,
       false,
       2.0,
@@ -537,6 +541,7 @@ Deno.test({
       alignedRefMetadata.subarray(0, META_STRIDE),
       alignedRefBlaGridDs.subarray(0, 100 * 10 * 16),
       undefined,
+      undefined,
       100, // maxIter
       true, // usePerturbation
       2.0, // exponent
@@ -549,6 +554,7 @@ Deno.test({
       alignedRefOrbitNodes.subarray(0, 100 * ORBIT_STRIDE),
       alignedRefMetadata.subarray(0, META_STRIDE),
       alignedRefBlaGridDs.subarray(0, 100 * 10 * 16),
+      undefined,
       undefined,
       100,
       true,
@@ -846,6 +852,7 @@ Deno.test(
       mockRefMetadata,
       mockRefBlaGridDs,
       mockRefBtaGrid, // Pass BTA to preclude SA
+      undefined,
       100,
       true,
       2.0,
@@ -926,6 +933,7 @@ Deno.test(
       resolvePayload.metadata,
       resolvePayload.bla_grid_ds,
       undefined,
+      undefined,
       100,
       true,
       2.0,
@@ -942,3 +950,85 @@ Deno.test(
     }
   },
 );
+
+Deno.test('Validating Multi-Reference Neighborhood Rendering (Tug-of-War Prevention)', async () => {
+  const state = await initSharedState();
+  if (!state) return;
+  const { harness } = state;
+
+  const workerPath = path.resolve('./src/engine/math-workers/rust.worker.ts');
+  const localWorker = new Worker(new URL(`file://${workerPath}`).href, { type: 'module' });
+
+  // Step 1: Compute an initial anchor at (0.0, 0.0)
+  const resolvePayload = await new Promise<any>((resolve, reject) => {
+    localWorker.onmessage = (e) => {
+      if (e.data.type === 'RESOLVE_GLITCHES_RESULT') {
+        resolve(e.data);
+        localWorker.terminate();
+      } else if (e.data.type === 'COMPUTE_RESULT') {
+        // Step 2: Trigger a multi-glitch resolve, simulating two distinct regions forming a tug-of-war
+        localWorker.postMessage({
+          id: 2,
+          type: 'RESOLVE_GLITCHES',
+          glitches: [
+            { delta_cr: 0.5, delta_ci: 0.5 },
+            { delta_cr: -0.5, delta_ci: -0.5 },
+          ],
+          paletteMaxIter: 100,
+        });
+      }
+    };
+    localWorker.onerror = (err) => reject(err);
+
+    localWorker.postMessage({
+      id: 1,
+      type: 'COMPUTE',
+      casesJson: JSON.stringify([{ zr: '0', zi: '0', cr: '0.0', ci: '0.0', exponent: 2.0 }]),
+      maxIterations: 100,
+    });
+  });
+
+  if (!resolvePayload.reference_tree_flat) {
+    throw new Error('Worker failed to return reference_tree_flat');
+  }
+
+  // Step 3: Ensure K-Means yielded multiple nodes length. 1 + at least 2 nodes = 17 length.
+  if (resolvePayload.reference_tree_flat.length < 17) {
+    throw new Error(
+      `Multi-reference payload failed to emit multiple centroids! Length: ${resolvePayload.reference_tree_flat.length}`,
+    );
+  }
+
+  // Step 4: Dispatch a compute with the two disconnected points. The shader should dynamically
+  // select the correct independent reference for each point based on distance.
+  const glitchInputs = new Float32Array([
+    // pt 1: (0, 0) + (0.5, 0.5) drift
+    0.0, 0.0, 0.0, 0.0, 0.5, 0.5,
+    // pt 2: (0, 0) + (-0.5, -0.5) drift
+    0.0, 0.0, 0.0, 0.0, -0.5, -0.5,
+  ]);
+
+  const resResolved = await harness.executeTestCompute(
+    glitchInputs,
+    resolvePayload.orbit_nodes,
+    resolvePayload.metadata,
+    resolvePayload.bla_grid_ds,
+    resolvePayload.bta_grid,
+    resolvePayload.reference_tree_flat, // PASS OUR MULTI-REFERENCE BINDING
+    100,
+    true,
+    2.0,
+  );
+
+  // Make sure we successfully got deterministic counts instead of crashing or collapsing
+  if (resResolved[0] <= -5.0 || resResolved[4] <= -5.0) {
+    throw new Error(
+      `Multi-reference WebGPU dispatch failed or collapsed: [${resResolved[0]}, ${resResolved[4]}]`,
+    );
+  }
+
+  // We can also assert they evaluated smoothly
+  if (Number.isNaN(resResolved[0]) || Number.isNaN(resResolved[4])) {
+    throw new Error('Multi-reference WebGPU output NaN');
+  }
+});

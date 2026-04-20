@@ -6,7 +6,6 @@ import {
   packResolveUniforms,
   ReferenceOrbitNode_SIZE,
   OrbitMetadata_SIZE,
-  BLANode_SIZE,
   DSBLANode_SIZE,
   BtaNode_SIZE,
   ResolveUniforms_SIZE,
@@ -22,10 +21,10 @@ export class AccumulationPass {
   private pipelineCache: Map<string, GPUComputePipeline | Promise<GPUComputePipeline>>;
   public uniformsBuffer: GPUBuffer;
   private dummyRefOrbitNodesBuffer: GPUBuffer;
-  private dummyRefBlaGridBuffer: GPUBuffer;
   private dummyRefBlaGridDsBuffer: GPUBuffer;
   private dummyRefBtaGridBuffer: GPUBuffer;
   private dummyRefMetadataBuffer: GPUBuffer;
+  private dummyRefReferenceTreeBuffer: GPUBuffer;
 
   constructor(device: GPUDevice, mathShaderCode: string) {
     this.device = device;
@@ -53,12 +52,6 @@ export class AccumulationPass {
     });
     device.queue.writeBuffer(this.dummyRefMetadataBuffer, 0, new Float32Array(OrbitMetadata_SIZE));
 
-    this.dummyRefBlaGridBuffer = device.createBuffer({
-      size: BLANode_SIZE * 4,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(this.dummyRefBlaGridBuffer, 0, new Float32Array(BLANode_SIZE));
-
     this.dummyRefBlaGridDsBuffer = device.createBuffer({
       size: DSBLANode_SIZE * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
@@ -70,6 +63,12 @@ export class AccumulationPass {
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     device.queue.writeBuffer(this.dummyRefBtaGridBuffer, 0, new Float32Array(BtaNode_SIZE));
+
+    this.dummyRefReferenceTreeBuffer = device.createBuffer({
+      size: 2048, // Generous empty sizing for dummies
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(this.dummyRefReferenceTreeBuffer, 0, new Float32Array(512));
   }
 
   public initBackgroundCache() {
@@ -129,6 +128,7 @@ export class AccumulationPass {
 
     activeRefBlaGridDsBuffer: GPUBuffer | null,
     activeRefBtaGridBuffer: GPUBuffer | null,
+    activeRefReferenceTreeBuffer: GPUBuffer | null,
     glitchBuffer: GPUBuffer,
     prevFrameView: GPUTextureView,
     checkpointBuffer: GPUBuffer,
@@ -176,6 +176,14 @@ export class AccumulationPass {
           binding: 12,
           resource: {
             buffer: glitchBuffer,
+          },
+        },
+        {
+          binding: 13,
+          resource: {
+            buffer: activeRefReferenceTreeBuffer
+              ? activeRefReferenceTreeBuffer
+              : this.dummyRefReferenceTreeBuffer,
           },
         },
       ],
@@ -320,6 +328,7 @@ export class PassManager {
   private activeRefBlaGridBuffer: GPUBuffer | null = null;
   private activeRefBlaGridDsBuffer: GPUBuffer | null = null;
   private activeRefBtaGridBuffer: GPUBuffer | null = null;
+  private activeRefReferenceTreeBuffer: GPUBuffer | null = null;
   private hasValidActiveRefOrbits = false;
   private lastRefOrbitNodes: Float64Array | null | undefined = undefined;
 
@@ -532,6 +541,19 @@ export class PassManager {
           desc.context.refBtaGrid!.byteLength,
         );
 
+        if (this.activeRefReferenceTreeBuffer) this.activeRefReferenceTreeBuffer.destroy();
+        this.activeRefReferenceTreeBuffer = this.device.createBuffer({
+          size: desc.context.refReferenceTreeFlat!.byteLength,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        this.device.queue.writeBuffer(
+          this.activeRefReferenceTreeBuffer,
+          0,
+          desc.context.refReferenceTreeFlat!.buffer,
+          desc.context.refReferenceTreeFlat!.byteOffset,
+          desc.context.refReferenceTreeFlat!.byteLength,
+        );
+
         this.hasValidActiveRefOrbits = true;
       } else if (this.hasValidActiveRefOrbits) {
         if (this.activeRefOrbitNodesBuffer) this.activeRefOrbitNodesBuffer.destroy();
@@ -544,6 +566,8 @@ export class PassManager {
         this.activeRefBlaGridDsBuffer = null;
         if (this.activeRefBtaGridBuffer) this.activeRefBtaGridBuffer.destroy();
         this.activeRefBtaGridBuffer = null;
+        if (this.activeRefReferenceTreeBuffer) this.activeRefReferenceTreeBuffer.destroy();
+        this.activeRefReferenceTreeBuffer = null;
         this.hasValidActiveRefOrbits = false;
       }
       this.lastRefOrbitNodes = desc.context.refOrbitNodes;
@@ -742,6 +766,7 @@ export class PassManager {
 
       this.activeRefBlaGridDsBuffer,
       this.activeRefBtaGridBuffer,
+      this.activeRefReferenceTreeBuffer,
       this.glitchBuffer!,
       readTex!.createView(),
       this.checkpointBuffer!,

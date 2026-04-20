@@ -78,6 +78,7 @@ export type WorkerOutputMessage =
       metadata: Float64Array;
       bla_grid_ds: Float64Array;
       bta_grid: Float64Array;
+      reference_tree_flat: Float64Array;
     };
 
 let wasmInit: Promise<unknown> | null = null;
@@ -277,6 +278,7 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
     const metadata = new Float64Array(payload.metadata);
     const bla_grid_ds = new Float64Array(payload.bla_grid_ds);
     const bta_grid = new Float64Array(payload.bta_grid);
+    const reference_tree_flat = new Float64Array(payload.reference_tree);
 
     const new_cr = payload.new_cr;
     const new_ci = payload.new_ci;
@@ -298,8 +300,15 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
         metadata,
         bla_grid_ds,
         bta_grid,
+        reference_tree_flat,
       } as WorkerOutputMessage,
-      [orbit_nodes.buffer, metadata.buffer, bla_grid_ds.buffer, bta_grid.buffer],
+      [
+        orbit_nodes.buffer,
+        metadata.buffer,
+        bla_grid_ds.buffer,
+        bta_grid.buffer,
+        reference_tree_flat.buffer,
+      ],
     );
   }
 };

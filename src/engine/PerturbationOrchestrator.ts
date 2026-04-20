@@ -129,6 +129,7 @@ export class PerturbationOrchestrator {
       this.currentWorkerJob = this.pendingWorkerJob;
       this.pendingWorkerJob = null;
       this.isWorkerBusy = true;
+      viewportStore.getState().setIsWorkerBusy(true);
 
       if (this.currentWorkerJob.isRefining) {
         this.worker.postMessage({
@@ -163,6 +164,7 @@ export class PerturbationOrchestrator {
       this.channels.pending.set(1);
     } else {
       this.isWorkerBusy = false;
+      viewportStore.getState().setIsWorkerBusy(false);
       this.currentWorkerJob = null;
       this.channels.pending.set(0);
       this.channels.phase.set(0);
@@ -226,6 +228,15 @@ export class PerturbationOrchestrator {
           const newDeltaZr = state.deltaZr - job.initialDeltaZr;
           const newDeltaZi = state.deltaZi - job.initialDeltaZi;
 
+          // Create a synthetic reference tree for single rebase
+          const singleTreeFlat = new Float64Array(6);
+          singleTreeFlat[0] = 1.0; // count
+          singleTreeFlat[1] = 0.0; // offset_r
+          singleTreeFlat[2] = 0.0; // offset_i
+          singleTreeFlat[3] = 1.0; // radius
+          singleTreeFlat[4] = 0.0; // buffer_offset
+          singleTreeFlat[5] = e.data.orbit_nodes.length / 8; // orbit_len (assuming 8 doubles per node)
+
           return {
             anchorZr: e.data.abs_zr,
             anchorZi: e.data.abs_zi,
@@ -239,6 +250,7 @@ export class PerturbationOrchestrator {
             refMetadata: e.data.metadata,
             refBlaGridDs: e.data.bla_grid_ds,
             refBtaGrid: e.data.bta_grid,
+            refReferenceTreeFlat: singleTreeFlat,
           };
         });
 
@@ -255,6 +267,7 @@ export class PerturbationOrchestrator {
         }
 
         this.isWorkerBusy = false;
+        if (!this.pendingWorkerJob) viewportStore.getState().setIsWorkerBusy(false);
         this.currentWorkerJob = null;
       }
     } else if (e.data.type === 'RESOLVE_GLITCHES_RESULT') {
@@ -277,6 +290,7 @@ export class PerturbationOrchestrator {
           refMetadata: e.data.metadata,
           refBlaGridDs: e.data.bla_grid_ds,
           refBtaGrid: e.data.bta_grid,
+          refReferenceTreeFlat: e.data.reference_tree_flat,
         };
       });
 
@@ -286,6 +300,7 @@ export class PerturbationOrchestrator {
 
       // Remove busy state if glitched job was acting as pending fallback
       this.isWorkerBusy = false;
+      viewportStore.getState().setIsWorkerBusy(false);
       if (this.pendingWorkerJob !== null) {
         this.dispatchPendingWork();
       }
@@ -358,6 +373,7 @@ export class PerturbationOrchestrator {
           refMetadata: null,
           refBlaGridDs: null,
           refBtaGrid: null,
+          refReferenceTreeFlat: null,
         });
       }
     }

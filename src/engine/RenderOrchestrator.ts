@@ -142,6 +142,7 @@ export class RenderOrchestrator {
     const command = this.scheduler.update(
       context,
       isInteracting,
+      state.isWorkerBusy,
       canvasSizeVersion,
       theme.themeVersion,
       snapshotRenderScale,

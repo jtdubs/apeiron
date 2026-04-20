@@ -1,5 +1,5 @@
 ---
-status: open
+status: closed
 ---
 
 # Task 079: Multi-Reference Neighborhood Rendering

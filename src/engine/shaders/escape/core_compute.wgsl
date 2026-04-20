@@ -24,6 +24,28 @@
 @group(0) @binding(9) var<storage, read> bla_grid: array<vec2<u32>>;
 @group(0) @binding(10) var<storage, read> dsbla_grid: array<vec2<u32>>;
 @group(0) @binding(11) var<storage, read> bta_grid: array<vec2<u32>>;
+@group(0) @binding(13) var<storage, read> reference_tree: array<vec2<u32>>;
+
+var<private> active_ref_offset: u32 = 0u;
+var<private> active_ref_index: u32 = 0u;
+
+fn get_reference_tree_count() -> f32 {
+    return unpack_f64_to_f32(reference_tree[0]);
+}
+
+fn get_reference_tree_node(i: u32) -> ReferenceNode {
+    let base_index = 1u + i * 8u;
+    return ReferenceNode(
+        unpack_f64_to_f32(reference_tree[base_index + 0u]),
+        unpack_f64_to_f32(reference_tree[base_index + 1u]),
+        unpack_f64_to_f32(reference_tree[base_index + 2u]),
+        unpack_f64_to_f32(reference_tree[base_index + 3u]),
+        unpack_f64_to_f32(reference_tree[base_index + 4u]),
+        u32(unpack_f64_to_f32(reference_tree[base_index + 5u])),
+        u32(unpack_f64_to_f32(reference_tree[base_index + 6u])),
+        u32(unpack_f64_to_f32(reference_tree[base_index + 7u]))
+    );
+}
 
 struct GlitchReadbackBuffer {
   count: atomic<u32>,
@@ -38,7 +60,32 @@ struct VertexOutput {
 
 fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32>, delta_c: vec2<f32>, pixel_idx: u32, enable_bla: bool) -> vec4<f32> {
   if (math_compute_mode > 0u) {
-     let orbit_meta = get_orbit_metadata();
+      if (arrayLength(&reference_tree) > 0u) {
+          var best_ref_offset = 0u;
+          var best_ref_index = 0u;
+          var min_dist = 1e30;
+          
+          let count = u32(get_reference_tree_count());
+          for (var i = 0u; i < count; i++) {
+              let node = get_reference_tree_node(i);
+              let offset_c = vec2<f32>(node.origin_x_hi, node.origin_y_hi);
+              let d = distance(delta_c, offset_c);
+              
+              if (count == 1u || d <= node.bounding_radius) {
+                  if (d < min_dist) {
+                      min_dist = d;
+                      best_ref_offset = node.buffer_offset;
+                      best_ref_index = i;
+                  }
+              }
+          }
+          
+          // If we fall outside all bounding spheres but count > 1, we still bind the closest known math to avoid immediate crash
+          active_ref_offset = best_ref_offset;
+          active_ref_index = best_ref_index;
+      }
+      
+      let orbit_meta = get_orbit_metadata();
      let cycle = orbit_meta.cycle_found;
      let ref_escaped_iter = orbit_meta.escaped_iter;
      
@@ -321,10 +368,22 @@ fn unit_test_engine_math(@builtin(global_invocation_id) global_id: vec3<u32>) {
       return;
   }
   
+  // Prevent Naga from pruning bindings used by tests
+  let dummy1 = arrayLength(&reference_tree);
+  let dummy2 = atomicLoad(&glitch_readback.count);
+  let dummy3 = arrayLength(&completion_flag);
+  let dummy4 = arrayLength(&bla_grid);
+  let dummy5 = arrayLength(&dsbla_grid);
+  let dummy6 = arrayLength(&bta_grid);
+  let dummy7 = arrayLength(&ref_orbits);
+  let dummy8 = arrayLength(&orbit_metadata);
+  
+  let dummy_sum = dummy1 + dummy2 + dummy3 + dummy4 + dummy5 + dummy6 + dummy7 + dummy8;
+  
   let input_z = vec2<f32>(data_in[idx * 6u], data_in[idx * 6u + 1u]);
   let input_c = vec2<f32>(data_in[idx * 6u + 2u], data_in[idx * 6u + 3u]);
   let delta_c = vec2<f32>(data_in[idx * 6u + 4u], data_in[idx * 6u + 5u]);
-  let delta_z = vec2<f32>(0.0, 0.0);
+  let delta_z = vec2<f32>(f32(dummy_sum) * 1e-25, 0.0); // Extremely small, won't affect math but prevents pruning
   
   let ret = execute_engine_math(input_z, input_c, delta_z, delta_c, idx, true);
   

@@ -87,6 +87,7 @@ async function runBtaVerification() {
     undefined,
     undefined,
     undefined,
+    undefined,
     2048,
     false,
     2.0,

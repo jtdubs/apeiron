@@ -6,9 +6,24 @@
     "BLA_NODE_STRIDE": { "value": 8, "type": "u32" },
     "DSBLA_NODE_STRIDE": { "value": 16, "type": "u32" },
     "BTA_NODE_STRIDE": { "value": 16, "type": "u32" },
-    "MAX_GLITCHES": { "value": 64, "type": "u32" }
+    "MAX_GLITCHES": { "value": 64, "type": "u32" },
+    "MACRO_TILE_PATCH_SIZE": { "value": 64, "type": "u32" },
+    "MAX_REFERENCES": { "value": 32, "type": "u32" }
   },
   "structs": {
+    "ReferenceNode": {
+      "description": "Information bounding a localized sequence of perturbation offsets",
+      "fields": [
+        { "name": "origin_x_hi", "type": "f32" },
+        { "name": "origin_x_lo", "type": "f32" },
+        { "name": "origin_y_hi", "type": "f32" },
+        { "name": "origin_y_lo", "type": "f32" },
+        { "name": "bounding_radius", "type": "f32" },
+        { "name": "buffer_offset", "type": "u32" },
+        { "name": "ref_length", "type": "u32" },
+        { "name": "pad1", "type": "u32" }
+      ]
+    },
     "ReferenceOrbitNode": {
       "description": "Stores mathematical state of reference orbits for perturbation",
       "fields": [
