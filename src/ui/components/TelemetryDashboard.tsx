@@ -201,6 +201,16 @@ export const TelemetryDashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const preventScroll = (e: WheelEvent) => {
+      e.preventDefault();
+    };
+    el.addEventListener('wheel', preventScroll, { passive: false });
+    return () => el.removeEventListener('wheel', preventScroll);
+  }, []);
+
+  useEffect(() => {
     if (isPaused) {
       const snapshots = new Map<string, IBufferSnapshot>();
       const reg = TelemetryRegistry.getInstance();
