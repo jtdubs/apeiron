@@ -31,3 +31,6 @@ rust-math/target/
 
 # Research artifacts
 scratch/
+
+# External git repos
+external/

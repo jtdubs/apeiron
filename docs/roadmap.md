@@ -132,3 +132,4 @@
 - [x] [Task 072-B: Debug f32p Continuous Iteration Limits (Completed)](tasks/completed/072-B-debug-f32p-circular-artifacts.md)
 - [x] [Task 071: Rebasing & Reference Chains Implementation](tasks/completed/071-rebasing-implementation.md)
 - [ ] [Task 068: FloatExp Numerical Format](tasks/068-floatexp-research.md)
+- [x] [Task 090: Comparative Analysis of External Fractal Math Engines](../external/external-math-analysis.md)
