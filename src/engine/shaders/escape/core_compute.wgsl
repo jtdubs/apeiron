@@ -50,12 +50,41 @@ fn execute_engine_math(start_z: vec2<f32>, start_c: vec2<f32>, delta_z: vec2<f32
          return continue_mandelbrot_iterations(vec2<f32>(0.0,0.0), start_c, 0.0, camera.compute_max_iter, 1.0, 0.0, 0.0, pixel_idx, true);
      }
      
-     return calculate_perturbation(start_z, start_c, delta_z, delta_c, camera.ref_max_iter, cycle, ref_escaped_iter, pixel_idx, enable_bla);
+     return calculate_perturbation(start_z, start_c, delta_z, delta_c, camera.compute_max_iter, cycle, ref_escaped_iter, pixel_idx, enable_bla);
   } else {
      return calculate_mandelbrot_iterations(start_z, start_c, camera.compute_max_iter, pixel_idx);
   }
 }
 
+
+fn get_debug_color(ret: vec4<f32>, debug_mode: f32, max_iter: f32, scale: f32, skip_iter: f32, cp_iter: f32) -> vec4<f32> {
+    if (debug_mode == 1.0) {
+        let is_limit = select(0.0, 1.0, ret.x >= max_iter);
+        return vec4<f32>(is_limit, 0.0, 1.0 - is_limit, 1.0);
+    } else if (debug_mode == 2.0) {
+        var col = vec3<f32>(0.2, 0.2, 0.2);
+        if (cp_iter > 0.0) { col = vec3<f32>(0.0, 1.0, 0.0); }
+        else if (cp_iter < 0.0) { col = vec3<f32>(1.0, 0.0, 0.0); }
+        return vec4<f32>(col, 1.0);
+    } else if (debug_mode == 3.0) {
+        let skip_ratio = clamp(skip_iter / max_iter, 0.0, 1.0);
+        return vec4<f32>(skip_ratio, 0.5, 1.0 - skip_ratio, 1.0);
+    } else if (debug_mode == 4.0) {
+        let strain = clamp(ret.y * scale * 100.0, 0.0, 1.0);
+        return vec4<f32>(strain, strain, 0.0, 1.0);
+    } else if (debug_mode == 6.0) {
+        if (ret.x >= max_iter) {
+            return vec4<f32>(1.0, 1.0, 1.0, 1.0); // White: Cycle Return
+        } else if (ret.x < -1.0) {
+            return vec4<f32>(0.2, 0.2, 0.2, 1.0); // Gray: Yielded
+        } else {
+            // Encode the exact escape iteration into Red and Green
+            let norm_iter = clamp(ret.x / max_iter, 0.0, 1.0);
+            return vec4<f32>(norm_iter, norm_iter, 1.0, 1.0); // Blue base, RG = iteration
+        }
+    }
+    return ret;
+}
 
 @compute @workgroup_size(64)
 fn unit_test_complex_math(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -189,8 +218,14 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
   // Terminal Resolving during Progressive Rendering.
   if (cp.iter < 0.0 && camera.load_checkpoint > 0.5) {
       let stored_result = vec4<f32>(cp.zx, cp.zy, cp.der_x, cp.der_y);
+      var out_val = stored_result;
+      
+      if (camera.debug_view_mode > 0.5 && camera.debug_view_mode != 5.0) {
+          out_val = get_debug_color(stored_result, camera.debug_view_mode, camera.compute_max_iter, camera.scale, camera.skip_iter, cp.iter);
+      }
+      
       let prev = textureLoad(readTex, coord, 0);
-      let out_val = mix(prev, stored_result, select(1.0, camera.blend_weight, camera.blend_weight > 0.0));
+      out_val = mix(prev, out_val, select(1.0, camera.blend_weight, camera.blend_weight > 0.0));
       textureStore(g_buffer_out, coord, out_val);
       return;
   }
@@ -246,36 +281,8 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
   output_color = ret;
   
   if (camera.debug_view_mode > 0.5) {
-      if (camera.debug_view_mode == 1.0) {
-          let is_limit = select(0.0, 1.0, ret.x >= camera.compute_max_iter);
-          output_color = vec4<f32>(is_limit, 0.0, 1.0 - is_limit, 1.0);
-      } else if (camera.debug_view_mode == 2.0) {
-          var col = vec3<f32>(0.2, 0.2, 0.2);
-          if (cp.iter > 0.0) { col = vec3<f32>(0.0, 1.0, 0.0); }
-          else if (cp.iter < 0.0) { col = vec3<f32>(1.0, 0.0, 0.0); }
-          output_color = vec4<f32>(col, 1.0);
-      } else if (camera.debug_view_mode == 3.0) {
-          let skip_ratio = clamp(camera.skip_iter / camera.compute_max_iter, 0.0, 1.0);
-          output_color = vec4<f32>(skip_ratio, 0.5, 1.0 - skip_ratio, 1.0);
-      } else if (camera.debug_view_mode == 4.0) {
-          let strain = clamp(ret.y * camera.scale * 100.0, 0.0, 1.0);
-          output_color = vec4<f32>(strain, strain, 0.0, 1.0);
-          } else if (camera.debug_view_mode == 6.0) {
-          if (ret.x >= camera.compute_max_iter) {
-              if (ret.y == 1.0 && ret.z == 1.0 && ret.w == 1.0) {
-                  output_color = vec4<f32>(1.0, 1.0, 1.0, 1.0); // White: Cycle Return
-              } else if (ret.y == 0.0 && ret.z == 0.0) {
-                  output_color = vec4<f32>(1.0, 0.0, 1.0, 1.0); // Magenta: dz perfectly zero
-              } else {
-                  // Map dz magnitude to green heat
-                  let dz_mag = clamp(sqrt(ret.y * ret.y + ret.z * ret.z) * 10.0, 0.0, 1.0);
-                  output_color = vec4<f32>(0.0, dz_mag, 0.0, 1.0); // Green = valid variation
-              }
-          } else if (ret.x < -1.0) {
-              output_color = vec4<f32>(0.2, 0.2, 0.2, 1.0); // Gray: Yielded
-          } else {
-              output_color = vec4<f32>(0.0, 0.0, 1.0, 1.0); // Blue: Escaped correctly
-          }
+      if (camera.debug_view_mode != 5.0) {
+          output_color = get_debug_color(ret, camera.debug_view_mode, camera.compute_max_iter, camera.scale, camera.skip_iter, cp.iter);
       }
       
       // Still allow yielding to not flash black holes
