@@ -127,8 +127,19 @@ fn get_debug_color(ret: vec4<f32>, debug_mode: f32, max_iter: f32, scale: f32, s
         } else {
             // Encode the exact escape iteration into Red and Green
             let norm_iter = clamp(ret.x / max_iter, 0.0, 1.0);
-            return vec4<f32>(norm_iter, norm_iter, 1.0, 1.0); // Blue base, RG = iteration
         }
+    } else if (debug_mode == 7.0) {
+        // Multi-Reference Topological Boundaries
+        if (active_ref_index == 0u) {
+            // Base anchor is dark gray
+            return vec4<f32>(0.15, 0.15, 0.15, 1.0);
+        }
+        // Golden ratio hue shifted into RGB
+        let hue_shift = f32(active_ref_index) * 0.61803398875;
+        let r = clamp(abs(fract(hue_shift + 1.0) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
+        let g = clamp(abs(fract(hue_shift + 0.6666666) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
+        let b = clamp(abs(fract(hue_shift + 0.3333333) * 6.0 - 3.0) - 1.0, 0.0, 1.0);
+        return vec4<f32>(r, g, b, 1.0);
     }
     return ret;
 }
