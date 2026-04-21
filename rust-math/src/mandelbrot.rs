@@ -67,34 +67,40 @@ fn compute_orbit(
     );
     let d = p.exponent.unwrap_or(2.0);
 
-    let mut check_x = z.r.clone();
-    let mut check_y = z.i.clone();
+    let mut check_x = BigDecimal::zero();
+    let mut check_y = BigDecimal::zero();
     let mut check_iter = 1;
+    let mut last_check_iter = 0;
     
-    let mut a = BigComplex::one();
-    let mut b = BigComplex::zero();
-    let mut cg = BigComplex::zero();
+    let mut a_r = 1.0f64;
+    let mut a_i = 0.0f64;
+    let mut b_r = 0.0f64;
+    let mut b_i = 0.0f64;
+    let mut cg_r = 0.0f64;
+    let mut cg_i = 0.0f64;
+    let mut cycle_der_r = 1.0f64;
+    let mut cycle_der_i = 0.0f64;
 
-    let mut cycle_der = BigComplex::one();
-
+    let mut cycle_found = 0.0f64;
+    let mut escaped = false;
     let mut iter = 0;
     let limit = BigDecimal::from(4);
-
-    let mut escaped = false;
-    let mut cycle_found = false;
 
     let mut orbit = Vec::with_capacity((max_iterations * 8) as usize);
 
     while iter < max_iterations {
+        let z_r_f64 = z.r.to_f64().unwrap_or(0.0);
+        let z_i_f64 = z.i.to_f64().unwrap_or(0.0);
+
         let node = crate::layout::ReferenceOrbitNode {
-            x: z.r.to_f64().unwrap_or(0.0),
-            y: z.i.to_f64().unwrap_or(0.0),
-            ar: a.r.to_f64().unwrap_or(0.0),
-            ai: a.i.to_f64().unwrap_or(0.0),
-            br: b.r.to_f64().unwrap_or(0.0),
-            bi: b.i.to_f64().unwrap_or(0.0),
-            cr: cg.r.to_f64().unwrap_or(0.0),
-            ci: cg.i.to_f64().unwrap_or(0.0),
+            x: z_r_f64,
+            y: z_i_f64,
+            ar: a_r,
+            ai: a_i,
+            br: b_r,
+            bi: b_i,
+            cr: cg_r,
+            ci: cg_i,
         };
         node.push_to(&mut orbit);
 
@@ -112,17 +118,36 @@ fn compute_orbit(
         }
 
         if d == 2.0 {
-            let a2 = &a * &a;
-            let two_ab = &(&BigComplex::two() * &a) * &b;
-            let temp_a = &(&(&BigComplex::two() * &z) * &a) + &BigComplex::one();
-            let temp_b = &(&(&BigComplex::two() * &z) * &b) + &a2;
-            let temp_cg = &(&(&BigComplex::two() * &z) * &cg) + &two_ab;
+            let a2_r = a_r * a_r - a_i * a_i;
+            let a2_i = 2.0 * a_r * a_i;
+            
+            let two_ab_r = 2.0 * (a_r * b_r - a_i * b_i);
+            let two_ab_i = 2.0 * (a_r * b_i + a_i * b_r);
 
-            a = temp_a;
-            b = temp_b;
-            cg = temp_cg;
+            let two_z_r = 2.0 * z_r_f64;
+            let two_z_i = 2.0 * z_i_f64;
 
-            cycle_der = &(&(&BigComplex::two() * &z) * &cycle_der) + &BigComplex::one();
+            let temp_a_r = two_z_r * a_r - two_z_i * a_i + 1.0;
+            let temp_a_i = two_z_r * a_i + two_z_i * a_r;
+
+            let temp_b_r = two_z_r * b_r - two_z_i * b_i + a2_r;
+            let temp_b_i = two_z_r * b_i + two_z_i * b_r + a2_i;
+
+            let temp_cg_r = two_z_r * cg_r - two_z_i * cg_i + two_ab_r;
+            let temp_cg_i = two_z_r * cg_i + two_z_i * cg_r + two_ab_i;
+
+            a_r = temp_a_r;
+            a_i = temp_a_i;
+            b_r = temp_b_r;
+            b_i = temp_b_i;
+            cg_r = temp_cg_r;
+            cg_i = temp_cg_i;
+
+            let t_cd_r = two_z_r * cycle_der_r - two_z_i * cycle_der_i + 1.0;
+            let t_cd_i = two_z_r * cycle_der_i + two_z_i * cycle_der_r;
+            cycle_der_r = t_cd_r;
+            cycle_der_i = t_cd_i;
+
             z = &(&z * &z) + &c;
         } else if d.fract() == 0.0 && d > 1.0 {
             let count = d as u32;
@@ -132,13 +157,13 @@ fn compute_orbit(
             }
             z = &temp_z + &c;
             
-            a = BigComplex::one();
-            b = BigComplex::zero();
-            cg = BigComplex::zero();
-            cycle_der = BigComplex::one();
+            a_r = 1.0; a_i = 0.0;
+            b_r = 0.0; b_i = 0.0;
+            cg_r = 0.0; cg_i = 0.0;
+            cycle_der_r = 1.0; cycle_der_i = 0.0;
         } else {
-            let x_f = z.r.to_f64().unwrap_or(0.0);
-            let y_f = z.i.to_f64().unwrap_or(0.0);
+            let x_f = z_r_f64;
+            let y_f = z_i_f64;
             let r = (x_f * x_f + y_f * y_f).sqrt();
             let th = y_f.atan2(x_f);
             let r_pow = r.powf(d);
@@ -147,31 +172,37 @@ fn compute_orbit(
             
             z = &BigComplex::from_f64(new_x_f, new_y_f) + &c;
             
-            a = BigComplex::one();
-            b = BigComplex::zero();
-            cg = BigComplex::zero();
-            cycle_der = BigComplex::one();
+            a_r = 1.0; a_i = 0.0;
+            b_r = 0.0; b_i = 0.0;
+            cg_r = 0.0; cg_i = 0.0;
+            cycle_der_r = 1.0; cycle_der_i = 0.0;
         }
 
-        if z.r == check_x && z.i == check_y {
-            cycle_found = true;
+        // Cycle detection
+        let diff_r = (&z.r - &check_x).to_f64().unwrap_or(1.0).abs();
+        let diff_i = (&z.i - &check_y).to_f64().unwrap_or(1.0).abs();
+        
+        if diff_r < 1e-25 && diff_i < 1e-25 {
+            cycle_found = 1.0;
             break;
         }
 
         if iter == check_iter {
             check_x = z.r.clone();
             check_y = z.i.clone();
+            last_check_iter = check_iter;
             check_iter *= 2;
-            cycle_der = BigComplex::one();
+            cycle_der_r = 1.0;
+            cycle_der_i = 0.0;
         }
 
         iter += 1;
     }
 
     let meta = crate::layout::OrbitMetadata {
-        cycle_found: if cycle_found { 1.0 } else { 0.0 },
-        cycle_der_r: cycle_der.r.to_f64().unwrap_or(0.0),
-        cycle_der_i: cycle_der.i.to_f64().unwrap_or(0.0),
+        cycle_found,
+        cycle_der_r,
+        cycle_der_i,
         escaped_iter: if escaped { iter as f64 } else { max_iterations as f64 },
         abs_zr: p.zr.parse::<f64>().unwrap_or(0.0),
         abs_zi: p.zi.parse::<f64>().unwrap_or(0.0),
@@ -181,19 +212,45 @@ fn compute_orbit(
 
     let pushed_values = orbit.len() / ORBIT_STRIDE;
     let remaining = max_iterations as usize - pushed_values;
-    let pad_node = crate::layout::ReferenceOrbitNode {
-        x: z.r.to_f64().unwrap_or(0.0),
-        y: z.i.to_f64().unwrap_or(0.0),
-        ar: a.r.to_f64().unwrap_or(0.0),
-        ai: a.i.to_f64().unwrap_or(0.0),
-        br: b.r.to_f64().unwrap_or(0.0),
-        bi: b.i.to_f64().unwrap_or(0.0),
-        cr: cg.r.to_f64().unwrap_or(0.0),
-        ci: cg.i.to_f64().unwrap_or(0.0),
-    };
-    for _ in 0..remaining {
-        pad_node.push_to(&mut orbit);
+    
+    if cycle_found > 0.5 {
+        let period = std::cmp::max(1, iter.saturating_sub(last_check_iter) as usize);
+        for _ in 0..remaining {
+            let offset = (period * ORBIT_STRIDE) % std::cmp::max(1, orbit.len());
+            let src_idx = orbit.len().saturating_sub(offset);
+            
+            let v_x = if src_idx < orbit.len() { orbit[src_idx] } else { 0.0 };
+            let v_y = if src_idx + 1 < orbit.len() { orbit[src_idx + 1] } else { 0.0 };
+            
+            orbit.push(v_x);
+            orbit.push(v_y);
+            orbit.push(0.0); // Exactly collapsed a_r
+            orbit.push(0.0); // a_i
+            orbit.push(0.0); // b_r
+            orbit.push(0.0); // b_i
+            orbit.push(0.0); // cg_r
+            orbit.push(0.0); // cg_i
+        }
+    } else {
+        let last_idx = orbit.len().saturating_sub(ORBIT_STRIDE);
+        let last_x = orbit.get(last_idx).copied().unwrap_or(0.0);
+        let last_y = orbit.get(last_idx + 1).copied().unwrap_or(0.0);
+        
+        let pad_node = crate::layout::ReferenceOrbitNode {
+            x: last_x,
+            y: last_y,
+            ar: a_r,
+            ai: a_i,
+            br: b_r,
+            bi: b_i,
+            cr: cg_r,
+            ci: cg_i,
+        };
+        for _ in 0..remaining {
+            pad_node.push_to(&mut orbit);
+        }
     }
+
     (orbit, meta)
 }
 
