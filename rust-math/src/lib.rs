@@ -56,6 +56,8 @@ pub struct RefineOutput {
     ref_type: String,
     period: u32,
     pre_period: u32,
+    offset_cr: f64,
+    offset_ci: f64,
 }
 
 impl From<crate::solvers::RefineOutput> for RefineOutput {
@@ -66,6 +68,8 @@ impl From<crate::solvers::RefineOutput> for RefineOutput {
             ref_type: native.ref_type,
             period: native.period,
             pre_period: native.pre_period,
+            offset_cr: native.offset_cr,
+            offset_ci: native.offset_ci,
         }
     }
 }
@@ -91,6 +95,14 @@ impl RefineOutput {
     #[wasm_bindgen(getter)]
     pub fn pre_period(&self) -> u32 {
         self.pre_period
+    }
+    #[wasm_bindgen(getter)]
+    pub fn offset_cr(&self) -> f64 {
+        self.offset_cr
+    }
+    #[wasm_bindgen(getter)]
+    pub fn offset_ci(&self) -> f64 {
+        self.offset_ci
     }
 }
 

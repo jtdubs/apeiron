@@ -1,4 +1,4 @@
-use bigdecimal::{BigDecimal, Zero, FromPrimitive};
+use bigdecimal::{BigDecimal, Zero, FromPrimitive, ToPrimitive};
 use std::str::FromStr;
 use crate::complex::BigComplex;
 
@@ -15,6 +15,8 @@ pub struct RefineOutput {
     pub ref_type: String,
     pub period: u32,
     pub pre_period: u32,
+    pub offset_cr: f64,
+    pub offset_ci: f64,
 }
 
 pub struct NativeRebaseOutput {
@@ -32,6 +34,7 @@ pub fn refine_reference(cr_str: &str, ci_str: &str, max_iterations: u32) -> Refi
         BigDecimal::from_str(cr_str).unwrap_or(BigDecimal::zero()),
         BigDecimal::from_str(ci_str).unwrap_or(BigDecimal::zero()),
     );
+    let initial_c = c.clone();
 
     let limit = BigDecimal::from(4);
     let mut path = Vec::with_capacity(max_iterations as usize + 1);
@@ -155,12 +158,17 @@ pub fn refine_reference(cr_str: &str, ci_str: &str, max_iterations: u32) -> Refi
         }
     }
 
+    let offset_cr = (&initial_c.r - &c.r).to_f64().unwrap_or(0.0);
+    let offset_ci = (&initial_c.i - &c.i).to_f64().unwrap_or(0.0);
+
     RefineOutput {
         cr: c.r.to_string(),
         ci: c.i.to_string(),
         ref_type: found_type,
         period: out_period,
         pre_period: out_pre_period,
+        offset_cr,
+        offset_ci,
     }
 }
 

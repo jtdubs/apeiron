@@ -186,9 +186,11 @@ export class PerturbationOrchestrator {
         this.currentWorkerJob.isRefining = false;
         this.currentWorkerJob.anchorCr = e.data.cr;
         this.currentWorkerJob.anchorCi = e.data.ci;
-        // The delta is completely absorbed since we're now mathematically exactly on the core point
-        this.currentWorkerJob.deltaCr = 0.0;
-        this.currentWorkerJob.deltaCi = 0.0;
+
+        // Preserve the microscopic offset between the user's targeted viewport and
+        // the newly refined mathematical root to prevent the viewport from jumping.
+        this.currentWorkerJob.deltaCr = e.data.offset_cr || 0.0;
+        this.currentWorkerJob.deltaCi = e.data.offset_ci || 0.0;
 
         // Force Z back to 0 so the calculation executes from the anchor origin
         this.currentWorkerJob.anchorZr = '0';

@@ -66,6 +66,8 @@ export type WorkerOutputMessage =
       refType: string;
       period: number;
       pre_period: number;
+      offset_cr: number;
+      offset_ci: number;
     }
   | {
       id: number;
@@ -246,6 +248,8 @@ self.onmessage = async (e: MessageEvent<WorkerInputMessage>) => {
       refType: result.ref_type,
       period: result.period,
       pre_period: result.pre_period,
+      offset_cr: result.offset_cr,
+      offset_ci: result.offset_ci,
     } as WorkerOutputMessage);
 
     result.free();
