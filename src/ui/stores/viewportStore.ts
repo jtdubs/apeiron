@@ -119,9 +119,9 @@ export const viewportStore = createStore<ViewportState>((set) => ({
     set((state) => {
       let newZoom = state.zoom * deltaZoom;
 
-      // DS Math Emulation (Task 047) unlocks perturbation boundaries down to ~1e-14 before f64 splits fail
-      if (newZoom < 1e-14) {
-        newZoom = 1e-14;
+      // DS Math Emulation (Task 047) unlocks perturbation boundaries down to ~1e-12 before f64 splits fail
+      if (newZoom < 1e-12) {
+        newZoom = 1e-12;
       }
       if (newZoom > 5.0) {
         newZoom = 5.0; // Don't zoom too far out
