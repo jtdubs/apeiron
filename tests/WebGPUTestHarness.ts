@@ -258,8 +258,7 @@ export class WebGPUTestHarness {
       { binding: 2, resource: { buffer: outputStorageBuffer } },
     ];
 
-    // Auto layout parsing logic
-    if (entryPoint === 'unit_test_polynomial') {
+    if (entryPoint === 'unit_test_polynomial' || entryPoint === 'unit_test_ds_math') {
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
     } else if (entryPoint === 'unit_test_state_resume') {
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });

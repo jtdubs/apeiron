@@ -26,9 +26,10 @@ fn complex_abs_sq_ds(a: DSComplex) -> f32 {
 // Dekker/Veltkamp Split and Core Algebra
 // -----------------------------------------------------
 fn split_f32(a: f32) -> vec2<f32> {
-    let c = 8193.0 * a;
-    let a_hi = c - (c - a);
-    let a_lo = a - a_hi;
+    let c = opaque_f32(8193.0 * a);
+    let c_minus_a = opaque_f32(c - a);
+    let a_hi = opaque_f32(c - c_minus_a);
+    let a_lo = opaque_f32(a - a_hi);
     return vec2<f32>(a_hi, a_lo);
 }
 
@@ -37,7 +38,15 @@ fn split_f32(a: f32) -> vec2<f32> {
 // -----------------------------------------------------
 
 fn opaque_f32(v: f32) -> f32 {
-    return bitcast<f32>(bitcast<u32>(v));
+    // Force the compiler to evaluate this into a register by creating a dependency
+    // on a uniform value that it cannot resolve at compile time.
+    // This breaks algebraic fast-math optimizations (like (a+b)-a = b)
+    // which otherwise completely destroy double-single error recovery.
+    var ret = v;
+    if (camera.skip_iter < -100.0) {
+        ret += 1.0;
+    }
+    return ret;
 }
 
 fn ds_add(a: DSFloat, b: DSFloat) -> DSFloat {
@@ -66,7 +75,23 @@ fn ds_sub(a: DSFloat, b: DSFloat) -> DSFloat {
 
 fn ds_mul(a: DSFloat, b: DSFloat) -> DSFloat {
     let p = opaque_f32(a.x * b.x);
-    let err = fma(a.x, b.x, -p);
+    
+    // Dekker's product to find exact error of a.x * b.x
+    // Avoids fma() which is often non-fused or emulated as (a*b)+c on some WebGPU drivers,
+    // which would result in err = 0.0 and completely break double-single precision.
+    let a_s = split_f32(a.x);
+    let b_s = split_f32(b.x);
+    
+    let p1 = opaque_f32(a_s.x * b_s.x);
+    let p2 = opaque_f32(a_s.x * b_s.y);
+    let p3 = opaque_f32(a_s.y * b_s.x);
+    let p4 = opaque_f32(a_s.y * b_s.y);
+    
+    let e1 = opaque_f32(p1 - p);
+    let e2 = opaque_f32(e1 + p2);
+    let e3 = opaque_f32(e2 + p3);
+    let err = opaque_f32(e3 + p4);
+    
     let err2 = err + a.x * b.y + a.y * b.x;
     let hi = opaque_f32(p + err2);
     let lo = err2 - opaque_f32(hi - p);

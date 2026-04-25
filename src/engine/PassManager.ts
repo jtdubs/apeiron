@@ -379,6 +379,8 @@ export class PassManager {
     // Split the f64 camera center to retain deep-zoom precision on the GPU
     const [dc_high_x, dc_low_x] = splitF64(desc.context.cr);
     const [dc_high_y, dc_low_y] = splitF64(desc.context.ci);
+    const [, dz_low_x] = splitF64(desc.context.zr);
+    const [, dz_low_y] = splitF64(desc.context.zi);
 
     const cameraData = packCameraParams({
       exponent: desc.context.exponent,
@@ -390,6 +392,8 @@ export class PassManager {
       dc_high_y,
       dc_low_x,
       dc_low_y,
+      dz_low_x,
+      dz_low_y,
       scale: desc.context.zoom,
       aspect: aspectRatio,
       compute_max_iter: desc.context.computeMaxIter,

@@ -128,8 +128,8 @@
         { "name": "skip_iter", "type": "f32" },
         { "name": "drs_width", "type": "f32" },
         { "name": "drs_height", "type": "f32" },
-        { "name": "pad1", "type": "f32" },
-        { "name": "pad2", "type": "f32" },
+        { "name": "dz_low_x", "type": "f32" },
+        { "name": "dz_low_y", "type": "f32" },
         { "name": "pad3", "type": "f32" }
       ]
     },

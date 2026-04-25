@@ -165,7 +165,7 @@ fn main_compute(@builtin(global_invocation_id) global_id: vec3<u32>) {
           vec4<f32>(uv_mapped.x * cos_theta, 0.0, uv_mapped.y * cos_theta, 0.0)
       );
       let start_z_ds = complex_add_ds(
-          vec4<f32>(camera.zr, 0.0, camera.zi, 0.0),
+          vec4<f32>(camera.zr, camera.dz_low_x, camera.zi, camera.dz_low_y),
           vec4<f32>(uv_mapped.x * sin_theta, 0.0, uv_mapped.y * sin_theta, 0.0)
       );
       
