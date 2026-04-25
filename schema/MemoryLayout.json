@@ -159,8 +159,10 @@
     },
     "CheckpointState": {
       "fields": [
-        { "name": "zx", "type": "f32" },
-        { "name": "zy", "type": "f32" },
+        { "name": "zx_hi", "type": "f32" },
+        { "name": "zx_lo", "type": "f32" },
+        { "name": "zy_hi", "type": "f32" },
+        { "name": "zy_lo", "type": "f32" },
         { "name": "der_x", "type": "f32" },
         { "name": "der_y", "type": "f32" },
         { "name": "iter", "type": "f32" },

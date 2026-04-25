@@ -1,4 +1,3 @@
-import { calculateSkipIter } from '../../engine/seriesApproximation';
 import { calculateMaxIter, type ViewportState } from './viewportStore';
 import type { RenderState } from './renderStore';
 import type { MathContext } from '../../engine/RenderFrameDescriptor';
@@ -8,42 +7,26 @@ const INTERACT_ITER_FRACTION = 0.33;
 export function buildMathContext(
   state: ViewportState,
   _theme: RenderState,
-  canvasWidth: number,
-  canvasHeight: number,
   interactMaxIterOverride?: number | null,
   effectiveMathMode: number = 0,
 ): MathContext {
-  const isPerturb = effectiveMathMode !== 0;
-
-  const zr = isPerturb ? state.deltaZr : parseFloat(state.anchorZr) + state.deltaZr;
-  const zi = isPerturb ? state.deltaZi : parseFloat(state.anchorZi) + state.deltaZi;
-  const cr = isPerturb ? state.deltaCr : parseFloat(state.anchorCr) + state.deltaCr;
-  const ci = isPerturb ? state.deltaCi : parseFloat(state.anchorCi) + state.deltaCi;
+  const zr = parseFloat(state.anchorZr) + state.deltaZr;
+  const zi = parseFloat(state.anchorZi) + state.deltaZi;
+  const cr = parseFloat(state.anchorCr) + state.deltaCr;
+  const ci = parseFloat(state.anchorCi) + state.deltaCi;
 
   const isInteracting = state.interactionState !== 'STATIC';
 
-  const skipIter =
-    canvasWidth > 0 && canvasHeight > 0
-      ? calculateSkipIter(
-          state.refOrbitNodes,
-          state.zoom,
-          state.deltaCr,
-          state.deltaCi,
-          canvasWidth,
-          canvasHeight,
-          state.sliceAngle,
-          isPerturb ? 'perturbation' : 'f32',
-        )
-      : 0;
+  // Series approximation / skip iter are disabled for the MVP, or we can just leave skipIter as 0.
+  const skipIter = 0;
 
   const interactFloor = calculateMaxIter(1.0);
   const effectiveMaxIter = isInteracting
     ? interactMaxIterOverride !== undefined && interactMaxIterOverride !== null
-      ? interactMaxIterOverride + skipIter
+      ? interactMaxIterOverride
       : Math.min(
           state.paletteMaxIter,
-          Math.max(interactFloor, Math.floor(state.paletteMaxIter * INTERACT_ITER_FRACTION)) +
-            skipIter,
+          Math.max(interactFloor, Math.floor(state.paletteMaxIter * INTERACT_ITER_FRACTION)),
         )
     : state.paletteMaxIter;
 
@@ -57,11 +40,6 @@ export function buildMathContext(
     zoom: state.zoom,
     sliceAngle: state.sliceAngle,
     exponent: state.exponent,
-    refOrbitNodes: state.refOrbitNodes,
-    refMetadata: state.refMetadata,
-    refBlaGridDs: state.refBlaGridDs,
-    refBtaGrid: state.refBtaGrid,
-    refReferenceTreeFlat: state.refReferenceTreeFlat,
     effectiveMathMode,
     skipIter,
     debugViewMode: state.debugViewMode,

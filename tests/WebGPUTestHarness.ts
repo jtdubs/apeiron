@@ -275,18 +275,9 @@ export class WebGPUTestHarness {
         entries.push({ binding: 11, resource: { buffer: refBtaGridBuffer } });
       }
     } else if (entryPoint === 'unit_test_engine_math') {
-      // unit_test_engine_math uses: camera(0), ref_orbits(3), checkpoint(5), completion_flag(6), orbit_metadata(8), bla_grid(9), dsbla_grid(10) (and trivially 1, 2)
-      // Note: we just unconditionally push exactly the 9 bindings required by the layout
       entries.push({ binding: 0, resource: { buffer: cameraTestBuffer } });
-      entries.push({ binding: 3, resource: { buffer: refOrbitNodesBuffer } });
       entries.push({ binding: 5, resource: { buffer: checkpointBuffer } });
       entries.push({ binding: 6, resource: { buffer: completionFlagBuffer } });
-      entries.push({ binding: 8, resource: { buffer: refMetadataBuffer } });
-      entries.push({ binding: 9, resource: { buffer: refBlaGridF32Buffer } });
-      entries.push({ binding: 10, resource: { buffer: refBlaGridDsBuffer } });
-      entries.push({ binding: 11, resource: { buffer: refBtaGridBuffer } });
-      entries.push({ binding: 12, resource: { buffer: glitchBuffer } });
-      entries.push({ binding: 13, resource: { buffer: refReferenceTreeBuffer } });
     }
 
     this.device.pushErrorScope('validation');
@@ -419,12 +410,7 @@ export class TestRenderSession {
         paletteMaxIter: 100,
         sliceAngle: 0,
         exponent: 2,
-        refOrbitNodes: null,
-        refMetadata: null,
 
-        refBlaGridDs: null,
-        refBtaGrid: null,
-        refReferenceTreeFlat: null,
         effectiveMathMode: 0,
         skipIter: 0,
         debugViewMode: 0,

@@ -8,7 +8,7 @@ import resolvePresentWgsl from '../../engine/generated/core_render.bundled.wgsl?
 import { viewportStore } from '../stores/viewportStore';
 import { renderStore } from '../stores/renderStore';
 import { RenderOrchestrator } from '../../engine/RenderOrchestrator';
-import { PerturbationOrchestrator } from '../../engine/PerturbationOrchestrator';
+
 import { TelemetryRegistry } from '../../engine/debug/TelemetryRegistry';
 
 export const ApeironViewport: React.FC = () => {
@@ -161,9 +161,6 @@ export const ApeironViewport: React.FC = () => {
         const engine = await initEngine(canvas, compiledMathShader, resolvePresentWgsl);
         if (!isMounted) return;
         engineRef.current = engine;
-        engine.setOnGlitchesDetected((glitches) => {
-          perturbationOrchestrator.reportGlitches(glitches);
-        });
 
         // ── Render Orchestration Loop ───────────────────────────────────────
         const orchestrator = new RenderOrchestrator();
@@ -247,8 +244,6 @@ export const ApeironViewport: React.FC = () => {
 
     initialize();
 
-    const perturbationOrchestrator = new PerturbationOrchestrator();
-
     let resizeTimeoutId: number | null = null;
 
     const resizeObserver = new ResizeObserver((entries) => {
@@ -282,7 +277,7 @@ export const ApeironViewport: React.FC = () => {
       }
       if (wheelTimeoutId) window.clearTimeout(wheelTimeoutId);
       if (resizeTimeoutId) window.clearTimeout(resizeTimeoutId);
-      perturbationOrchestrator.destroy();
+
       resizeObserver.disconnect();
       canvas.removeEventListener('pointerdown', onPointerDown);
       canvas.removeEventListener('pointermove', onPointerMove);

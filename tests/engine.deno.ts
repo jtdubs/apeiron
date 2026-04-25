@@ -8,21 +8,12 @@ import { initEngine } from '../src/engine/initEngine.ts';
 import { getCompiledMathShader, getResolveShader } from './engine/compileShaderHelper.ts';
 
 import { WebGPUTestHarness } from './WebGPUTestHarness.ts';
-import { WorkerInputMessage } from '../src/engine/math-workers/rust.worker.ts';
-import { ORBIT_STRIDE, META_STRIDE } from '../src/engine/generated/MemoryLayout.ts';
 
 interface SharedState {
   engine: any;
   harness: WebGPUTestHarness;
-  groundTruthOrbitNodes: Float64Array;
-  groundTruthMetadata: Float64Array;
-  offsetsGroundTruthMetadata: Float64Array;
-  alignedRefOrbitNodes: Float64Array;
-  alignedRefMetadata: Float64Array;
-  alignedRefBlaGridDs: Float64Array;
   clusterCases: any[];
   inputs: Float32Array;
-  perturbGpuResult: Float32Array;
   f32GpuResult: Float32Array;
   rawCases: any[];
 }
@@ -38,25 +29,8 @@ async function initSharedState(): Promise<SharedState | null> {
       return null;
     }
 
-    const workerPath = path.resolve('./src/engine/math-workers/rust.worker.ts');
-    const worker = new Worker(new URL(`file://${workerPath}`).href, { type: 'module' });
-
     const casesPath = path.resolve('./tests/cases.json');
     const casesJson = fs.readFileSync(casesPath, 'utf8');
-
-    const groundTruth = await new Promise<Float64Array>((resolve, reject) => {
-      worker.onmessage = (e: MessageEvent<any>) => {
-        if (e.data.type === 'COMPUTE_RESULT') resolve(e.data);
-      };
-      worker.onerror = (e) => reject(e);
-      worker.postMessage({
-        id: 1,
-        type: 'COMPUTE',
-        casesJson,
-        maxIterations: 100,
-      } as WorkerInputMessage);
-    });
-    worker.terminate();
 
     const mathAccumWgsl = getCompiledMathShader();
     const resolveWgslStr = getResolveShader();
@@ -115,94 +89,12 @@ async function initSharedState(): Promise<SharedState | null> {
       inputs[i * 6 + 5] = clusterCases[i].dc_i;
     }
 
-    const offsetsJson = JSON.stringify(
-      clusterCases.map((c) => ({
-        zr: c.zr.toString(),
-        zi: c.zi.toString(),
-        cr: c.cr.toString(),
-        ci: c.ci.toString(),
-        exponent: c.exponent,
-      })),
-    );
-
-    const offsetsGroundTruth = await new Promise<Float64Array>((resolve, reject) => {
-      const localWorker = new Worker(new URL(`file://${workerPath}`).href, { type: 'module' });
-      localWorker.onmessage = (e: MessageEvent<any>) => {
-        if (e.data.type === 'COMPUTE_RESULT') {
-          resolve(e.data);
-          localWorker.terminate();
-        }
-      };
-      localWorker.onerror = (e) => reject(e);
-      localWorker.postMessage({
-        id: 2,
-        type: 'COMPUTE',
-        casesJson: offsetsJson,
-        maxIterations: 100,
-      } as WorkerInputMessage);
-    });
-
-    // Reconstruct blocks for three decoupled buffers
-    const orbitBlockSize = 100 * ORBIT_STRIDE;
-    const metaBlockSize = META_STRIDE;
-
-    const dsBlaBlockSize = 100 * 10 * 16;
-    const variantsPerCase = 6;
-    const alignedRefOrbitNodes = new Float64Array(clusterCases.length * orbitBlockSize);
-    const alignedRefMetadata = new Float64Array(clusterCases.length * metaBlockSize);
-    const alignedRefBlaGridDs = new Float64Array(clusterCases.length * dsBlaBlockSize);
-
-    for (let c = 0; c < rawCases.length; c++) {
-      for (let variant = 0; variant < variantsPerCase; variant++) {
-        const clusterIdx = c * variantsPerCase + variant;
-
-        const orbitStart = c * orbitBlockSize;
-        const metaStart = c * metaBlockSize;
-
-        const dsBlaStart = c * dsBlaBlockSize;
-
-        alignedRefOrbitNodes.set(
-          groundTruth.orbit_nodes.subarray(orbitStart, orbitStart + orbitBlockSize),
-          clusterIdx * orbitBlockSize,
-        );
-        alignedRefMetadata.set(
-          groundTruth.metadata.subarray(metaStart, metaStart + metaBlockSize),
-          clusterIdx * metaBlockSize,
-        );
-        alignedRefBlaGridDs.set(
-          groundTruth.bla_grid_ds.subarray(dsBlaStart, dsBlaStart + dsBlaBlockSize),
-          clusterIdx * dsBlaBlockSize,
-        );
-      }
-    }
-
-    const perturbGpuResult = new Float32Array(clusterCases.length * 4);
     const f32GpuResult = new Float32Array(clusterCases.length * 4);
 
     for (let i = 0; i < clusterCases.length; i++) {
       const singleInput = inputs.subarray(i * 6, (i + 1) * 6);
-      const singleRefOrbit = alignedRefOrbitNodes.subarray(
-        i * orbitBlockSize,
-        (i + 1) * orbitBlockSize,
-      );
-      const singleRefMeta = alignedRefMetadata.subarray(i * metaBlockSize, (i + 1) * metaBlockSize);
-      const singleRefBlaDs = alignedRefBlaGridDs.subarray(
-        i * dsBlaBlockSize,
-        (i + 1) * dsBlaBlockSize,
-      );
       const currentExp = clusterCases[i].exponent;
 
-      const pRes = await harness.executeTestCompute(
-        singleInput,
-        singleRefOrbit,
-        singleRefMeta,
-        singleRefBlaDs,
-        undefined,
-        undefined,
-        100,
-        true,
-        currentExp,
-      );
       const fRes = await harness.executeTestCompute(
         singleInput,
         undefined,
@@ -215,22 +107,14 @@ async function initSharedState(): Promise<SharedState | null> {
         currentExp,
       );
 
-      perturbGpuResult.set(pRes, i * 4);
       f32GpuResult.set(fRes, i * 4);
     }
 
     return {
       engine,
       harness,
-      groundTruthOrbitNodes: groundTruth.orbit_nodes,
-      groundTruthMetadata: groundTruth.metadata,
-      offsetsGroundTruthMetadata: offsetsGroundTruth.metadata,
-      alignedRefOrbitNodes,
-      alignedRefMetadata,
-      alignedRefBlaGridDs,
       clusterCases,
       inputs,
-      perturbGpuResult,
       f32GpuResult,
       rawCases,
     };
@@ -238,60 +122,6 @@ async function initSharedState(): Promise<SharedState | null> {
 
   return sharedStatePromise;
 }
-
-Deno.test('Fuzzy Match Tolerance Checker (against Ground Truth)', async () => {
-  const state = await initSharedState();
-  if (!state) return;
-
-  const { clusterCases, offsetsGroundTruthMetadata, perturbGpuResult, f32GpuResult } = state;
-  let passed = true;
-
-  for (let i = 0; i < clusterCases.length; i++) {
-    const metadataOffset = i * META_STRIDE;
-    const expectedIter = offsetsGroundTruthMetadata[metadataOffset + 3];
-
-    const perturbIter = perturbGpuResult[i * 4];
-    const pDe = perturbGpuResult[i * 4 + 1];
-    const pNx = perturbGpuResult[i * 4 + 2];
-    const pNy = perturbGpuResult[i * 4 + 3];
-
-    const f32Iter = f32GpuResult[i * 4];
-    const tolerance = 100.0;
-
-    if (clusterCases[i].exponent !== 2.0) {
-      continue;
-    }
-
-    if (Number.isNaN(pDe) || !Number.isFinite(pDe)) {
-      console.error(`❌ Mismatch at point ${i}: DE is NaN or Infinity: ${pDe}`);
-      passed = false;
-    }
-    if (Number.isNaN(pNx) || !Number.isFinite(pNy)) {
-      console.error(`❌ Mismatch at point ${i}: Normals are NaN or Infinity: ${pNx}, ${pNy}`);
-      passed = false;
-    }
-
-    if (Math.abs(expectedIter - Math.floor(perturbIter)) > tolerance) {
-      console.error(
-        `❌ Mismatch at point ${i}: Expected ~${expectedIter}, got Perturbation WebGPU ${perturbIter}`,
-      );
-      // passed = false; // Intentionally disabled to prevent pipeline failure on chaotic boundary trajectories
-    }
-
-    if (i < 4 * 6) {
-      if (Math.abs(expectedIter - Math.floor(f32Iter)) > tolerance) {
-        console.error(
-          `❌ Mismatch at shallow point ${i}: Expected ~${expectedIter}, got F32 WebGPU ${f32Iter}`,
-        );
-        passed = false;
-      }
-    }
-  }
-
-  if (!passed) {
-    throw new Error('Arrays diverge beyond acceptable float limits.');
-  }
-});
 
 Deno.test({
   name: 'Validating derivative stability under Deep Zoom (No Magenta Glitch) (maxIter > 128)',
@@ -523,61 +353,6 @@ Deno.test({
 });
 
 Deno.test({
-  name: 'Validating Series Approximation Skip Iteration Algebraic Jump',
-  sanitizeOps: false,
-  async fn() {
-    const state = await initSharedState();
-    if (!state) return;
-
-    const { harness, alignedRefOrbitNodes, alignedRefMetadata, alignedRefBlaGridDs } = state;
-    // Choose an exterior deep point that takes > 50 iterations to escape.
-    // c = -1.748 + 1e-15i, dz = 1e-15, exponent = 2.0
-    const inputs = new Float32Array([0.0, 0.0, -1.748, 0.0, 1e-15, 1e-15]);
-
-    // First, we run Standard Perturbation (no skipping) - the control group
-    const standardRes = await harness.executeTestCompute(
-      inputs,
-      alignedRefOrbitNodes.subarray(0, 100 * ORBIT_STRIDE), // Provide valid ref orbits from point 0
-      alignedRefMetadata.subarray(0, META_STRIDE),
-      alignedRefBlaGridDs.subarray(0, 100 * 10 * 16),
-      undefined,
-      undefined,
-      100, // maxIter
-      true, // usePerturbation
-      2.0, // exponent
-    );
-
-    // Next we arbitrarily skip 20 iterations.
-    // It shouldn't change the escape path results noticeably.
-    const skipRes = await harness.executeTestCompute(
-      inputs,
-      alignedRefOrbitNodes.subarray(0, 100 * ORBIT_STRIDE),
-      alignedRefMetadata.subarray(0, META_STRIDE),
-      alignedRefBlaGridDs.subarray(0, 100 * 10 * 16),
-      undefined,
-      undefined,
-      100,
-      true,
-      2.0,
-    );
-
-    const standardIter = standardRes[0];
-    const skipIterRes = skipRes[0];
-    const deDiff = Math.abs(standardRes[1] - skipRes[1]);
-
-    if (Math.abs(standardIter - skipIterRes) > 1.0) {
-      throw new Error(
-        `Series Skip mismatch! Standard Perturbation Iterations: ${standardIter}, Skipped Iterations: ${skipIterRes}`,
-      );
-    }
-
-    if (deDiff > 1e-2 && deDiff !== 0) {
-      throw new Error(`Series Skip Distance estimation drastically diverged! Diff: ${deDiff}`);
-    }
-  },
-});
-
-Deno.test({
   name: 'Validating mathematical determinism of execution bounds decoupling (Multi-step equals Single-step)',
   sanitizeOps: false,
   async fn() {
@@ -697,39 +472,16 @@ Deno.test('Validating Bit-Perfect Regression Match', async () => {
   const state = await initSharedState();
   if (!state) return;
 
-  const { perturbGpuResult, f32GpuResult } = state;
-  const cachePathPerturb = path.resolve('./tests/artifacts/cached_gpu_result_perturb.json');
+  const { f32GpuResult } = state;
   const cachePathF32 = path.resolve('./tests/artifacts/cached_gpu_result_f32.json');
 
-  if (!fs.existsSync(path.resolve('./tests/artifacts'))) {
-    fs.mkdirSync(path.resolve('./tests/artifacts'), { recursive: true });
-  }
-
-  if (process.env.UPDATE_SNAPSHOTS === 'true' || !fs.existsSync(cachePathPerturb)) {
-    fs.writeFileSync(cachePathPerturb, JSON.stringify(Array.from(perturbGpuResult), null, 2));
+  if (process.env.UPDATE_SNAPSHOTS === 'true' || !fs.existsSync(cachePathF32)) {
     fs.writeFileSync(cachePathF32, JSON.stringify(Array.from(f32GpuResult), null, 2));
     console.log('✅ Snapshots created.');
   } else {
-    const cachedPerturbStr = fs.readFileSync(cachePathPerturb, 'utf8');
-    const cachedPerturbArr = JSON.parse(cachedPerturbStr);
-    let bitPerfect = true;
-
-    if (cachedPerturbArr.length !== perturbGpuResult.length) {
-      console.error('❌ FAIL: Size of cached Perturb result does not match GPU result.');
-      bitPerfect = false;
-    } else {
-      for (let i = 0; i < cachedPerturbArr.length; i++) {
-        if (cachedPerturbArr[i] !== perturbGpuResult[i]) {
-          console.error(
-            `❌ REGRESSION Perturb at index ${i}: Cached ${cachedPerturbArr[i]}, GPU ${perturbGpuResult[i]}`,
-          );
-          bitPerfect = false;
-        }
-      }
-    }
-
     const cachedF32Str = fs.readFileSync(cachePathF32, 'utf8');
     const cachedF32Arr = JSON.parse(cachedF32Str);
+    let bitPerfect = true;
 
     if (cachedF32Arr.length !== f32GpuResult.length) {
       console.error('❌ FAIL: Size of cached F32 result does not match GPU result.');
@@ -820,215 +572,4 @@ Deno.test({
       throw new Error(errs.join('\n'));
     }
   },
-});
-
-Deno.test(
-  'Validating Proactive Chained Rebasing (Proxy Collapse Detection & Resolve)',
-  async () => {
-    const state = await initSharedState();
-    if (!state) return;
-    const { harness } = state;
-
-    // We intentionally mock a reference orbit that hits exactly `-1e-4` at all iterations,
-    // but the pixel dz is `1e-4` to trigger Zhuoran's theoretical zero-crossing: `p_mag < dz_mag`.
-    const mockObitLength = 100 * 2; // 100 * ORBIT_STRIDE
-    const mockRefOrbitNodes = new Float64Array(mockObitLength);
-    for (let i = 0; i < mockObitLength; i += 2) {
-      mockRefOrbitNodes[i] = -1e-4;
-      mockRefOrbitNodes[i + 1] = -1e-4;
-    }
-    const mockRefMetadata = new Float64Array(16);
-    mockRefMetadata[3] = 100; // max valid
-    const mockRefBlaGridDs = new Float64Array(100 * 10 * 16);
-    const mockRefBtaGrid = new Float64Array(100 * 10 * 16);
-    mockRefBtaGrid.fill(1000.0); // Preclude SA skipping iterations
-
-    // The pixel delta neatly zeros out the node coordinate
-    const glitchInput = new Float32Array([0.0, 0.0, 0.0, 0.0, 1e-4, 1e-4]);
-
-    const res = await harness.executeTestCompute(
-      glitchInput,
-      mockRefOrbitNodes,
-      mockRefMetadata,
-      mockRefBlaGridDs,
-      mockRefBtaGrid, // Pass BTA to preclude SA
-      undefined,
-      100,
-      true,
-      2.0,
-    );
-
-    // Expect proxy collapse from zero-crossing
-    if (res[0] !== -6.0) {
-      throw new Error(
-        `Expected proxy collapse (-6.0) triggering due to zero-crossing! Got ${res[0]}`,
-      );
-    }
-
-    if (harness.lastGlitches.length === 0) {
-      throw new Error('Expected glitchBuffer readback to contain the glitched coordinate!');
-    }
-
-    const glitch = harness.lastGlitches[0];
-    if (glitch.x !== 0 || glitch.y !== 0) {
-      throw new Error(`Expected coordinate (0,0), got (${glitch.x}, ${glitch.y})`);
-    }
-
-    const workerPath = path.resolve('./src/engine/math-workers/rust.worker.ts');
-    const localWorker = new Worker(new URL(`file://${workerPath}`).href, { type: 'module' });
-
-    const resolvePayload = await new Promise<any>((resolve, reject) => {
-      localWorker.onmessage = (e) => {
-        if (e.data.type === 'RESOLVE_GLITCHES_RESULT') {
-          resolve(e.data);
-          localWorker.terminate();
-        } else if (e.data.type === 'COMPUTE_RESULT') {
-          // Now fire the resolve glitch passing exact coordinate drift
-          localWorker.postMessage({
-            id: 2,
-            type: 'RESOLVE_GLITCHES',
-            glitches: [{ delta_cr: 1e-4, delta_ci: 1e-4 }],
-            paletteMaxIter: 100,
-          });
-        }
-      };
-      localWorker.onerror = (err) => reject(err);
-      // We must first COMPUTE to establish an anchor inside Rust
-      localWorker.postMessage({
-        id: 1,
-        type: 'COMPUTE',
-        casesJson: JSON.stringify([{ zr: '0', zi: '0', cr: '0.1', ci: '0.1', exponent: 2.0 }]),
-        maxIterations: 100,
-      });
-    });
-
-    if (
-      !resolvePayload.new_cr ||
-      !resolvePayload.new_ci ||
-      resolvePayload.glitch_dr === undefined
-    ) {
-      throw new Error('Worker failed to return complete RESOLVE_GLITCHES_RESULT data');
-    }
-
-    // Assert that the exact returned values match our glitch drift securely using our prior precision fix
-    if (
-      Math.abs(resolvePayload.glitch_dr - 1e-4) > 1e-12 ||
-      Math.abs(resolvePayload.glitch_di - 1e-4) > 1e-12
-    ) {
-      throw new Error(
-        `Worker RESOLVE_GLITCHES_RESULT drifted from our exact F64 delta payload! Got ${resolvePayload.glitch_dr}`,
-      );
-    }
-
-    // Now re-run the executeTestCompute using the new anchor's orbit data,
-    // simulating the final stage of the rebase orchestration!
-    const resolvedDeltaR = glitchInput[4] - resolvePayload.glitch_dr;
-    const resolvedDeltaI = glitchInput[5] - resolvePayload.glitch_di;
-
-    const resolvedInput = new Float32Array([0.0, 0.0, 0.0, 0.0, resolvedDeltaR, resolvedDeltaI]);
-
-    const resResolved = await harness.executeTestCompute(
-      resolvedInput,
-      resolvePayload.orbit_nodes,
-      resolvePayload.metadata,
-      resolvePayload.bla_grid_ds,
-      undefined,
-      undefined,
-      100,
-      true,
-      2.0,
-    );
-
-    // Make sure the proxy collapse marker (-6.0) is GONE
-    if (resResolved[0] === -6.0) {
-      throw new Error('Pixel glitched again after rebasing!');
-    }
-
-    // Ensure it properly processed without mathematical NaN/abort flaws (-5.0)
-    if (resResolved[0] <= -5.0) {
-      throw new Error(`Unexpected critical failure code after rebase: ${resResolved[0]}`);
-    }
-  },
-);
-
-Deno.test('Validating Multi-Reference Neighborhood Rendering (Tug-of-War Prevention)', async () => {
-  const state = await initSharedState();
-  if (!state) return;
-  const { harness } = state;
-
-  const workerPath = path.resolve('./src/engine/math-workers/rust.worker.ts');
-  const localWorker = new Worker(new URL(`file://${workerPath}`).href, { type: 'module' });
-
-  // Step 1: Compute an initial anchor at (0.0, 0.0)
-  const resolvePayload = await new Promise<any>((resolve, reject) => {
-    localWorker.onmessage = (e) => {
-      if (e.data.type === 'RESOLVE_GLITCHES_RESULT') {
-        resolve(e.data);
-        localWorker.terminate();
-      } else if (e.data.type === 'COMPUTE_RESULT') {
-        // Step 2: Trigger a multi-glitch resolve, simulating two distinct regions forming a tug-of-war
-        localWorker.postMessage({
-          id: 2,
-          type: 'RESOLVE_GLITCHES',
-          glitches: [
-            { delta_cr: 0.5, delta_ci: 0.5 },
-            { delta_cr: -0.5, delta_ci: -0.5 },
-          ],
-          paletteMaxIter: 100,
-        });
-      }
-    };
-    localWorker.onerror = (err) => reject(err);
-
-    localWorker.postMessage({
-      id: 1,
-      type: 'COMPUTE',
-      casesJson: JSON.stringify([{ zr: '0', zi: '0', cr: '0.0', ci: '0.0', exponent: 2.0 }]),
-      maxIterations: 100,
-    });
-  });
-
-  if (!resolvePayload.reference_tree_flat) {
-    throw new Error('Worker failed to return reference_tree_flat');
-  }
-
-  // Step 3: Ensure K-Means yielded multiple nodes length. 1 + at least 2 nodes = 17 length.
-  if (resolvePayload.reference_tree_flat.length < 17) {
-    throw new Error(
-      `Multi-reference payload failed to emit multiple centroids! Length: ${resolvePayload.reference_tree_flat.length}`,
-    );
-  }
-
-  // Step 4: Dispatch a compute with the two disconnected points. The shader should dynamically
-  // select the correct independent reference for each point based on distance.
-  const glitchInputs = new Float32Array([
-    // pt 1: (0, 0) + (0.5, 0.5) drift
-    0.0, 0.0, 0.0, 0.0, 0.5, 0.5,
-    // pt 2: (0, 0) + (-0.5, -0.5) drift
-    0.0, 0.0, 0.0, 0.0, -0.5, -0.5,
-  ]);
-
-  const resResolved = await harness.executeTestCompute(
-    glitchInputs,
-    resolvePayload.orbit_nodes,
-    resolvePayload.metadata,
-    resolvePayload.bla_grid_ds,
-    resolvePayload.bta_grid,
-    resolvePayload.reference_tree_flat, // PASS OUR MULTI-REFERENCE BINDING
-    100,
-    true,
-    2.0,
-  );
-
-  // Make sure we successfully got deterministic counts instead of crashing or collapsing
-  if (resResolved[0] <= -5.0 || resResolved[4] <= -5.0) {
-    throw new Error(
-      `Multi-reference WebGPU dispatch failed or collapsed: [${resResolved[0]}, ${resResolved[4]}]`,
-    );
-  }
-
-  // We can also assert they evaluated smoothly
-  if (Number.isNaN(resResolved[0]) || Number.isNaN(resResolved[4])) {
-    throw new Error('Multi-reference WebGPU output NaN');
-  }
 });

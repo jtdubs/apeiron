@@ -1,13 +1,8 @@
 import type { RenderFrameDescriptor } from './RenderFrameDescriptor';
 import {
-  ORBIT_STRIDE,
   CameraParams_SIZE,
   packCameraParams,
   packResolveUniforms,
-  ReferenceOrbitNode_SIZE,
-  OrbitMetadata_SIZE,
-  DSBLANode_SIZE,
-  BtaNode_SIZE,
   ResolveUniforms_SIZE,
   ResolveUniforms_BYTE_OFFSET_MAX_ITER,
   ResolveUniforms_BYTE_OFFSET_PALETTE_MAX_ITER,
@@ -20,12 +15,6 @@ export class AccumulationPass {
   private mathModule: GPUShaderModule;
   private pipelineCache: Map<string, GPUComputePipeline | Promise<GPUComputePipeline>>;
   public uniformsBuffer: GPUBuffer;
-  private dummyRefOrbitNodesBuffer: GPUBuffer;
-  private dummyRefBlaGridDsBuffer: GPUBuffer;
-  private dummyRefBtaGridBuffer: GPUBuffer;
-  private dummyRefMetadataBuffer: GPUBuffer;
-  private dummyRefReferenceTreeBuffer: GPUBuffer;
-
   constructor(device: GPUDevice, mathShaderCode: string) {
     this.device = device;
     this.mathModule = device.createShaderModule({ code: mathShaderCode });
@@ -35,40 +24,6 @@ export class AccumulationPass {
       size: CameraParams_SIZE * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-
-    this.dummyRefOrbitNodesBuffer = device.createBuffer({
-      size: ReferenceOrbitNode_SIZE * 4,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(
-      this.dummyRefOrbitNodesBuffer,
-      0,
-      new Float32Array(ReferenceOrbitNode_SIZE),
-    );
-
-    this.dummyRefMetadataBuffer = device.createBuffer({
-      size: OrbitMetadata_SIZE * 4,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(this.dummyRefMetadataBuffer, 0, new Float32Array(OrbitMetadata_SIZE));
-
-    this.dummyRefBlaGridDsBuffer = device.createBuffer({
-      size: DSBLANode_SIZE * 4,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(this.dummyRefBlaGridDsBuffer, 0, new Float32Array(DSBLANode_SIZE));
-
-    this.dummyRefBtaGridBuffer = device.createBuffer({
-      size: BtaNode_SIZE * 4,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(this.dummyRefBtaGridBuffer, 0, new Float32Array(BtaNode_SIZE));
-
-    this.dummyRefReferenceTreeBuffer = device.createBuffer({
-      size: 2048, // Generous empty sizing for dummies
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(this.dummyRefReferenceTreeBuffer, 0, new Float32Array(512));
   }
 
   public initBackgroundCache() {
@@ -123,13 +78,6 @@ export class AccumulationPass {
 
   public getBindGroup(
     pipeline: GPUComputePipeline,
-    activeRefOrbitNodesBuffer: GPUBuffer | null,
-    activeRefMetadataBuffer: GPUBuffer | null,
-
-    activeRefBlaGridDsBuffer: GPUBuffer | null,
-    activeRefBtaGridBuffer: GPUBuffer | null,
-    activeRefReferenceTreeBuffer: GPUBuffer | null,
-    glitchBuffer: GPUBuffer,
     prevFrameView: GPUTextureView,
     checkpointBuffer: GPUBuffer,
     completionFlagBuffer: GPUBuffer,
@@ -139,53 +87,10 @@ export class AccumulationPass {
       layout: pipeline.getBindGroupLayout(0),
       entries: [
         { binding: 0, resource: { buffer: this.uniformsBuffer } },
-        {
-          binding: 3,
-          resource: {
-            buffer: activeRefOrbitNodesBuffer
-              ? activeRefOrbitNodesBuffer
-              : this.dummyRefOrbitNodesBuffer,
-          },
-        },
         { binding: 4, resource: prevFrameView },
         { binding: 5, resource: { buffer: checkpointBuffer } },
         { binding: 6, resource: { buffer: completionFlagBuffer } },
         { binding: 7, resource: targetView },
-        {
-          binding: 8,
-          resource: {
-            buffer: activeRefMetadataBuffer ? activeRefMetadataBuffer : this.dummyRefMetadataBuffer,
-          },
-        },
-
-        {
-          binding: 10,
-          resource: {
-            buffer: activeRefBlaGridDsBuffer
-              ? activeRefBlaGridDsBuffer
-              : this.dummyRefBlaGridDsBuffer,
-          },
-        },
-        {
-          binding: 11,
-          resource: {
-            buffer: activeRefBtaGridBuffer ? activeRefBtaGridBuffer : this.dummyRefBtaGridBuffer,
-          },
-        },
-        {
-          binding: 12,
-          resource: {
-            buffer: glitchBuffer,
-          },
-        },
-        {
-          binding: 13,
-          resource: {
-            buffer: activeRefReferenceTreeBuffer
-              ? activeRefReferenceTreeBuffer
-              : this.dummyRefReferenceTreeBuffer,
-          },
-        },
       ],
     });
   }
@@ -323,15 +228,6 @@ export class PassManager {
   private checkpointBuffer: GPUBuffer | null = null;
   private pingPongTargetIsB = false;
 
-  private activeRefOrbitNodesBuffer: GPUBuffer | null = null;
-  private activeRefMetadataBuffer: GPUBuffer | null = null;
-  private activeRefBlaGridBuffer: GPUBuffer | null = null;
-  private activeRefBlaGridDsBuffer: GPUBuffer | null = null;
-  private activeRefBtaGridBuffer: GPUBuffer | null = null;
-  private activeRefReferenceTreeBuffer: GPUBuffer | null = null;
-  private hasValidActiveRefOrbits = false;
-  private lastRefOrbitNodes: Float64Array | null | undefined = undefined;
-
   // Version counters replace string-based diffing.
   // Incremented externally via invalidate() when a genuine re-render is needed.
   private lastThemeVersion = -1;
@@ -346,11 +242,6 @@ export class PassManager {
   private completionStagingBuffer: GPUBuffer | null = null;
   private _isIterationTargetMet = false;
   private _isCompletionQueryPending = false;
-
-  private glitchBuffer: GPUBuffer | null = null;
-  private glitchStagingBuffer: GPUBuffer | null = null;
-  private _isGlitchQueryPending = false;
-  public onGlitchesDetected?: (glitches: { x: number; y: number }[]) => void;
 
   private _hasEverAccumulated = false;
   public latestMapPromise: Promise<void> | null = null;
@@ -424,7 +315,7 @@ export class PassManager {
 
     if (this.checkpointBuffer) this.checkpointBuffer.destroy();
     this.checkpointBuffer = this.device.createBuffer({
-      size: this.width * this.height * 24, // 24 bytes per pixel
+      size: this.width * this.height * 32, // 32 bytes per pixel (8 floats)
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
@@ -437,18 +328,6 @@ export class PassManager {
     if (this.completionStagingBuffer) this.completionStagingBuffer.destroy();
     this.completionStagingBuffer = this.device.createBuffer({
       size: 4,
-      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
-    });
-
-    if (this.glitchBuffer) this.glitchBuffer.destroy();
-    this.glitchBuffer = this.device.createBuffer({
-      size: 516, // 4 bytes for count + 64 * 8 bytes for GlitchRecord
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
-    });
-
-    if (this.glitchStagingBuffer) this.glitchStagingBuffer.destroy();
-    this.glitchStagingBuffer = this.device.createBuffer({
-      size: 516,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
 
@@ -483,106 +362,11 @@ export class PassManager {
     const renderWidth = Math.max(1, Math.floor(width * desc.command.renderScale));
     const renderHeight = Math.max(1, Math.floor(height * desc.command.renderScale));
 
-    // ── Ref orbits ───────────────────────────────────────────────────────────
-    if (
-      desc.context.refOrbitNodes !== undefined &&
-      desc.context.refOrbitNodes !== this.lastRefOrbitNodes
-    ) {
-      if (desc.context.refOrbitNodes) {
-        if (this.activeRefOrbitNodesBuffer) this.activeRefOrbitNodesBuffer.destroy();
-        this.activeRefOrbitNodesBuffer = this.device.createBuffer({
-          size: desc.context.refOrbitNodes.byteLength,
-          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-        });
-        this.device.queue.writeBuffer(
-          this.activeRefOrbitNodesBuffer,
-          0,
-          desc.context.refOrbitNodes.buffer,
-          desc.context.refOrbitNodes.byteOffset,
-          desc.context.refOrbitNodes.byteLength,
-        );
-
-        if (this.activeRefMetadataBuffer) this.activeRefMetadataBuffer.destroy();
-        this.activeRefMetadataBuffer = this.device.createBuffer({
-          size: desc.context.refMetadata!.byteLength,
-          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-        });
-        this.device.queue.writeBuffer(
-          this.activeRefMetadataBuffer,
-          0,
-          desc.context.refMetadata!.buffer,
-          desc.context.refMetadata!.byteOffset,
-          desc.context.refMetadata!.byteLength,
-        );
-
-        if (this.activeRefBlaGridDsBuffer) this.activeRefBlaGridDsBuffer.destroy();
-        this.activeRefBlaGridDsBuffer = this.device.createBuffer({
-          size: desc.context.refBlaGridDs!.byteLength,
-          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-        });
-        this.device.queue.writeBuffer(
-          this.activeRefBlaGridDsBuffer,
-          0,
-          desc.context.refBlaGridDs!.buffer,
-          desc.context.refBlaGridDs!.byteOffset,
-          desc.context.refBlaGridDs!.byteLength,
-        );
-
-        if (this.activeRefBtaGridBuffer) this.activeRefBtaGridBuffer.destroy();
-        this.activeRefBtaGridBuffer = this.device.createBuffer({
-          size: desc.context.refBtaGrid!.byteLength,
-          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-        });
-        this.device.queue.writeBuffer(
-          this.activeRefBtaGridBuffer,
-          0,
-          desc.context.refBtaGrid!.buffer,
-          desc.context.refBtaGrid!.byteOffset,
-          desc.context.refBtaGrid!.byteLength,
-        );
-
-        if (this.activeRefReferenceTreeBuffer) this.activeRefReferenceTreeBuffer.destroy();
-        this.activeRefReferenceTreeBuffer = this.device.createBuffer({
-          size: desc.context.refReferenceTreeFlat!.byteLength,
-          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-        });
-        this.device.queue.writeBuffer(
-          this.activeRefReferenceTreeBuffer,
-          0,
-          desc.context.refReferenceTreeFlat!.buffer,
-          desc.context.refReferenceTreeFlat!.byteOffset,
-          desc.context.refReferenceTreeFlat!.byteLength,
-        );
-
-        this.hasValidActiveRefOrbits = true;
-      } else if (this.hasValidActiveRefOrbits) {
-        if (this.activeRefOrbitNodesBuffer) this.activeRefOrbitNodesBuffer.destroy();
-        this.activeRefOrbitNodesBuffer = null;
-        if (this.activeRefMetadataBuffer) this.activeRefMetadataBuffer.destroy();
-        this.activeRefMetadataBuffer = null;
-        if (this.activeRefBlaGridBuffer) this.activeRefBlaGridBuffer.destroy();
-        this.activeRefBlaGridBuffer = null;
-        if (this.activeRefBlaGridDsBuffer) this.activeRefBlaGridDsBuffer.destroy();
-        this.activeRefBlaGridDsBuffer = null;
-        if (this.activeRefBtaGridBuffer) this.activeRefBtaGridBuffer.destroy();
-        this.activeRefBtaGridBuffer = null;
-        if (this.activeRefReferenceTreeBuffer) this.activeRefReferenceTreeBuffer.destroy();
-        this.activeRefReferenceTreeBuffer = null;
-        this.hasValidActiveRefOrbits = false;
-      }
-      this.lastRefOrbitNodes = desc.context.refOrbitNodes;
-    }
-
     // ── Camera uniforms ──────────────────────────────────────────────────────
     // Written every frame — the RAF loop only calls render() when needed, so
     // we skip the camState string-diff and always upload the current values.
-    const actualRefMaxIter =
-      this.hasValidActiveRefOrbits && desc.context.refOrbitNodes
-        ? desc.context.refOrbitNodes.length / ORBIT_STRIDE
-        : desc.context.computeMaxIter;
-    const paletteMaxIter = this.hasValidActiveRefOrbits
-      ? actualRefMaxIter
-      : desc.context.computeMaxIter;
+    const actualRefMaxIter = desc.context.computeMaxIter;
+    const paletteMaxIter = desc.context.computeMaxIter;
 
     const mathComputeMode = desc.context.effectiveMathMode;
 
@@ -761,13 +545,6 @@ export class PassManager {
 
     const accumBindGroup = this.accumPass.getBindGroup(
       accumPipeline,
-      this.activeRefOrbitNodesBuffer,
-      this.activeRefMetadataBuffer,
-
-      this.activeRefBlaGridDsBuffer,
-      this.activeRefBtaGridBuffer,
-      this.activeRefReferenceTreeBuffer,
-      this.glitchBuffer!,
       readTex!.createView(),
       this.checkpointBuffer!,
       this.completionFlagBuffer!,
@@ -776,8 +553,6 @@ export class PassManager {
 
     // Initialize completion flag to 1 (true) before the pass
     this.device.queue.writeBuffer(this.completionFlagBuffer!, 0, new Uint32Array([1]));
-    // Clear the glitch readback count to 0. (offset 0, 4 bytes)
-    this.device.queue.writeBuffer(this.glitchBuffer!, 0, new Uint32Array([0]));
 
     this.accumPass.execute(
       commandEncoder,
@@ -797,9 +572,6 @@ export class PassManager {
         0,
         4,
       );
-    }
-    if (!this._isGlitchQueryPending) {
-      commandEncoder.copyBufferToBuffer(this.glitchBuffer!, 0, this.glitchStagingBuffer!, 0, 516);
     }
 
     if (queryActive) {
@@ -860,40 +632,6 @@ export class PassManager {
         })
         .catch(() => {
           this._isCompletionQueryPending = false;
-        });
-    }
-
-    if (!this._isGlitchQueryPending) {
-      this._isGlitchQueryPending = true;
-      this.device.queue
-        .onSubmittedWorkDone()
-        .then(() => {
-          if (this.glitchStagingBuffer!.mapState === 'unmapped') {
-            this.glitchStagingBuffer!.mapAsync(GPUMapMode.READ)
-              .then(() => {
-                const arr = new Uint32Array(this.glitchStagingBuffer!.getMappedRange());
-                const count = Math.min(arr[0], 64);
-                if (count > 0) {
-                  const glitches: { x: number; y: number }[] = [];
-                  for (let i = 0; i < count; i++) {
-                    glitches.push({ x: arr[1 + i * 2], y: arr[2 + i * 2] });
-                  }
-                  if (this.onGlitchesDetected) {
-                    this.onGlitchesDetected(glitches);
-                  }
-                }
-                this.glitchStagingBuffer!.unmap();
-                this._isGlitchQueryPending = false;
-              })
-              .catch(() => {
-                this._isGlitchQueryPending = false;
-              });
-          } else {
-            this._isGlitchQueryPending = false;
-          }
-        })
-        .catch(() => {
-          this._isGlitchQueryPending = false;
         });
     }
   }

@@ -21,7 +21,7 @@ export interface SerializedState {
   };
   r: {
     pn: string;
-    rm: 'auto' | 'f32' | 'f32_perturbation' | 'f64_perturbation';
+    rm: 'auto' | 'f32' | 'ds';
     cm: 'iteration' | 'stripe' | 'banded';
     sm: 'off' | '3d-topography' | 'soft-glow' | 'contours';
     gf: number;
@@ -110,7 +110,7 @@ export function deserializeState(hash: string): boolean {
 
     if (state.r) {
       const rs = renderStore.getState();
-      if (state.r.rm) rs.setRenderMode(state.r.rm);
+      if (state.r.rm) rs.setRenderMode(state.r.rm as 'auto' | 'f32' | 'ds');
       if (state.r.cm) rs.setColoringMode(state.r.cm);
       if (state.r.sm) rs.setSurfaceMode(state.r.sm);
       if (state.r.gf !== undefined) rs.setGlowFalloff(state.r.gf);

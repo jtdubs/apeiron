@@ -17,7 +17,7 @@ describe('urlSync', () => {
       THEMES.watermelon.d,
       'watermelon',
     );
-    rs.setRenderMode('f32_perturbation');
+    rs.setRenderMode('ds');
     rs.setColoringMode('iteration');
     rs.setSurfaceMode('3d-topography');
   });

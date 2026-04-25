@@ -57,10 +57,10 @@ export interface RenderState {
   ambient: number;
 
   // modes
-  renderMode: 'auto' | 'f32' | 'f32_perturbation' | 'f64_perturbation';
+  renderMode: 'auto' | 'f32' | 'ds';
   coloringMode: 'iteration' | 'stripe' | 'banded';
   surfaceMode: 'off' | '3d-topography' | 'soft-glow' | 'contours';
-  setRenderMode: (mode: 'auto' | 'f32' | 'f32_perturbation' | 'f64_perturbation') => void;
+  setRenderMode: (mode: 'auto' | 'f32' | 'ds') => void;
   setColoringMode: (mode: 'iteration' | 'stripe' | 'banded') => void;
   setSurfaceMode: (mode: 'off' | '3d-topography' | 'soft-glow' | 'contours') => void;
 

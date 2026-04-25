@@ -36,32 +36,40 @@ fn split_f32(a: f32) -> vec2<f32> {
 // Mathematical Operations
 // -----------------------------------------------------
 
+fn opaque_f32(v: f32) -> f32 {
+    return bitcast<f32>(bitcast<u32>(v));
+}
+
 fn ds_add(a: DSFloat, b: DSFloat) -> DSFloat {
-    let t1 = a.x + b.x;
-    let e = t1 - a.x;
-    let t2 = ((b.x - e) + (a.x - (t1 - e))) + a.y + b.y;
-    let hi = t1 + t2;
-    let lo = t2 - (hi - t1);
+    let t1 = opaque_f32(a.x + b.x);
+    let e = opaque_f32(t1 - a.x);
+    let term1 = opaque_f32(b.x - e);
+    let t1_minus_e = opaque_f32(t1 - e);
+    let term2 = opaque_f32(a.x - t1_minus_e);
+    let t2 = term1 + term2 + a.y + b.y;
+    let hi = opaque_f32(t1 + t2);
+    let lo = t2 - opaque_f32(hi - t1);
     return vec2<f32>(hi, lo);
 }
 
 fn ds_sub(a: DSFloat, b: DSFloat) -> DSFloat {
-    let t1 = a.x - b.x;
-    let e = t1 - a.x;
-    let t2 = ((-b.x - e) + (a.x - (t1 - e))) + a.y - b.y;
-    let hi = t1 + t2;
-    let lo = t2 - (hi - t1);
+    let t1 = opaque_f32(a.x - b.x);
+    let e = opaque_f32(t1 - a.x);
+    let term1 = opaque_f32(-b.x - e);
+    let t1_minus_e = opaque_f32(t1 - e);
+    let term2 = opaque_f32(a.x - t1_minus_e);
+    let t2 = term1 + term2 + a.y - b.y;
+    let hi = opaque_f32(t1 + t2);
+    let lo = t2 - opaque_f32(hi - t1);
     return vec2<f32>(hi, lo);
 }
 
 fn ds_mul(a: DSFloat, b: DSFloat) -> DSFloat {
-    let p = a.x * b.x;
-    let a_s = split_f32(a.x);
-    let b_s = split_f32(b.x);
-    let err = ((a_s.x * b_s.x - p) + a_s.x * b_s.y + a_s.y * b_s.x) + a_s.y * b_s.y;
+    let p = opaque_f32(a.x * b.x);
+    let err = fma(a.x, b.x, -p);
     let err2 = err + a.x * b.y + a.y * b.x;
-    let hi = p + err2;
-    let lo = err2 - (hi - p);
+    let hi = opaque_f32(p + err2);
+    let lo = err2 - opaque_f32(hi - p);
     return vec2<f32>(hi, lo);
 }
 

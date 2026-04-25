@@ -21,13 +21,11 @@ describe('RenderOrchestrator f32 Precision Transition', () => {
       deltaZi: 0,
       deltaCr: 0,
       deltaCi: 0,
-      zoom: 1.89e-5,
+      zoom: 0.9e-5,
       exponent: 2.0,
       paletteMaxIter: 1000,
       sliceAngle: 0,
       interactionState: 'STATIC',
-      refOrbitNodes: new Float64Array(10), // Required for perturbation
-      refMetadata: new Float64Array(10),
     } as ViewportState;
 
     theme = {
@@ -36,7 +34,7 @@ describe('RenderOrchestrator f32 Precision Transition', () => {
     } as RenderState;
   });
 
-  it('shifts to f32_perturbation before zoom 1.89e-5 to avoid pixelation', () => {
+  it('shifts to ds before zoom 1e-5 to avoid pixelation', () => {
     const orchestrator = new RenderOrchestrator();
 
     // Spy on the builder to intercept the computed math mode
@@ -46,9 +44,9 @@ describe('RenderOrchestrator f32 Precision Transition', () => {
 
     expect(spy).toHaveBeenCalled();
     const callArgs = spy.mock.calls[0];
-    const effectiveMathMode = callArgs[5]; // 6th arg is effectiveMathMode
+    const effectiveMathMode = callArgs[3];
 
-    // mode 1 is f32p. If it returns 0, it means we are staying in standard f32 too long.
+    // mode 1 is DS. If it returns 0, it means we are staying in standard f32 too long.
     expect(effectiveMathMode).toBe(1);
   });
 
@@ -70,10 +68,10 @@ describe('RenderOrchestrator f32 Precision Transition', () => {
 
     expect(spy).toHaveBeenCalled();
     const callArgs = spy.mock.calls[spy.mock.calls.length - 1];
-    const effectiveMathMode = callArgs[5];
+    const effectiveMathMode = callArgs[3];
 
-    // Mode should still be 1 (f32 perturbation) since zoom < 5e-4
-    expect(effectiveMathMode).toBe(1);
+    // Mode should fallback to 0 (F32) since exponent != 2.0
+    expect(effectiveMathMode).toBe(0);
 
     // Should invalidate scheduler due to context change
     expect(desc3?.command.loadCheckpoint).toBe(false);

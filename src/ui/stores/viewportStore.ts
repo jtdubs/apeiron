@@ -29,24 +29,13 @@ export interface ViewportState {
   zoom: number;
   exponent: number;
   paletteMaxIter: number;
-  refOrbitNodes: Float64Array | null;
-  refMetadata: Float64Array | null;
-  refBlaGridDs: Float64Array | null;
-  refBtaGrid: Float64Array | null;
-  refReferenceTreeFlat: Float64Array | null;
+
   interactionState: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST';
   debugViewMode: number;
   isTelemetryOpen: boolean;
   telemetryDock: 'bottom' | 'right' | 'left';
   isWorkerBusy: boolean;
 
-  setRefBuffers: (
-    orbitNodes: Float64Array | null,
-    metadata: Float64Array | null,
-    blaGridDs: Float64Array | null,
-    btaGrid: Float64Array | null,
-    referenceTreeFlat: Float64Array | null,
-  ) => void;
   setInteractionState: (state: 'STATIC' | 'INTERACT_SAFE' | 'INTERACT_FAST') => void;
   setDebugViewMode: (mode: number) => void;
   setIsTelemetryOpen: (isOpen: boolean) => void;
@@ -83,11 +72,7 @@ export const viewportStore = createStore<ViewportState>((set) => ({
   zoom: 1.5,
   exponent: 2.0,
   paletteMaxIter: calculateMaxIter(1.5),
-  refOrbitNodes: null,
-  refMetadata: null,
-  refBlaGridDs: null,
-  refBtaGrid: null,
-  refReferenceTreeFlat: null,
+
   interactionState: 'STATIC',
   debugViewMode: 0,
   isTelemetryOpen:
@@ -98,14 +83,6 @@ export const viewportStore = createStore<ViewportState>((set) => ({
     'bottom',
   isWorkerBusy: false,
 
-  setRefBuffers: (orbitNodes, metadata, blaGridDs, btaGrid, referenceTreeFlat) =>
-    set({
-      refOrbitNodes: orbitNodes,
-      refMetadata: metadata,
-      refBlaGridDs: blaGridDs,
-      refBtaGrid: btaGrid,
-      refReferenceTreeFlat: referenceTreeFlat,
-    }),
   setInteractionState: (interactionState) => set({ interactionState }),
   setDebugViewMode: (debugViewMode) => set({ debugViewMode }),
   setIsTelemetryOpen: (isTelemetryOpen) => {

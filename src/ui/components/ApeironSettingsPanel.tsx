@@ -17,18 +17,13 @@ export const ApeironSettingsPanel: React.FC<{ onClose?: () => void }> = ({ onClo
         <div className="hud-settings-label">Render Mode</div>
         <select
           value={state.renderMode}
-          onChange={(e) =>
-            state.setRenderMode(
-              e.target.value as 'auto' | 'f32' | 'f32_perturbation' | 'f64_perturbation',
-            )
-          }
+          onChange={(e) => state.setRenderMode(e.target.value as 'auto' | 'f32' | 'ds')}
           className="hud-settings-select"
           style={{ marginBottom: 12 }}
         >
           <option value="auto">Auto (Adaptive Precision)</option>
-          <option value="f32">Strict Native F32</option>
-          <option value="f32_perturbation">F32 Perturbation</option>
-          <option value="f64_perturbation">DS F64 Perturbation</option>
+          <option value="f32">F32 (Fast)</option>
+          <option value="ds">Double-Single (Deep)</option>
         </select>
       </div>
 

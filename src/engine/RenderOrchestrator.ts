@@ -53,8 +53,7 @@ export class RenderOrchestrator {
         retention: 'latch',
         enumValues: {
           0: 'f32',
-          1: 'f32p',
-          2: 'f64p',
+          1: 'double-single',
         },
       }),
     };
@@ -107,36 +106,19 @@ export class RenderOrchestrator {
 
     let effectiveMathMode = 0;
     if (theme.renderMode === 'auto') {
-      if (state.refOrbitNodes !== null && state.zoom < 1e-9 && state.exponent === 2.0) {
-        effectiveMathMode = 2; // DS
-      } else if (state.refOrbitNodes !== null && state.zoom < 5e-4) {
-        effectiveMathMode = 1; // f32 Perturbation
+      if (state.zoom < 1e-5 && state.exponent === 2.0) {
+        effectiveMathMode = 1; // DS
       } else {
         effectiveMathMode = 0; // f32
       }
     } else {
-      effectiveMathMode =
-        theme.renderMode === 'f64_perturbation' && state.exponent === 2.0
-          ? 2
-          : theme.renderMode === 'f64_perturbation' || theme.renderMode === 'f32_perturbation'
-            ? 1
-            : 0;
-      if (effectiveMathMode > 0 && state.refOrbitNodes === null) {
-        effectiveMathMode = 0;
-      }
+      effectiveMathMode = theme.renderMode === 'ds' && state.exponent === 2.0 ? 1 : 0;
     }
 
     this.devChannels.mathMode.set(effectiveMathMode);
 
     // Isolate context generation
-    const context = buildMathContext(
-      state,
-      theme,
-      canvasWidth,
-      canvasHeight,
-      interactMaxIterOverride,
-      effectiveMathMode,
-    );
+    const context = buildMathContext(state, theme, interactMaxIterOverride, effectiveMathMode);
 
     // Feed FSM
     const command = this.scheduler.update(

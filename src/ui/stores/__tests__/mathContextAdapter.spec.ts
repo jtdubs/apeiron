@@ -30,8 +30,6 @@ describe('mathContextAdapter', () => {
       zoom: 1.0,
       exponent: 2,
       paletteMaxIter: 500,
-      refOrbitNodes: null,
-      refMetadata: null,
       interactionState: 'STATIC',
     };
 
@@ -42,7 +40,7 @@ describe('mathContextAdapter', () => {
   });
 
   it('builds standard f32 context accurately', () => {
-    const ctx = buildMathContext(mockState, mockTheme, 1920, 1080);
+    const ctx = buildMathContext(mockState, mockTheme);
 
     // In f32, coordinates are anchor + delta
     expect(ctx.zr).toBeCloseTo(0.1);
@@ -54,24 +52,6 @@ describe('mathContextAdapter', () => {
     expect(ctx.skipIter).toBe(0);
   });
 
-  it('builds floating-origin perturbation context accurately', () => {
-    mockState.refOrbitNodes = new Float64Array(10);
-    mockState.refMetadata = new Float64Array(10);
-    mockTheme.renderMode = 'f32_perturbation';
-    vi.mocked(calculateSkipIter).mockReturnValue(42);
-
-    const ctx = buildMathContext(mockState, mockTheme, 1920, 1080, null, 1);
-
-    // In perturbation, coordinates are purely the delta offsets relative to the floating origin
-    expect(ctx.zr).toBeCloseTo(0.1);
-    expect(ctx.zi).toBeCloseTo(0.1);
-    expect(ctx.cr).toBeCloseTo(0.1);
-    expect(ctx.ci).toBeCloseTo(0.1);
-
-    expect(ctx.skipIter).toBe(42);
-    expect(calculateSkipIter).toHaveBeenCalled();
-  });
-
   it('applies interaction throttling appropriately', () => {
     mockState.interactionState = 'INTERACT_SAFE';
     mockState.paletteMaxIter = 1000;
@@ -79,28 +59,9 @@ describe('mathContextAdapter', () => {
     const interactFloor = calculateMaxIter(1.0); // e.g. 150
     const expectedYield = Math.max(interactFloor, Math.floor(1000 * 0.33)); // 330
 
-    const ctx = buildMathContext(mockState, mockTheme, 1920, 1080);
+    const ctx = buildMathContext(mockState, mockTheme);
 
     expect(ctx.paletteMaxIter).toBe(1000);
     expect(ctx.computeMaxIter).toBe(expectedYield);
-  });
-
-  it('factors skipIter into the throttle budget when in interacting perturbation', () => {
-    mockState.interactionState = 'INTERACT_SAFE';
-    mockState.refOrbitNodes = new Float64Array(10);
-    mockState.refMetadata = new Float64Array(10);
-    mockTheme.renderMode = 'f32_perturbation';
-    mockState.paletteMaxIter = 1000;
-    vi.mocked(calculateSkipIter).mockReturnValue(200);
-
-    const interactFloor = calculateMaxIter(1.0); // e.g. 150
-    const fractionYield = Math.floor(1000 * 0.33); // 330
-    const expectedYield = Math.max(interactFloor, fractionYield) + 200; // 530
-
-    const ctx = buildMathContext(mockState, mockTheme, 1920, 1080, null, 1);
-
-    // Clamped budget calculation
-    expect(ctx.paletteMaxIter).toBe(1000);
-    expect(ctx.computeMaxIter).toBe(Math.min(1000, expectedYield));
   });
 });

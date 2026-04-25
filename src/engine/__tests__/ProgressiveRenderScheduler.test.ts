@@ -13,11 +13,7 @@ function createMockContext(overrides?: Partial<MathContext>): MathContext {
     paletteMaxIter: 200,
     sliceAngle: 0,
     exponent: 2,
-    refOrbitNodes: null,
-    refMetadata: null,
-    refBlaGridDs: null,
-    refBtaGrid: null,
-    refReferenceTreeFlat: null,
+
     effectiveMathMode: overrides?.effectiveMathMode ?? 0,
     skipIter: 0,
     debugViewMode: 0,
